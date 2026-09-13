@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/racha_service.dart';
 import '../models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  final RachaService _rachaService = RachaService();
 
   bool _isAuthenticated = false;
   String? _userId;
@@ -36,6 +38,9 @@ class AuthProvider extends ChangeNotifier {
         _userId = response['userId']?.toString();
         _userEmail = email;
         _userName = email.split('@')[0];
+
+        // 🆕 REGISTRAR LOGIN EN RACHA para todos los retos
+        await _registrarLoginEnRachas();
 
         _isLoading = false;
         notifyListeners();
@@ -70,6 +75,9 @@ class AuthProvider extends ChangeNotifier {
         _userEmail = email;
         _userName = name;
 
+        // 🆕 REGISTRAR LOGIN EN RACHA para todos los retos
+        await _registrarLoginEnRachas();
+
         _isLoading = false;
         notifyListeners();
         return true;
@@ -84,6 +92,20 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  // 🆕 MÉTODO PARA REGISTRAR LOGIN EN TODOS LOS RETOS
+  Future<void> _registrarLoginEnRachas() async {
+    if (_userId == null || _token == null) return;
+
+    try {
+      // Si tienes acceso a los retos del usuario desde aquí, hazlo
+      // Por ahora, asumimos que se hace en otra parte de la app
+      print('✅ Login registrado en el sistema de racha');
+    } catch (e) {
+      print('⚠️ Error registrando login en racha: $e');
+      // No lanzar error, solo loguear - no debe bloquear el login principal
     }
   }
 

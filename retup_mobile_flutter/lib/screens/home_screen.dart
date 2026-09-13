@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/reto_provider.dart';
+import '../providers/racha_provider.dart';
 import '../utils/colors.dart';
 import 'package:retup_mobile_flutter/screens/pildoras_list_screen.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
@@ -19,11 +20,48 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRetos();
+    _loadRetosYRegistrarLogin();
   }
 
-  Future<void> _loadRetos() async {
+  Future<void> _loadRetosYRegistrarLogin() async {
+    // 1️⃣ Cargar retos
     await context.read<RetoProvider>().cargarRetos();
+
+    // 2️⃣ Registrar login en racha para todos los retos
+    await _registrarLoginEnRachas();
+  }
+
+  Future<void> _registrarLoginEnRachas() async {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final retoProvider = context.read<RetoProvider>();
+      final rachaProvider = context.read<RachaProvider>();
+
+      final userId = authProvider.userId;
+      final token = authProvider.token;
+
+      if (userId != null && token != null && retoProvider.retos.isNotEmpty) {
+        print(
+            '📍 Registrando login para ${retoProvider.retos.length} retos...');
+
+        // Registrar login para CADA reto
+        for (var retoLocal in retoProvider.retos) {
+          try {
+            await rachaProvider.registrarLogin(
+              userId,
+              retoLocal.reto.id, // ✅ Aquí está - retoLocal.reto.id
+              token,
+            );
+            print('✅ Login registrado para reto: ${retoLocal.reto.title}');
+          } catch (e) {
+            print(
+                '⚠️ Error registrando login para ${retoLocal.reto.title}: $e');
+          }
+        }
+      }
+    } catch (e) {
+      print('❌ Error en _registrarLoginEnRachas: $e');
+    }
   }
 
   void _onNavTap(int index) {

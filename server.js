@@ -91,6 +91,11 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (userError) throw userError;
 
+    // ✅ NUEVO: Registrar login automáticamente para todos los retos
+    registrarLoginAutomatico(data.user.id, userData.company_id).catch(err => {
+      console.error('⚠️ Error registrando login automático:', err.message);
+    });
+
     res.json({
       success: true,
       message: 'Login exitoso',
@@ -686,6 +691,83 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
     console.log(`✅ Racha actualizada - Actual: ${racha_actual}, Máxima: ${racha_maxima_nueva}`);
   } catch (error) {
     console.error('❌ Error en _actualizarRacha:', error.message);
+  }
+}
+
+// ✅ NUEVA FUNCIÓN: Registrar login automático para todos los retos
+async function registrarLoginAutomatico(user_id, company_id) {
+  try {
+    console.log(`🔐 Registrando login automático para user: ${user_id}, company: ${company_id}`);
+    
+    if (!company_id) {
+      console.log('⚠️ Usuario sin company_id, no se registra login');
+      return;
+    }
+
+    // Obtener todos los retos de la compañía
+    const { data: retos, error: errorRetos } = await supabase
+      .from('retos')
+      .select('id')
+      .eq('company_id', company_id);
+
+    if (errorRetos) {
+      console.error('❌ Error obteniendo retos:', errorRetos.message);
+      return;
+    }
+
+    console.log(`📋 Retos encontrados: ${retos.length}`);
+
+    // Registrar login para cada reto
+    const today = new Date().toISOString().split('T')[0];
+    const mesNum = new Date().getMonth() + 1;
+    const anoNum = new Date().getFullYear();
+
+    for (const reto of retos) {
+      try {
+        // Buscar si ya existe registro para hoy
+        const { data: existente, error: errorCheck } = await supabase
+          .from('racha_daily_progress')
+          .select('id')
+          .eq('user_id', user_id)
+          .eq('reto_id', reto.id)
+          .eq('fecha', today)
+          .single();
+
+        if (errorCheck && errorCheck.code !== 'PGRST116') {
+          console.error('❌ Error en check:', errorCheck.message);
+          continue;
+        }
+
+        if (existente) {
+          // Actualizar login_hecho
+          await supabase
+            .from('racha_daily_progress')
+            .update({ login_hecho: true })
+            .eq('id', existente.id);
+          console.log(`✅ Login actualizado para reto: ${reto.id}`);
+        } else {
+          // Crear nuevo registro
+          await supabase
+            .from('racha_daily_progress')
+            .insert([{
+              user_id,
+              reto_id: reto.id,
+              fecha: today,
+              login_hecho: true,
+              pildora_completada: false,
+              es_dia_laboral: _esDialaboral(new Date()),
+            }]);
+          console.log(`✅ Login registrado para reto: ${reto.id}`);
+        }
+
+        // Actualizar racha
+        await _actualizarRacha(user_id, reto.id, mesNum, anoNum);
+      } catch (err) {
+        console.error(`⚠️ Error registrando login para reto ${reto.id}:`, err.message);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error en registrarLoginAutomatico:', error.message);
   }
 }
 
