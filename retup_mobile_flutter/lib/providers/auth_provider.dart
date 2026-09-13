@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/racha_service.dart'; // ← AGREGAR ESTE IMPORT
 import '../models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  final RachaService _rachaService = RachaService(); // ← AGREGAR ESTA LÍNEA
 
   bool _isAuthenticated = false;
   String? _userId;
@@ -37,6 +39,11 @@ class AuthProvider extends ChangeNotifier {
         _userEmail = email;
         _userName = email.split('@')[0];
 
+        // ← AGREGAR ESTAS LÍNEAS: Registrar login en rachas
+        if (_userId != null && _token != null) {
+          await _rachaService.registrarLogin(_userId!, _token!);
+        }
+
         _isLoading = false;
         notifyListeners();
         return true;
@@ -69,6 +76,11 @@ class AuthProvider extends ChangeNotifier {
         _userId = response['userId']?.toString();
         _userEmail = email;
         _userName = name;
+
+        // ← AGREGAR ESTAS LÍNEAS: Registrar login en rachas (signup también es primer login)
+        if (_userId != null) {
+          await _rachaService.registrarLogin(_userId!, _token!); // ✅
+        }
 
         _isLoading = false;
         notifyListeners();

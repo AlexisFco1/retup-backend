@@ -569,6 +569,114 @@ app.delete('/api/user-progress/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// ===== ENDPOINTS DE RACHAS (PROTEGIDOS) =====
+app.post('/api/racha/registrar-login', authenticateToken, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    const today = new Date().toISOString().split('T')[0]; // Formato: YYYY-MM-DD
+    
+    console.log(`📍 POST /api/racha/registrar-login - User: ${user_id}, Fecha: ${today}`);
+
+    // Verificar si ya existe un registro para hoy
+    const { data: existente, error: errorCheck } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('fecha', today)
+      .single();
+
+    if (errorCheck && errorCheck.code !== 'PGRST116') { // PGRST116 = no rows
+      throw errorCheck;
+    }
+
+    if (existente) {
+      // Ya existe, actualizar login_hecho
+      const { data, error } = await supabase
+        .from('racha_daily_progress')
+        .update({ login_hecho: true })
+        .eq('id', existente.id)
+        .select();
+
+      if (error) throw error;
+      return res.json({ success: true, message: 'Login registrado', data: data[0] });
+    }
+
+    // No existe, crear nuevo registro
+    const { data, error } = await supabase
+      .from('racha_daily_progress')
+      .insert([{
+        user_id,
+        fecha: today,
+        pildora_completada: false,
+        login_hecho: true,
+        es_dia_laboral: _esDialaboral(new Date()),
+      }])
+      .select();
+
+    if (error) throw error;
+    res.json({ success: true, message: 'Login registrado', data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en registrar-login:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/racha/registrar-pildora', authenticateToken, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    const today = new Date().toISOString().split('T')[0]; // Formato: YYYY-MM-DD
+
+    console.log(`📍 POST /api/racha/registrar-pildora - User: ${user_id}, Fecha: ${today}`);
+
+    // Verificar si ya existe un registro para hoy
+    const { data: existente, error: errorCheck } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('fecha', today)
+      .single();
+
+    if (errorCheck && errorCheck.code !== 'PGRST116') { // PGRST116 = no rows
+      throw errorCheck;
+    }
+
+    if (existente) {
+      // Ya existe, actualizar pildora_completada
+      const { data, error } = await supabase
+        .from('racha_daily_progress')
+        .update({ pildora_completada: true })
+        .eq('id', existente.id)
+        .select();
+
+      if (error) throw error;
+      return res.json({ success: true, message: 'Píldora registrada', data: data[0] });
+    }
+
+    // No existe, crear nuevo registro
+    const { data, error } = await supabase
+      .from('racha_daily_progress')
+      .insert([{
+        user_id,
+        fecha: today,
+        pildora_completada: true,
+        login_hecho: false,
+        es_dia_laboral: _esDialaboral(new Date()),
+      }])
+      .select();
+
+    if (error) throw error;
+    res.json({ success: true, message: 'Píldora registrada', data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en registrar-pildora:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Helper function para verificar si es día laboral
+function _esDialaboral(fecha) {
+  const dia = fecha.getDay();
+  return dia >= 1 && dia <= 5; // Lunes (1) a Viernes (5)
+}
  
 // ===== ENDPOINTS DE ANONYMOUS_NOMINATIONS (PROTEGIDOS) ✅ ACTUALIZADO =====
 app.get('/api/nominations', authenticateToken, async (req, res) => {

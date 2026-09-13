@@ -4,6 +4,7 @@ import '../models/pildora_model.dart';
 import '../models/seccion_model.dart';
 import '../providers/pildora_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/racha_provider.dart';
 import '../services/secciones_service.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
@@ -159,20 +160,27 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     try {
       final authProvider = context.read<AuthProvider>();
       final userId = authProvider.userId;
+      final token = authProvider.token;
 
-      if (userId == null) {
+      if (userId == null || token == null) {
         _showErrorDialog('Error', 'No hay usuario autenticado');
         return;
       }
 
+      // 1. Completar la píldora normalmente
       final pildoraProvider = context.read<PildoraProvider>();
       final success = await pildoraProvider.completarPildora();
 
       if (success && mounted) {
+        // 2. Registrar la píldora completada en Rachas (CON TOKEN)
+        final rachaProvider = context.read<RachaProvider>();
+        await rachaProvider.registrarPildoraCompletada(userId, token);
+
         _showSuccessDialog(
           '¡Felicidades!',
           '¡Has completado la píldora!\nContinúa así para subir en el ranking',
         );
+
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
             Navigator.pop(context);
