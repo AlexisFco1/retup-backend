@@ -1,95 +1,171 @@
+// racha_provider.dart - ACTUALIZADO
+
 import 'package:flutter/material.dart';
 import '../services/racha_service.dart';
 
 class RachaProvider extends ChangeNotifier {
   final RachaService _rachaService = RachaService();
 
-  Map<String, dynamic> _estadisticasMes = {};
-  List<Map<String, dynamic>> _progresoDiario = [];
-  bool _isLoading = false;
-  String? _error;
+  // Estado para estadísticas por reto
+  Map<String, dynamic> estadisticasPorReto = {};
 
-  // Getters
-  int get diaPildora => _estadisticasMes['dia_pildora'] ?? 0;
-  int get diasRacha => _estadisticasMes['dias_racha'] ?? 0;
-  int get diasCumplidos => _estadisticasMes['dias_cumplidos'] ?? 0;
-  int get diasNoCumplidos => _estadisticasMes['dias_no_cumplidos'] ?? 0;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  List<Map<String, dynamic>> get progresoDiario => _progresoDiario;
+  // Estado para leaderboard
+  Map<String, dynamic> leaderboard = {};
 
-  // Load statistics for the current month
+  bool isLoading = false;
+  String? errorMessage;
+
+  // ===== ESTADÍSTICAS POR RETO =====
+
   Future<void> cargarEstadisticas(
-      String userId, String retoId, String token) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
-      _estadisticasMes =
-          await _rachaService.obtenerEstadisticasMes(userId, retoId, token);
-      _progresoDiario =
-          await _rachaService.obtenerProgresoMes(userId, retoId, token);
-      _isLoading = false;
+      isLoading = true;
+      errorMessage = null;
       notifyListeners();
+
+      final stats = await _rachaService.obtenerEstadisticasMes(
+        userId,
+        retoId,
+        token,
+      );
+
+      estadisticasPorReto[retoId] = stats;
+      isLoading = false;
+      notifyListeners();
+
+      print('✅ Estadísticas cargadas para reto: $retoId');
     } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
+      print('❌ Error en cargarEstadisticas: $e');
+      errorMessage = e.toString();
+      isLoading = false;
       notifyListeners();
     }
   }
 
-  // Register login for today (CON TOKEN)
+  Future<void> cargarEstadisticasMultipleRetos(
+    String userId,
+    List<String> retoIds,
+    String token,
+  ) async {
+    try {
+      isLoading = true;
+      errorMessage = null;
+      notifyListeners();
+
+      estadisticasPorReto.clear();
+
+      for (String retoId in retoIds) {
+        try {
+          final stats = await _rachaService.obtenerEstadisticasMes(
+            userId,
+            retoId,
+            token,
+          );
+          estadisticasPorReto[retoId] = stats;
+        } catch (e) {
+          print('⚠️  Error cargando stats para reto $retoId: $e');
+        }
+      }
+
+      isLoading = false;
+      notifyListeners();
+
+      print('✅ Estadísticas cargadas para ${estadisticasPorReto.length} retos');
+    } catch (e) {
+      print('❌ Error en cargarEstadisticasMultipleRetos: $e');
+      errorMessage = e.toString();
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ===== LEADERBOARD =====
+
+  Future<void> cargarLeaderboard(String token) async {
+    try {
+      final lb = await _rachaService.obtenerLeaderboard(token);
+      leaderboard = lb;
+      notifyListeners();
+
+      print('✅ Leaderboard cargado: ${leaderboard.length} usuarios');
+    } catch (e) {
+      print('❌ Error en cargarLeaderboard: $e');
+      errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
+  // ===== REGISTRO DE EVENTOS =====
+
   Future<void> registrarLogin(
-      String userId, String retoId, String token) async {
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
       await _rachaService.registrarLogin(userId, retoId, token);
-      // Reload statistics after registering login
       await cargarEstadisticas(userId, retoId, token);
+      print('✅ Login registrado para reto: $retoId');
     } catch (e) {
-      _error = e.toString();
+      print('❌ Error en registrarLogin: $e');
+      errorMessage = e.toString();
       notifyListeners();
-      rethrow;
     }
   }
 
-  // Register pildora completion for today (CON TOKEN)
   Future<void> registrarPildoraCompletada(
-      String userId, String retoId, String token) async {
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
       await _rachaService.registrarPildoraCompletada(userId, retoId, token);
-      // Reload statistics after registering pildora
       await cargarEstadisticas(userId, retoId, token);
+      print('✅ Píldora completada registrada para reto: $retoId');
     } catch (e) {
-      _error = e.toString();
+      print('❌ Error en registrarPildoraCompletada: $e');
+      errorMessage = e.toString();
       notifyListeners();
-      rethrow;
     }
   }
 
-  // Get business days for a month
-  List<DateTime> obtenerDiasLaboralesMes(int mes, int ano) {
-    return _rachaService.obtenerDiasLaboralesMes(mes, ano);
-  }
-
-  // Check if pildora was completed today
   Future<bool> completoPildoraHoy(
-      String userId, String retoId, String token) async {
-    try {
-      return await _rachaService.completoPildoraHoy(userId, retoId, token);
-    } catch (e) {
-      print('Error: $e');
-      return false;
-    }
+    String userId,
+    String retoId,
+    String token,
+  ) async {
+    return await _rachaService.completoPildoraHoy(userId, retoId, token);
   }
 
-  // Check if login was done today
-  Future<bool> hizoLoginHoy(String userId, String retoId, String token) async {
-    try {
-      return await _rachaService.hizoLoginHoy(userId, retoId, token);
-    } catch (e) {
-      print('Error: $e');
-      return false;
+  Future<bool> hizoLoginHoy(
+    String userId,
+    String retoId,
+    String token,
+  ) async {
+    return await _rachaService.hizoLoginHoy(userId, retoId, token);
+  }
+
+  // Obtener stats de un reto específico
+  Map<String, dynamic>? obtenerStatsReto(String retoId) {
+    return estadisticasPorReto[retoId];
+  }
+
+  // Obtener todos los leaderboards
+  List<dynamic> obtenerLeaderboardRacha() {
+    if (leaderboard['leaderboard_racha'] != null) {
+      return leaderboard['leaderboard_racha'] as List<dynamic>;
     }
+    return [];
+  }
+
+  List<dynamic> obtenerLeaderboardDiasCumplidos() {
+    if (leaderboard['leaderboard_dias_cumplidos'] != null) {
+      return leaderboard['leaderboard_dias_cumplidos'] as List<dynamic>;
+    }
+    return [];
   }
 }

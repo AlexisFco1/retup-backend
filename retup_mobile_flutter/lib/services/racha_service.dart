@@ -1,195 +1,173 @@
+// racha_service.dart - ACTUALIZADO
+
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:intl/intl.dart';
 
 class RachaService {
-  static final RachaService _instance = RachaService._internal();
   final String baseUrl = 'https://retup-backend.onrender.com/api';
 
-  factory RachaService() {
-    return _instance;
-  }
+  // ===== EXISTING METHODS (keep these) =====
 
-  RachaService._internal();
-
-  // Register user login for current day
-  Future<void> registrarLogin(
-      String userId, String retoId, String token) async {
+  Future<Map<String, dynamic>> registrarLogin(
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/racha/registrar-login'),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
         },
         body: jsonEncode({
           'user_id': userId,
           'reto_id': retoId,
         }),
       );
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to register login: ${response.body}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
       }
+      throw Exception('Error al registrar login: ${response.statusCode}');
     } catch (e) {
-      print('Error registering login: $e');
-      rethrow;
+      print('❌ Error en registrarLogin: $e');
+      throw e;
     }
   }
 
-  // Register pildora completion for current day
-  Future<void> registrarPildoraCompletada(
-      String userId, String retoId, String token) async {
+  Future<Map<String, dynamic>> registrarPildoraCompletada(
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/racha/registrar-pildora'),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
         },
         body: jsonEncode({
           'user_id': userId,
           'reto_id': retoId,
         }),
       );
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to register pildora: ${response.body}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
       }
+      throw Exception('Error al registrar píldora: ${response.statusCode}');
     } catch (e) {
-      print('Error registering pildora: $e');
-      rethrow;
+      print('❌ Error en registrarPildoraCompletada: $e');
+      throw e;
     }
   }
 
-  // Get monthly statistics
   Future<Map<String, dynamic>> obtenerEstadisticasMes(
-      String userId, String retoId, String token) async {
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
       final now = DateTime.now();
-      final mesActual = now.month;
-      final anoActual = now.year;
+      final mes = now.month;
+      final ano = now.year;
 
       final response = await http.get(
         Uri.parse(
-            '$baseUrl/racha/estadisticas-por-reto?user_id=$userId&reto_id=$retoId&mes=$mesActual&ano=$anoActual'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+          '$baseUrl/racha/estadisticas-por-reto?user_id=$userId&reto_id=$retoId&mes=$mes&ano=$ano',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['data'] ?? {};
-      } else {
-        throw Exception('Failed to get statistics: ${response.body}');
+        final jsonResponse = jsonDecode(response.body);
+        // Extraer solo la parte 'data' de la respuesta
+        return jsonResponse['data'] ?? {};
       }
+      throw Exception('Error al obtener estadísticas: ${response.statusCode}');
     } catch (e) {
-      print('Error getting statistics: $e');
-      return {};
+      print('❌ Error en obtenerEstadisticasMes: $e');
+      throw e;
     }
   }
 
-  // Get daily progress for current month
-  Future<List<Map<String, dynamic>>> obtenerProgresoMes(
-      String userId, String retoId, String token) async {
+  Future<Map<String, dynamic>> obtenerProgresoMes(
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
       final now = DateTime.now();
-      final mesActual = now.month;
-      final anoActual = now.year;
+      final mes = now.month;
+      final ano = now.year;
 
       final response = await http.get(
         Uri.parse(
-            '$baseUrl/racha/progreso?user_id=$userId&reto_id=$retoId&mes=$mesActual&ano=$anoActual'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+          '$baseUrl/racha/progreso?user_id=$userId&reto_id=$retoId&mes=$mes&ano=$ano',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final progreso = data['data'] as List? ?? [];
-        return List<Map<String, dynamic>>.from(progreso);
-      } else {
-        throw Exception('Failed to get progress: ${response.body}');
+        return jsonDecode(response.body);
       }
+      throw Exception('Error al obtener progreso: ${response.statusCode}');
     } catch (e) {
-      print('Error getting progress: $e');
-      return [];
+      print('❌ Error en obtenerProgresoMes: $e');
+      throw e;
     }
   }
 
-  // Helper function to check if a date is a business day
-  bool _esDialaboral(DateTime fecha) {
-    final dia = fecha.weekday;
-    return dia >= 1 && dia <= 5;
-  }
-
-  // Get all business days for a specific month
-  List<DateTime> obtenerDiasLaboralesMes(int mes, int ano) {
-    final diasLaborales = <DateTime>[];
-    final primerDia = DateTime(ano, mes, 1);
-    final ultimoDia =
-        mes == 12 ? DateTime(ano + 1, 1, 0) : DateTime(ano, mes + 1, 0);
-
-    for (int i = 1; i <= ultimoDia.day; i++) {
-      final fecha = DateTime(ano, mes, i);
-      if (_esDialaboral(fecha)) {
-        diasLaborales.add(fecha);
-      }
-    }
-
-    return diasLaborales;
-  }
-
-  // Check if user completed pildora today
   Future<bool> completoPildoraHoy(
-      String userId, String retoId, String token) async {
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
-      final hoy = DateTime.now();
-      final fechaStr = DateFormat('yyyy-MM-dd').format(hoy);
-
-      final response = await http.get(
-        Uri.parse(
-            '$baseUrl/racha/check?user_id=$userId&reto_id=$retoId&fecha=$fechaStr&tipo=pildora'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['completado'] ?? false;
-      }
-      return false;
+      final stats = await obtenerEstadisticasMes(userId, retoId, token);
+      return stats['completó_píldora_hoy'] ?? false;
     } catch (e) {
-      print('Error checking pildora: $e');
+      print('❌ Error en completoPildoraHoy: $e');
       return false;
     }
   }
 
-  // Check if user did login today
-  Future<bool> hizoLoginHoy(String userId, String retoId, String token) async {
+  Future<bool> hizoLoginHoy(
+    String userId,
+    String retoId,
+    String token,
+  ) async {
     try {
-      final hoy = DateTime.now();
-      final fechaStr = DateFormat('yyyy-MM-dd').format(hoy);
+      final stats = await obtenerEstadisticasMes(userId, retoId, token);
+      return stats['hizo_login_hoy'] ?? false;
+    } catch (e) {
+      print('❌ Error en hizoLoginHoy: $e');
+      return false;
+    }
+  }
+
+  // ===== NEW METHOD: Get leaderboard =====
+
+  Future<Map<String, dynamic>> obtenerLeaderboard(String token) async {
+    try {
+      final now = DateTime.now();
+      final mes = now.month;
+      final ano = now.year;
 
       final response = await http.get(
-        Uri.parse(
-            '$baseUrl/racha/check?user_id=$userId&reto_id=$retoId&fecha=$fechaStr&tipo=login'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        Uri.parse('$baseUrl/racha/leaderboard?mes=$mes&ano=$ano'),
+        headers: {'Authorization': 'Bearer $token'},
       );
 
+      print('🏆 GET /racha/leaderboard - Status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['completado'] ?? false;
+        return jsonDecode(response.body);
       }
-      return false;
+      throw Exception('Error al obtener leaderboard: ${response.statusCode}');
     } catch (e) {
-      print('Error checking login: $e');
-      return false;
+      print('❌ Error en obtenerLeaderboard: $e');
+      throw e;
     }
   }
 }

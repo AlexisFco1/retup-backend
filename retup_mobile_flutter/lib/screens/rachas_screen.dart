@@ -1,10 +1,11 @@
+// rachas_screen.dart - COMPLETO CON BOTTOM NAV BAR
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/racha_provider.dart';
 import '../providers/reto_provider.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
-import 'package:intl/intl.dart';
 
 class RachasScreen extends StatefulWidget {
   const RachasScreen({Key? key}) : super(key: key);
@@ -14,7 +15,7 @@ class RachasScreen extends StatefulWidget {
 }
 
 class _RachasScreenState extends State<RachasScreen> {
-  int _currentNavIndex = 2;
+  int _currentNavIndex = 2; // Rachas es el índice 2
 
   @override
   void initState() {
@@ -23,24 +24,51 @@ class _RachasScreenState extends State<RachasScreen> {
   }
 
   Future<void> _cargarDatos() async {
+    print('🔍 DEBUG _cargarDatos en rachas_screen (NEW ARCHITECTURE)');
+
     final authProvider = context.read<AuthProvider>();
     final retoProvider = context.read<RetoProvider>();
     final rachaProvider = context.read<RachaProvider>();
 
-    if (authProvider.userId != null &&
-        retoProvider.retoSeleccionado != null &&
-        authProvider.token != null) {
-      await rachaProvider.cargarEstadisticas(
-        authProvider.userId!,
-        retoProvider.retoSeleccionado!.reto.id,
-        authProvider.token!,
-      );
+    print('  userId: ${authProvider.userId}');
+    print('  token: ${authProvider.token != null ? "✓ existe" : "✗ null"}');
+
+    if (authProvider.userId != null && authProvider.token != null) {
+      // Obtener todos los retos
+      final retos = retoProvider.retos;
+      print('  retos disponibles: ${retos.length}');
+
+      if (retos.isNotEmpty) {
+        // Extraer lista de IDs de retos
+        final retoIds = retos.map((retoLocal) => retoLocal.reto.id).toList();
+
+        print('✅ Cargando estadísticas para ${retoIds.length} retos...');
+
+        // Cargar estadísticas para todos los retos
+        await rachaProvider.cargarEstadisticasMultipleRetos(
+          authProvider.userId!,
+          retoIds,
+          authProvider.token!,
+        );
+
+        // Cargar leaderboard
+        print('✅ Cargando leaderboard...');
+        await rachaProvider.cargarLeaderboard(authProvider.token!);
+
+        print('✅ Datos cargados completamente');
+      } else {
+        print('❌ No hay retos disponibles');
+      }
     } else {
-      print('⚠️ Advertencia: Usuario o reto no inicializado');
+      print('❌ Falta usuario o token');
     }
   }
 
   void _onNavTap(int index) {
+    setState(() {
+      _currentNavIndex = index;
+    });
+
     switch (index) {
       case 0:
         Navigator.pushReplacementNamed(context, '/');
@@ -49,7 +77,7 @@ class _RachasScreenState extends State<RachasScreen> {
         Navigator.pushReplacementNamed(context, '/social');
         break;
       case 2:
-        // Ya estamos en rachas
+        Navigator.pushReplacementNamed(context, '/rachas');
         break;
       case 3:
         Navigator.pushReplacementNamed(context, '/practicalo');
@@ -64,144 +92,88 @@ class _RachasScreenState extends State<RachasScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mis Rachas'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        title: const Text('Rachas por Reto'),
+        centerTitle: true,
+        backgroundColor: Colors.deepPurple,
         elevation: 0,
       ),
-      body: Consumer<RachaProvider>(
-        builder: (context, rachaProvider, _) {
+      body: Consumer3<RachaProvider, RetoProvider, AuthProvider>(
+        builder: (context, rachaProvider, retoProvider, authProvider, _) {
           if (rachaProvider.isLoading) {
             return const Center(
               child: CircularProgressIndicator(),
             );
           }
 
-          if (rachaProvider.error != null) {
+          if (rachaProvider.errorMessage != null) {
             return Center(
-              child: Text('Error: ${rachaProvider.error}'),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, color: Colors.red, size: 48),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error: ${rachaProvider.errorMessage}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _cargarDatos,
+                    child: const Text('Reintentar'),
+                  ),
+                ],
+              ),
             );
           }
 
-          final ahora = DateTime.now();
-          final diasLaborales =
-              rachaProvider.obtenerDiasLaboralesMes(ahora.month, ahora.year);
-          final progresoDiario = rachaProvider.progresoDiario;
+          final retos = retoProvider.retos;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (retos.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.grey[400],
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No hay retos disponibles',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: _cargarDatos,
+            child: ListView(
               children: [
-                // Título del mes
-                Text(
-                  '${DateFormat('MMMM', 'es_ES').format(ahora)} ${ahora.year}',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 24),
+                // ===== SECCIÓN DE RETOS Y SUS ESTADÍSTICAS =====
+                ...retos.map((retoLocal) {
+                  final stats =
+                      rachaProvider.obtenerStatsReto(retoLocal.reto.id);
 
-                // Cards de estadísticas
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Día Píldora',
-                        value: rachaProvider.diaPildora,
-                        color: Colors.blue,
-                        icon: Icons.calendar_today,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Racha',
-                        value: rachaProvider.diasRacha,
-                        color: Colors.orange,
-                        icon: Icons.local_fire_department,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Cumplidos',
-                        value: rachaProvider.diasCumplidos,
-                        color: Colors.green,
-                        icon: Icons.check_circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'No Cumplidos',
-                        value: rachaProvider.diasNoCumplidos,
-                        color: Colors.red,
-                        icon: Icons.cancel,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-
-                // Título de círculos
-                const Text(
-                  'Progreso del Mes',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Grid de círculos
-                _buildCirclesGrid(diasLaborales, progresoDiario),
+                  return _buildRetoSection(
+                    retoLocal: retoLocal,
+                    stats: stats,
+                    rachaProvider: rachaProvider,
+                  );
+                }).toList(),
 
                 const SizedBox(height: 32),
 
-                // Leyenda
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Leyenda',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildLegendItem(
-                        icon: '⭕',
-                        text: 'Día que aún no llega',
-                      ),
-                      const SizedBox(height: 8),
-                      _buildLegendItem(
-                        icon: '✅',
-                        text: 'Completó píldora',
-                      ),
-                      const SizedBox(height: 8),
-                      _buildLegendItem(
-                        icon: '❌',
-                        text: 'No completó píldora',
-                      ),
-                    ],
-                  ),
-                ),
+                // ===== SECCIÓN DE LEADERBOARD =====
+                _buildLeaderboardSection(rachaProvider),
+
+                const SizedBox(height: 32),
               ],
             ),
           );
@@ -214,39 +186,146 @@ class _RachasScreenState extends State<RachasScreen> {
     );
   }
 
-  Widget _buildStatCard({
-    required String title,
-    required int value,
-    required Color color,
-    required IconData icon,
+  // ===== WIDGET PARA SECCIÓN DE RETO =====
+  Widget _buildRetoSection({
+    required RetoLocal retoLocal,
+    required Map<String, dynamic>? stats,
+    required RachaProvider rachaProvider,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color, width: 2),
-      ),
+    // Default values si no hay datos
+    final diaPildora = stats?['dia_pildora'] ?? 0; // ✅ correcto
+    final cumplidos = stats?['dias_cumplidos'] ?? 0; // ✅ correcto
+    final racha =
+        stats?['racha_maxima'] ?? 0; // ✅ CAMBIO: racha_maxima, no racha_actual
+    final noCumplidos = stats?['dias_no_cumplidos'] ?? 0; // ✅ correcto
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 28),
+          // Título del reto
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.deepPurple, Colors.purple],
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  retoLocal.emoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    retoLocal.reto.title ?? 'Reto sin nombre',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 12),
+
+          // Grid de 4 tarjetas de estadísticas
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.2,
+            children: [
+              _buildStatCard(
+                title: 'Día Píldora',
+                value: diaPildora.toString(),
+                icon: Icons.calendar_today,
+                color: Colors.blue,
+              ),
+              _buildStatCard(
+                title: 'Cumplidos',
+                value: cumplidos.toString(),
+                icon: Icons.check_circle,
+                color: Colors.green,
+              ),
+              _buildStatCard(
+                title: 'Racha',
+                value: racha.toString(),
+                icon: Icons.local_fire_department,
+                color: Colors.orange,
+              ),
+              _buildStatCard(
+                title: 'No Cumplidos',
+                value: noCumplidos.toString(),
+                icon: Icons.cancel,
+                color: Colors.red,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Separador
+          Divider(
+            color: Colors.grey[300],
+            thickness: 1,
+          ),
+
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  // ===== WIDGET PARA TARJETA DE ESTADÍSTICA =====
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
           Text(
-            title,
+            value,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
-            value.toString(),
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
             ),
           ),
         ],
@@ -254,97 +333,194 @@ class _RachasScreenState extends State<RachasScreen> {
     );
   }
 
-  Widget _buildCirclesGrid(
-    List<DateTime> diasLaborales,
-    List<Map<String, dynamic>> progresoDiario,
-  ) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: List.generate(diasLaborales.length, (index) {
-        final fechaDelDia = diasLaborales[index];
+  // ===== WIDGET PARA SECCIÓN DE LEADERBOARD =====
+  Widget _buildLeaderboardSection(RachaProvider rachaProvider) {
+    final leaderboardRacha = rachaProvider.obtenerLeaderboardRacha();
+    final leaderboardDiasCumplidos =
+        rachaProvider.obtenerLeaderboardDiasCumplidos();
 
-        // Verificar si ya pasó este día
-        if (fechaDelDia.isAfter(DateTime.now())) {
-          return _buildCircle(estado: 'vacio');
-        }
-
-        // Buscar el progreso de este día
-        final fechaStr = DateFormat('yyyy-MM-dd').format(fechaDelDia);
-        final diaProgreso = progresoDiario.firstWhere(
-          (p) => p['fecha'] == fechaStr,
-          orElse: () => {},
-        );
-
-        if (diaProgreso.isEmpty) {
-          return _buildCircle(estado: 'incumplido');
-        }
-
-        final completado = diaProgreso['pildora_completada'] == true;
-        return _buildCircle(
-          estado: completado ? 'cumplido' : 'incumplido',
-        );
-      }),
-    );
-  }
-
-  Widget _buildCircle({required String estado}) {
-    Color color;
-    String icon;
-
-    switch (estado) {
-      case 'cumplido':
-        color = Colors.green;
-        icon = '✅';
-        break;
-      case 'incumplido':
-        color = Colors.red;
-        icon = '❌';
-        break;
-      case 'vacio':
-      default:
-        color = Colors.grey[300]!;
-        icon = '⭕';
-        break;
-    }
-
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withOpacity(0.2),
-        border: Border.all(color: color, width: 2),
-      ),
-      child: Center(
-        child: Text(
-          icon,
-          style: const TextStyle(fontSize: 24),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLegendItem({required String icon, required String text}) {
-    return Row(
-      children: [
-        Text(
-          icon,
-          style: const TextStyle(fontSize: 20),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Colors.black87,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Título
+          const Text(
+            'Leaderboard',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.deepPurple,
+            ),
           ),
-        ),
-      ],
+
+          const SizedBox(height: 16),
+
+          // ===== LEADERBOARD DE RACHA =====
+          _buildLeaderboardCard(
+            title: '🔥 Por Mayor Racha',
+            leaderboard: leaderboardRacha,
+            valueKey: 'mejor_racha',
+            subtitleKey: 'full_name',
+          ),
+
+          const SizedBox(height: 16),
+
+          // ===== LEADERBOARD DE DÍAS CUMPLIDOS =====
+          _buildLeaderboardCard(
+            title: '✅ Por Días Cumplidos',
+            leaderboard: leaderboardDiasCumplidos,
+            valueKey: 'dias_cumplidos_total',
+            subtitleKey: 'full_name',
+          ),
+        ],
+      ),
     );
   }
 
-  bool _esDialaboral(DateTime fecha) {
-    return fecha.weekday >= 1 && fecha.weekday <= 5;
+  // ===== WIDGET PARA TARJETA DE LEADERBOARD =====
+  Widget _buildLeaderboardCard({
+    required String title,
+    required List<dynamic> leaderboard,
+    required String valueKey,
+    required String subtitleKey,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Encabezado
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.deepPurple,
+              ),
+            ),
+          ),
+
+          // Lista de usuarios
+          if (leaderboard.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: Text(
+                  'Sin datos',
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: leaderboard.length,
+              separatorBuilder: (context, index) => Divider(
+                color: Colors.grey[200],
+                height: 1,
+              ),
+              itemBuilder: (context, index) {
+                final item = leaderboard[index];
+                final position = index + 1;
+                final value = item[valueKey] ?? 0;
+                final name = item[subtitleKey] ?? 'Usuario';
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      // Posición con medalla
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: _getMedalColor(position),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          position.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      // Nombre del usuario
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Valor
+                      Text(
+                        value.toString(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepPurple,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ===== HELPER: Obtener color de medalla =====
+  Color _getMedalColor(int position) {
+    switch (position) {
+      case 1:
+        return Colors.amber; // Oro
+      case 2:
+        return Colors.grey[400]!; // Plata
+      case 3:
+        return Colors.orange[700]!; // Bronce
+      default:
+        return Colors.deepPurple; // Otros
+    }
   }
 }

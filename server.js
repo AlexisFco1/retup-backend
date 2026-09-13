@@ -877,11 +877,13 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
     const racha_actual = rachaStats?.racha_actual || 0;
 
     // ============================================
-    // 1. DIA PILDORA: Número secuencial del día laboral actual
+    // 1. DIA PILDORA: Contar días laborales hasta hoy (inclusive)
     // ============================================
-    const today = new Date().toISOString().split('T')[0];
-    const diaPildoraHoy = diasLaborales.indexOf(today) + 1;
-    const dia_pildora = diaPildoraHoy > 0 ? diaPildoraHoy : 0;
+    const ahora = new Date();
+    const dia_pildora = diasLaborales.filter(fechaStr => {
+      const fecha = new Date(fechaStr);
+      return fecha <= ahora;
+    }).length;
 
     console.log(`📅 Día Píldora: ${dia_pildora} (de ${diasLaborales.length} días laborales)`);
 
@@ -897,7 +899,6 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
     // ============================================
     // 3. NO CUMPLIDOS: Días laborales pasados sin cumplir ambas condiciones
     // ============================================
-    const ahora = new Date();
     const diasNoCumplidos = diasLaborales.filter(fechaStr => {
       const registro = progreso.find(p => p.fecha === fechaStr);
       const fechaDate = new Date(fechaStr);
