@@ -567,7 +567,119 @@ app.delete('/api/user-progress/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// ===== ENDPOINTS DE NOMINATIONS (PROTEGIDOS) =====
+app.post('/api/nominations', authenticateToken, async (req, res) => {
+  try {
+    console.log('📝 POST /api/nominations');
+    console.log('   Body:', req.body);
+    
+    const { 
+      respondent_user_id, 
+      nominated_user_id, 
+      reto_id, 
+      pill_id, 
+      section_number, 
+      vote_type 
+    } = req.body;
 
+    const { data, error } = await supabase
+      .from('anonymous_nominations')
+      .insert([{
+        respondent_user_id,
+        nominated_user_id,
+        reto_id,
+        pill_id,
+        section_number,
+        vote_type,
+        is_anonymous: false,
+        created_at: new Date().toISOString(),
+      }])
+      .select();
+
+    if (error) {
+      console.error('❌ Error en insert:', error);
+      throw error;
+    }
+
+    console.log('✅ Voto registrado exitosamente');
+    res.status(201).json({ success: true, data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en POST /nominations:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req, res) => {
+  try {
+    console.log('📊 GET /api/nominations/:userId/feedback-score');
+    console.log('   userId:', req.params.userId);
+
+    const userId = req.params.userId;
+    const { data: votes, error: votesError } = await supabase
+      .from('anonymous_nominations')
+      .select('*')
+      .eq('nominated_user_id', userId);
+
+    if (votesError) throw votesError;
+
+    if (votes.length === 0) {
+      return res.json({ 
+        success: true, 
+        feedbackScore: 0, 
+        totalVoters: 0, 
+        positiveVoters: 0,
+        totalVotes: 0
+      });
+    }
+
+    const votersMap = {};
+    votes.forEach(vote => {
+      const key = `${vote.respondent_user_id}-${vote.reto_id}`;
+      if (!votersMap[key]) {
+        votersMap[key] = {
+          respondent_user_id: vote.respondent_user_id,
+          reto_id: vote.reto_id,
+          positive_votes: 0,
+          negative_votes: 0
+        };
+      }
+      if (vote.vote_type === 'positive') {
+        votersMap[key].positive_votes++;
+      } else if (vote.vote_type === 'negative') {
+        votersMap[key].negative_votes++;
+      }
+    });
+
+    let totalValidVoters = 0;
+    let positiveVoters = 0;
+
+    Object.values(votersMap).forEach(voter => {
+      if (voter.positive_votes > voter.negative_votes) {
+        positiveVoters++;
+        totalValidVoters++;
+      } else if (voter.negative_votes > voter.positive_votes) {
+        totalValidVoters++;
+      }
+    });
+
+    let feedbackScore = 0;
+    if (totalValidVoters > 0) {
+      feedbackScore = (100 / totalValidVoters) * positiveVoters;
+    }
+
+    res.json({
+      success: true,
+      feedbackScore: Math.round(feedbackScore * 100) / 100,
+      totalVoters: totalValidVoters,
+      positiveVoters: positiveVoters,
+      totalVotes: votes.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error en feedback-score:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
 // ===== HELPERS: Funciones auxiliares =====
 function _obtenerUltimoDiaMes(mes, ano) {
   return new Date(ano, mes, 0).getDate();
