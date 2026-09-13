@@ -666,7 +666,120 @@ function _esDialaboral(fecha) {
   const dia = fecha.getDay();
   return dia >= 1 && dia <= 5;
 }
- 
+ // ===== ENDPOINTS DE OBTENER ESTADÍSTICAS DE RACHAS (PROTEGIDOS) ✅ =====
+app.get('/api/racha/estadisticas-mes', authenticateToken, async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    const ahora = new Date();
+    const mes = ahora.getMonth() + 1;
+    const ano = ahora.getFullYear();
+
+    console.log(`📊 GET /api/racha/estadisticas-mes - User: ${user_id}, Mes: ${mes}/${ano}`);
+
+    // Obtener días laborales del mes
+    const diasLaborales = _obtenerDiasLaboralesMes(mes, ano);
+    
+    // Obtener progreso del mes
+    const { data: progreso, error: errorProgreso } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('fecha', `${ano}-${String(mes).padStart(2, '0')}-01`)
+      .lte('fecha', `${ano}-${String(mes).padStart(2, '0')}-31`);
+
+    if (errorProgreso) throw errorProgreso;
+
+    // Contar días cumplidos (píldora completada en días laborales)
+    const diasCumplidos = progreso.filter(p => 
+      p.pildora_completada && p.es_dia_laboral
+    ).length;
+
+    // Contar días no cumplidos (días laborales que pasaron sin píldora y son días laborales)
+    const diasNoCumplidos = diasLaborales.filter(fecha => {
+      const fechaStr = fecha.toISOString().split('T')[0];
+      const registro = progreso.find(p => p.fecha === fechaStr);
+      return !registro || !registro.pildora_completada;
+    }).filter(fecha => fecha <= ahora).length;
+
+    // Calcular racha (días consecutivos desde hoy hacia atrás)
+    let diasRacha = 0;
+    let fechaActual = new Date(ahora);
+    
+    while (diasRacha < 365) { // máximo 1 año
+      // Saltarse fines de semana
+      if (fechaActual.getDay() === 0 || fechaActual.getDay() === 6) {
+        fechaActual.setDate(fechaActual.getDate() - 1);
+        continue;
+      }
+
+      const fechaStr = fechaActual.toISOString().split('T')[0];
+      const registro = progreso.find(p => p.fecha === fechaStr);
+      
+      if (registro && registro.pildora_completada) {
+        diasRacha++;
+        fechaActual.setDate(fechaActual.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    res.json({
+      success: true,
+      dia_pildora: diasCumplidos,
+      dias_racha: diasRacha,
+      dias_cumplidos: diasCumplidos,
+      dias_no_cumplidos: diasNoCumplidos
+    });
+  } catch (error) {
+    console.error('❌ Error en estadisticas-mes:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/racha/progreso-mes', authenticateToken, async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    const ahora = new Date();
+    const mes = ahora.getMonth() + 1;
+    const ano = ahora.getFullYear();
+
+    console.log(`📈 GET /api/racha/progreso-mes - User: ${user_id}, Mes: ${mes}/${ano}`);
+
+    const { data: progreso, error } = await supabase
+      .from('racha_daily_progress')
+      .select('fecha, pildora_completada, es_dia_laboral')
+      .eq('user_id', user_id)
+      .gte('fecha', `${ano}-${String(mes).padStart(2, '0')}-01`)
+      .lte('fecha', `${ano}-${String(mes).padStart(2, '0')}-31`)
+      .order('fecha', { ascending: true });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: progreso || []
+    });
+  } catch (error) {
+    console.error('❌ Error en progreso-mes:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Helper para obtener días laborales del mes
+function _obtenerDiasLaboralesMes(mes, ano) {
+  const diasLaborales = [];
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  
+  for (let dia = 1; dia <= ultimoDia; dia++) {
+    const fecha = new Date(ano, mes - 1, dia);
+    // Lunes (1) a Viernes (5)
+    if (fecha.getDay() >= 1 && fecha.getDay() <= 5) {
+      diasLaborales.push(fecha);
+    }
+  }
+  
+  return diasLaborales;
+}
 // ===== ENDPOINTS DE ANONYMOUS_NOMINATIONS (PROTEGIDOS) =====
 app.get('/api/nominations', authenticateToken, async (req, res) => {
   try {

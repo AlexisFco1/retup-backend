@@ -176,16 +176,24 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         final rachaProvider = context.read<RachaProvider>();
         await rachaProvider.registrarPildoraCompletada(userId, token);
 
-        _showSuccessDialog(
-          '¡Felicidades!',
-          '¡Has completado la píldora!\nContinúa así para subir en el ranking',
+        showDialog(
+          context: context,
+          barrierDismissible: false, // ← Agregar esta línea
+          builder: (context) => AlertDialog(
+            title: const Text('¡Felicidades!'),
+            content: const Text(
+                '¡Has completado la píldora!\nContinúa así para subir en el ranking'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Cierra el diálogo
+                  Navigator.pushReplacementNamed(context, '/'); // Va a home
+                },
+                child: const Text('Aceptar'),
+              ),
+            ],
+          ),
         );
-
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            Navigator.pop(context);
-          }
-        });
       } else if (mounted) {
         _showErrorDialog('Error', 'No se pudo guardar el progreso');
       }
