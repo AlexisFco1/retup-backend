@@ -5,39 +5,39 @@ const cors = require('cors');
 const supabase = require('./supabase');
 const app = express();
 const PORT = process.env.PORT || 5000;
- 
+
 // Middleware
 app.use(cors());
 app.use(express.json());
- 
+
 // Rutas básicas (SIN protección)
 app.get('/', (req, res) => {
   res.json({ message: 'RetUp API funcionando ✓' });
 });
- 
+
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date() });
 });
- 
+
 // ===== ENDPOINTS DE AUTENTICACIÓN =====
 app.post('/api/auth/register', async (req, res) => {
   try {
     console.log('DEBUG REGISTER - req.body:', req.body);
     console.log('DEBUG REGISTER - Headers:', req.headers);
     const { email, password, full_name, company_id, role } = req.body;
- 
+
     console.log('PASO 1 - Intentando signUp en Supabase...');
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
     });
- 
+
     console.log('PASO 2 - Respuesta de Supabase:', { authData, authError });
     if (authError) {
       console.log('ERROR EN SUPABASE:', authError.message);
       throw authError;
     }
- 
+
     console.log('PASO 3 - Intentando insertar usuario en tabla users...');
     const { data: userData, error: userError } = await supabase
       .from('users')
@@ -50,13 +50,13 @@ app.post('/api/auth/register', async (req, res) => {
         is_active: true,
       }])
       .select();
- 
+
     console.log('PASO 4 - Respuesta de insert:', { userData, userError });
     if (userError) {
       console.log('ERROR EN INSERT:', userError.message);
       throw userError;
     }
- 
+
     console.log('PASO 5 - Registro exitoso');
     res.json({
       success: true,
@@ -68,29 +68,29 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     console.log('DEBUG - req.body:', req.body);
     console.log('DEBUG - Headers:', req.headers);
- 
+
     const { email, password } = req.body;
- 
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
- 
+
     if (error) throw error;
- 
+
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('id', data.user.id)
       .single();
- 
+
     if (userError) throw userError;
- 
+
     res.json({
       success: true,
       message: 'Login exitoso',
@@ -101,60 +101,59 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/auth/logout', authenticateToken, async (req, res) => {
   try {
-    await supabase.auth.signOut();
     res.json({ success: true, message: 'Logout exitoso' });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
 });
- 
+
 // ===== ENDPOINTS DE COMPANIES (PROTEGIDOS) =====
 app.get('/api/companies', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('companies')
       .select('*');
- 
+
     if (error) throw error;
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/companies', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
   try {
     const { name, subscription_level, max_employees } = req.body;
- 
+
     const { data, error } = await supabase
       .from('companies')
       .insert([{ name, subscription_level, max_employees }])
       .select();
- 
+
     if (error) throw error;
     res.json({ success: true, data: data[0] });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 // ===== ENDPOINTS DE USERS (PROTEGIDOS) =====
 app.get('/api/users', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
       .select('*');
- 
+
     if (error) throw error;
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/users/:id', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -168,7 +167,7 @@ app.get('/api/users/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/users/leaderboard', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -181,7 +180,7 @@ app.get('/api/users/leaderboard', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/users', authenticateToken, authorizeRole(['super_admin', 'company_admin']), async (req, res) => {
   try {
     const { company_id, email, full_name, role } = req.body;
@@ -195,7 +194,7 @@ app.post('/api/users', authenticateToken, authorizeRole(['super_admin', 'company
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.put('/api/users/:id', authenticateToken, async (req, res) => {
   try {
     const { full_name, role, is_active } = req.body;
@@ -210,7 +209,7 @@ app.put('/api/users/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.delete('/api/users/:id', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
   try {
     const { error } = await supabase
@@ -223,38 +222,38 @@ app.delete('/api/users/:id', authenticateToken, authorizeRole(['super_admin']), 
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 // ===== ENDPOINTS DE RETOS (PROTEGIDOS) =====
 app.get('/api/retos', authenticateToken, async (req, res) => {
   try {
     console.log('🔍 GET /api/retos - Usuario:', req.user?.id);
- 
+
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('company_id')
       .eq('id', req.user.id)
       .single();
- 
+
     if (userError) {
       console.error('❌ Error obteniendo user:', userError);
       throw userError;
     }
- 
+
     const company_id = userData.company_id;
     console.log('🏢 Filtrando retos por company_id:', company_id);
- 
+
     let query = supabase.from('retos').select('*');
     if (company_id) {
       query = query.eq('company_id', company_id);
     }
- 
+
     const { data, error } = await query;
- 
+
     if (error) {
       console.error('❌ Error en query:', error);
       throw error;
     }
- 
+
     console.log('📦 Retos encontrados:', data.length);
     res.json(data);
   } catch (error) {
@@ -262,7 +261,7 @@ app.get('/api/retos', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/retos/:id', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -276,45 +275,45 @@ app.get('/api/retos/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/retos/:id/pills', authenticateToken, async (req, res) => {
   try {
     console.log('🔍 GET /api/retos/:id/pills - Reto ID:', req.params.id);
- 
+
     const { data, error } = await supabase
       .from('pildoras')
       .select('*')
       .eq('reto_id', req.params.id);
- 
+
     if (error) {
       console.error('❌ Error en query pills:', error);
       throw error;
     }
- 
-    console.log('💊 Pildoras encontradas:', data.length);
+
+    console.log('💊 Píldoras encontradas:', data.length);
     res.json(data);
   } catch (error) {
     console.error('❌ Error en GET /pills:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 // ===== ENDPOINTS DE PILDORAS (PROTEGIDOS) =====
 app.get('/api/pildoras/:pildoraId/secciones', authenticateToken, async (req, res) => {
   try {
-    console.log('📺 GET /api/pildoras/:pildoraId/secciones - Pildora ID:', req.params.pildoraId);
- 
+    console.log('📺 GET /api/pildoras/:pildoraId/secciones - Píldora ID:', req.params.pildoraId);
+
     const { data, error } = await supabase
       .from('pantallas')
       .select('*')
       .eq('pildora_id', req.params.pildoraId)
       .order('screen_number', { ascending: true });
- 
+
     if (error) {
       console.error('❌ Error en query secciones:', error);
       throw error;
     }
- 
+
     console.log('✅ Secciones encontradas:', data.length);
     res.json(data);
   } catch (error) {
@@ -322,7 +321,7 @@ app.get('/api/pildoras/:pildoraId/secciones', authenticateToken, async (req, res
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/pildoras', authenticateToken, async (req, res) => {
   try {
     const { reto_id } = req.query;
@@ -335,7 +334,7 @@ app.get('/api/pildoras', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/pildoras/:id', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -349,7 +348,7 @@ app.get('/api/pildoras/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/pildoras', authenticateToken, authorizeRole(['super_admin', 'company_admin']), async (req, res) => {
   try {
     const { reto_id, pill_number, title, key_skill, description, duration_minutes } = req.body;
@@ -363,7 +362,7 @@ app.post('/api/pildoras', authenticateToken, authorizeRole(['super_admin', 'comp
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.put('/api/pildoras/:id', authenticateToken, authorizeRole(['super_admin', 'company_admin']), async (req, res) => {
   try {
     const { title, key_skill, description, duration_minutes } = req.body;
@@ -378,7 +377,7 @@ app.put('/api/pildoras/:id', authenticateToken, authorizeRole(['super_admin', 'c
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.delete('/api/pildoras/:id', authenticateToken, authorizeRole(['super_admin', 'company_admin']), async (req, res) => {
   try {
     const { error } = await supabase
@@ -386,12 +385,12 @@ app.delete('/api/pildoras/:id', authenticateToken, authorizeRole(['super_admin',
       .delete()
       .eq('id', req.params.id);
     if (error) throw error;
-    res.json({ success: true, message: 'Pildora eliminada' });
+    res.json({ success: true, message: 'Píldora eliminada' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 // ===== ENDPOINTS DE PANTALLAS (PROTEGIDOS) =====
 app.get('/api/pantallas', authenticateToken, async (req, res) => {
   try {
@@ -405,7 +404,7 @@ app.get('/api/pantallas', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/pantallas/:id', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -419,7 +418,7 @@ app.get('/api/pantallas/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/pantallas', authenticateToken, authorizeRole(['super_admin', 'company_admin']), async (req, res) => {
   try {
     const { pildora_id, screen_number, screen_type, screen_name, screen_content, source_note } = req.body;
@@ -433,7 +432,7 @@ app.post('/api/pantallas', authenticateToken, authorizeRole(['super_admin', 'com
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.put('/api/pantallas/:id', authenticateToken, authorizeRole(['super_admin', 'company_admin']), async (req, res) => {
   try {
     const { screen_type, screen_name, screen_content, source_note } = req.body;
@@ -448,7 +447,7 @@ app.put('/api/pantallas/:id', authenticateToken, authorizeRole(['super_admin', '
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.delete('/api/pantallas/:id', authenticateToken, authorizeRole(['super_admin', 'company_admin']), async (req, res) => {
   try {
     const { error } = await supabase
@@ -461,7 +460,7 @@ app.delete('/api/pantallas/:id', authenticateToken, authorizeRole(['super_admin'
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 // ===== ENDPOINTS DE USER_PILL_PROGRESS (PROTEGIDOS) =====
 app.get('/api/user-progress', authenticateToken, async (req, res) => {
   try {
@@ -476,7 +475,7 @@ app.get('/api/user-progress', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/user-progress/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -489,7 +488,7 @@ app.get('/api/user-progress/user/:userId', authenticateToken, async (req, res) =
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/user-progress/:id', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -503,141 +502,54 @@ app.get('/api/user-progress/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/user-progress', authenticateToken, async (req, res) => {
   try {
-    console.log('📝 POST /api/user-progress');
-    console.log('   Body:', req.body);
- 
-    const { user_id, pill_id, current_screen, self_assessment_score } = req.body;
- 
-    if (!user_id || !pill_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'user_id y pill_id son requeridos'
-      });
-    }
- 
+    const { user_id, pill_id, current_screen, self_assesment_score } = req.body;
     const { data, error } = await supabase
       .from('user_pill_progress')
-      .insert([{
-        user_id,
-        pill_id,
-        current_screen: current_screen || 1,
-        self_assesment_score: self_assessment_score || null,
-        is_completed: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }])
+      .insert([{ user_id, pill_id, current_screen, self_assesment_score, is_completed: false }])
       .select();
- 
-    if (error) {
-      console.error('❌ Error en insert:', error.message);
-      throw error;
-    }
- 
-    if (!data || data.length === 0) {
-      return res.status(500).json({
-        success: false,
-        error: 'No se pudo crear el progreso'
-      });
-    }
- 
-    console.log('✅ Progreso creado');
-    res.status(201).json({ success: true, data: data[0] });
+    if (error) throw error;
+    res.json({ success: true, data: data[0] });
   } catch (error) {
-    console.error('❌ Error en POST /api/user-progress:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.put('/api/user-progress/:id', authenticateToken, async (req, res) => {
   try {
-    console.log(`📝 PUT /api/user-progress/:id - ID: ${req.params.id}`);
-    console.log('   Body:', req.body);
- 
-    const { current_screen, self_assessment_score, is_completed } = req.body;
- 
-    // Construir el objeto update de forma defensiva (solo campos definidos)
-    const update = { updated_at: new Date().toISOString() };
- 
-    if (current_screen !== undefined) {
-      update.current_screen = current_screen;
-    }
-    if (self_assessment_score !== undefined) {
-      update.self_assesment_score = self_assessment_score;
-    }
-    if (is_completed !== undefined) {
-      update.is_completed = is_completed;
-      if (is_completed) {
-        update.completed_at = new Date().toISOString();
-      }
-    }
- 
-    console.log('   Update object:', update);
- 
+    const { current_screen, self_assesment_score, is_completed } = req.body;
+    const update = { current_screen, self_assesment_score, is_completed, updated_at: new Date() };
+    if (is_completed) update.completed_at = new Date();
     const { data, error } = await supabase
       .from('user_pill_progress')
       .update(update)
       .eq('id', req.params.id)
       .select();
- 
-    if (error) {
-      console.error('❌ Error en update:', error.message);
-      throw error;
-    }
- 
-    if (!data || data.length === 0) {
-      console.warn('⚠️ No se encontró el registro con ID:', req.params.id);
-      return res.status(404).json({ success: false, error: 'Progreso no encontrado' });
-    }
- 
-    console.log('✅ Progreso actualizado');
+    if (error) throw error;
     res.json({ success: true, data: data[0] });
   } catch (error) {
-    console.error('❌ Error en PUT /api/user-progress/:id:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/user-progress/complete-pill/:pillId', authenticateToken, async (req, res) => {
   try {
-    console.log(`📝 POST /api/user-progress/complete-pill/:pillId - pillId: ${req.params.pillId}`);
-    console.log('   Body:', req.body);
- 
     const { user_id } = req.body;
- 
-    if (!user_id) {
-      return res.status(400).json({ success: false, error: 'user_id es requerido' });
-    }
- 
     const { data, error } = await supabase
       .from('user_pill_progress')
-      .update({
-        is_completed: true,
-        completed_at: new Date().toISOString()
-      })
+      .update({ is_completed: true, completed_at: new Date() })
       .eq('pill_id', req.params.pillId)
       .eq('user_id', user_id)
       .select();
- 
-    if (error) {
-      console.error('❌ Error en update:', error.message);
-      throw error;
-    }
- 
-    if (!data || data.length === 0) {
-      return res.status(404).json({ success: false, error: 'Progreso no encontrado' });
-    }
- 
-    console.log('✅ Pildora completada');
+    if (error) throw error;
     res.json({ success: true, data: data[0] });
   } catch (error) {
-    console.error('❌ Error en complete-pill:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.delete('/api/user-progress/:id', authenticateToken, async (req, res) => {
   try {
     const { error } = await supabase
@@ -650,7 +562,498 @@ app.delete('/api/user-progress/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
+// ===== HELPERS: Funciones auxiliares =====
+function _obtenerUltimoDiaMes(mes, ano) {
+  return new Date(ano, mes, 0).getDate();
+}
+
+function _obtenerDiasLaboralesMes(mes, ano) {
+  const diasLaborales = [];
+  const ultimoDia = _obtenerUltimoDiaMes(mes, ano);
+
+  for (let dia = 1; dia <= ultimoDia; dia++) {
+    const fecha = new Date(ano, mes - 1, dia);
+    // Lunes (1) a Viernes (5)
+    if (fecha.getDay() >= 1 && fecha.getDay() <= 5) {
+      const fechaStr = fecha.toISOString().split('T')[0];
+      diasLaborales.push(fechaStr);
+    }
+  }
+
+  return diasLaborales;
+}
+
+function _esDialaboral(fecha) {
+  const dia = fecha.getDay();
+  return dia >= 1 && dia <= 5;
+}
+
+async function _actualizarRacha(user_id, reto_id, mes, ano) {
+  try {
+    console.log(`🔄 Actualizando racha para user: ${user_id}, reto: ${reto_id}`);
+
+    const ultimoDiaDelMes = _obtenerUltimoDiaMes(mes, ano);
+    const diasLaborales = _obtenerDiasLaboralesMes(mes, ano);
+
+    // Obtener progreso del mes para este reto
+    const { data: progreso, error: errorProgreso } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .gte('fecha', `${ano}-${String(mes).padStart(2, '0')}-01`)
+      .lte('fecha', `${ano}-${String(mes).padStart(2, '0')}-${String(ultimoDiaDelMes).padStart(2, '0')}`);
+
+    if (errorProgreso) throw errorProgreso;
+
+    // Calcular racha_actual (hacia atrás desde hoy)
+    let racha_actual = 0;
+    let fechaActual = new Date();
+
+    while (racha_actual < 365) {
+      if (fechaActual.getDay() === 0 || fechaActual.getDay() === 6) {
+        fechaActual.setDate(fechaActual.getDate() - 1);
+        continue;
+      }
+
+      const fechaStr = fechaActual.toISOString().split('T')[0];
+      const registro = progreso.find(p => p.fecha === fechaStr);
+
+      if (registro && registro.login_hecho === true && registro.pildora_completada === true) {
+        racha_actual++;
+        fechaActual.setDate(fechaActual.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    // Obtener racha_maxima actual
+    const { data: rachaActual, error: errorRachaActual } = await supabase
+      .from('user_racha_stats')
+      .select('racha_maxima')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .eq('mes', mes)
+      .eq('año', ano)
+      .single();
+
+    if (errorRachaActual && errorRachaActual.code !== 'PGRST116') {
+      throw errorRachaActual;
+    }
+
+    const racha_maxima_anterior = rachaActual?.racha_maxima || 0;
+    const racha_maxima_nueva = Math.max(racha_maxima_anterior, racha_actual);
+
+    // Actualizar o crear registro en user_racha_stats
+    const { data: existente, error: errorExistente } = await supabase
+      .from('user_racha_stats')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .eq('mes', mes)
+      .eq('año', ano)
+      .single();
+
+    if (errorExistente && errorExistente.code !== 'PGRST116') {
+      throw errorExistente;
+    }
+
+    if (existente) {
+      // Actualizar
+      await supabase
+        .from('user_racha_stats')
+        .update({
+          racha_actual,
+          racha_maxima: racha_maxima_nueva,
+          updated_at: new Date()
+        })
+        .eq('id', existente.id);
+    } else {
+      // Crear nuevo
+      await supabase
+        .from('user_racha_stats')
+        .insert([{
+          user_id,
+          reto_id,
+          mes,
+          ano,
+          racha_actual,
+          racha_maxima: racha_maxima_nueva
+        }]);
+    }
+
+    console.log(`✅ Racha actualizada - Actual: ${racha_actual}, Máxima: ${racha_maxima_nueva}`);
+  } catch (error) {
+    console.error('❌ Error en _actualizarRacha:', error.message);
+  }
+}
+
+// ===== ENDPOINTS DE RACHAS (PROTEGIDOS) =====
+app.post('/api/racha/registrar-login', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, reto_id } = req.body;
+
+    if (!user_id || !reto_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Faltan parámetros: user_id, reto_id'
+      });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const mesNum = new Date().getMonth() + 1;
+    const anoNum = new Date().getFullYear();
+
+    console.log(`📍 POST /api/racha/registrar-login - User: ${user_id}, Reto: ${reto_id}, Fecha: ${today}`);
+
+    // Buscar o crear registro del día
+    const { data: existente, error: errorCheck } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .eq('fecha', today)
+      .single();
+
+    if (errorCheck && errorCheck.code !== 'PGRST116') {
+      throw errorCheck;
+    }
+
+    if (existente) {
+      const { data, error } = await supabase
+        .from('racha_daily_progress')
+        .update({ login_hecho: true })
+        .eq('id', existente.id)
+        .select();
+
+      if (error) throw error;
+
+      // Actualizar racha en user_racha_stats
+      await _actualizarRacha(user_id, reto_id, mesNum, anoNum);
+
+      return res.json({ success: true, message: 'Login registrado', data: data[0] });
+    }
+
+    const { data, error } = await supabase
+      .from('racha_daily_progress')
+      .insert([{
+        user_id,
+        reto_id,
+        fecha: today,
+        pildora_completada: false,
+        login_hecho: true,
+        es_dia_laboral: _esDialaboral(new Date()),
+      }])
+      .select();
+
+    if (error) throw error;
+
+    // Actualizar racha en user_racha_stats
+    await _actualizarRacha(user_id, reto_id, mesNum, anoNum);
+
+    res.json({ success: true, message: 'Login registrado', data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en registrar-login:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/racha/registrar-pildora', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, reto_id } = req.body;
+
+    if (!user_id || !reto_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Faltan parámetros: user_id, reto_id'
+      });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const mesNum = new Date().getMonth() + 1;
+    const anoNum = new Date().getFullYear();
+
+    console.log(`📍 POST /api/racha/registrar-pildora - User: ${user_id}, Reto: ${reto_id}, Fecha: ${today}`);
+
+    // Buscar o crear registro del día
+    const { data: existente, error: errorCheck } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .eq('fecha', today)
+      .single();
+
+    if (errorCheck && errorCheck.code !== 'PGRST116') {
+      throw errorCheck;
+    }
+
+    if (existente) {
+      const { data, error } = await supabase
+        .from('racha_daily_progress')
+        .update({ pildora_completada: true })
+        .eq('id', existente.id)
+        .select();
+
+      if (error) throw error;
+
+      // Actualizar racha en user_racha_stats
+      await _actualizarRacha(user_id, reto_id, mesNum, anoNum);
+
+      return res.json({ success: true, message: 'Píldora registrada', data: data[0] });
+    }
+
+    const { data, error } = await supabase
+      .from('racha_daily_progress')
+      .insert([{
+        user_id,
+        reto_id,
+        fecha: today,
+        pildora_completada: true,
+        login_hecho: false,
+        es_dia_laboral: _esDialaboral(new Date()),
+      }])
+      .select();
+
+    if (error) throw error;
+
+    // Actualizar racha en user_racha_stats
+    await _actualizarRacha(user_id, reto_id, mesNum, anoNum);
+
+    res.json({ success: true, message: 'Píldora registrada', data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en registrar-pildora:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, reto_id, mes, ano } = req.query;
+
+    if (!user_id || !reto_id || !mes || !ano) {
+      return res.status(400).json({
+        success: false,
+        error: 'Faltan parámetros: user_id, reto_id, mes, ano'
+      });
+    }
+
+    console.log(`📊 GET /api/racha/estadisticas-por-reto - User: ${user_id}, Reto: ${reto_id}, Mes: ${mes}/${ano}`);
+
+    const mesNum = parseInt(mes);
+    const anoNum = parseInt(ano);
+    const ultimoDiaDelMes = _obtenerUltimoDiaMes(mesNum, anoNum);
+
+    // Obtener días laborales del mes
+    const diasLaborales = _obtenerDiasLaboralesMes(mesNum, anoNum);
+
+    // Obtener progreso del mes PARA ESTE RETO
+    const { data: progreso, error: errorProgreso } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .gte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-01`)
+      .lte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-${String(ultimoDiaDelMes).padStart(2, '0')}`);
+
+    if (errorProgreso) throw errorProgreso;
+
+    // Obtener racha_maxima y racha_actual de user_racha_stats
+    const { data: rachaStats, error: errorRachaStats } = await supabase
+      .from('user_racha_stats')
+      .select('racha_maxima, racha_actual')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .eq('mes', mesNum)
+      .eq('año', anoNum)
+      .single();
+
+    if (errorRachaStats && errorRachaStats.code !== 'PGRST116') {
+      throw errorRachaStats;
+    }
+
+    const racha_maxima = rachaStats?.racha_maxima || 0;
+    const racha_actual = rachaStats?.racha_actual || 0;
+
+    // ============================================
+    // 1. DIA PILDORA: Número secuencial del día laboral actual
+    // ============================================
+    const today = new Date().toISOString().split('T')[0];
+    const diaPildoraHoy = diasLaborales.indexOf(today) + 1;
+    const dia_pildora = diaPildoraHoy > 0 ? diaPildoraHoy : 0;
+
+    console.log(`📅 Día Píldora: ${dia_pildora} (de ${diasLaborales.length} días laborales)`);
+
+    // ============================================
+    // 2. CUMPLIDOS: Días donde AMBAS condiciones se cumplen
+    // ============================================
+    const diasCumplidos = progreso.filter(p =>
+      p.login_hecho === true && p.pildora_completada === true
+    ).length;
+
+    console.log(`✅ Días Cumplidos: ${diasCumplidos}`);
+
+    // ============================================
+    // 3. NO CUMPLIDOS: Días laborales pasados sin cumplir ambas condiciones
+    // ============================================
+    const ahora = new Date();
+    const diasNoCumplidos = diasLaborales.filter(fechaStr => {
+      const registro = progreso.find(p => p.fecha === fechaStr);
+      const fechaDate = new Date(fechaStr);
+      const noCumplio = !registro || !(registro.login_hecho && registro.pildora_completada);
+      return noCumplio && fechaDate <= ahora;
+    }).length;
+
+    console.log(`❌ Días No Cumplidos: ${diasNoCumplidos}`);
+    console.log(`🔥 Racha Actual: ${racha_actual}`);
+    console.log(`🏆 Racha Máxima: ${racha_maxima}`);
+
+    res.json({
+      success: true,
+      data: {
+        reto_id,
+        dia_pildora,
+        racha_actual,
+        racha_maxima,
+        dias_cumplidos: diasCumplidos,
+        dias_no_cumplidos: diasNoCumplidos,
+        dias_laborales_total: diasLaborales.length
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error en estadisticas-por-reto:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/racha/progreso', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, reto_id, mes, ano } = req.query;
+
+    if (!user_id || !reto_id || !mes || !ano) {
+      return res.status(400).json({ success: false, error: 'Faltan parámetros: user_id, reto_id, mes, ano' });
+    }
+
+    console.log(`📈 GET /api/racha/progreso - User: ${user_id}, Reto: ${reto_id}, Mes: ${mes}/${ano}`);
+
+    const mesNum = parseInt(mes);
+    const anoNum = parseInt(ano);
+    const ultimoDiaDelMes = _obtenerUltimoDiaMes(mesNum, anoNum);
+
+    const { data: progreso, error } = await supabase
+      .from('racha_daily_progress')
+      .select('fecha, login_hecho, pildora_completada, es_dia_laboral')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .gte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-01`)
+      .lte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-${String(ultimoDiaDelMes).padStart(2, '0')}`)
+      .order('fecha', { ascending: true });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: progreso || []
+    });
+  } catch (error) {
+    console.error('❌ Error en progreso:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/racha/leaderboard', authenticateToken, async (req, res) => {
+  try {
+    const { mes, ano } = req.query;
+
+    if (!mes || !ano) {
+      return res.status(400).json({
+        success: false,
+        error: 'Faltan parámetros: mes, ano'
+      });
+    }
+
+    console.log(`🏆 GET /api/racha/leaderboard - Mes: ${mes}/${ano}`);
+
+    const mesNum = parseInt(mes);
+    const anoNum = parseInt(ano);
+
+    // Obtener todas las rachas del mes
+    const { data: todasLasRachas, error: errorRachas } = await supabase
+      .from('user_racha_stats')
+      .select('*')
+      .eq('mes', mesNum)
+      .eq('año', anoNum);
+
+    if (errorRachas) throw errorRachas;
+
+    // Agrupar por usuario y obtener el MEJOR racha_maxima
+    const usuariosMap = {};
+
+    for (const racha of todasLasRachas) {
+      if (!usuariosMap[racha.user_id]) {
+        usuariosMap[racha.user_id] = {
+          user_id: racha.user_id,
+          mejor_racha: 0,
+          retos_participados: 0
+        };
+      }
+
+      // Actualizar con el máximo encontrado
+      usuariosMap[racha.user_id].mejor_racha = Math.max(
+        usuariosMap[racha.user_id].mejor_racha,
+        racha.racha_maxima
+      );
+      usuariosMap[racha.user_id].retos_participados++;
+    }
+
+    // Convertir a array y ordenar por mejor_racha descendente
+    let leaderboard = Object.values(usuariosMap);
+    leaderboard.sort((a, b) => b.mejor_racha - a.mejor_racha);
+
+    // Agregar posición y obtener info del usuario
+    leaderboard = await Promise.all(leaderboard.map(async (item, index) => {
+      const { data: usuario, error: errorUsuario } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('id', item.user_id)
+        .single();
+
+      if (!errorUsuario && usuario) {
+        return {
+          posicion: index + 1,
+          usuario_id: item.user_id,
+          nombre: usuario.full_name || usuario.email,
+          mejor_racha: item.mejor_racha,
+          retos_participados: item.retos_participados
+        };
+      }
+
+      return {
+        posicion: index + 1,
+        usuario_id: item.user_id,
+        nombre: 'Usuario',
+        mejor_racha: item.mejor_racha,
+        retos_participados: item.retos_participados
+      };
+    }));
+
+    console.log(`🏆 Leaderboard generado: ${leaderboard.length} usuarios`);
+
+    res.json({
+      success: true,
+      data: {
+        mes: mesNum,
+        ano: anoNum,
+        leaderboard
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error en leaderboard:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 // ===== ENDPOINTS DE ANONYMOUS_NOMINATIONS (PROTEGIDOS) =====
 app.get('/api/nominations', authenticateToken, async (req, res) => {
   try {
@@ -665,13 +1068,13 @@ app.get('/api/nominations', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
+
 app.post('/api/nominations', authenticateToken, async (req, res) => {
   try {
     console.log('📝 POST /api/nominations');
     console.log('   Body:', req.body);
     console.log('   User:', req.user.id);
- 
+
     const {
       respondent_user_id,
       nominated_user_id,
@@ -680,15 +1083,15 @@ app.post('/api/nominations', authenticateToken, async (req, res) => {
       section_number,
       vote_type
     } = req.body;
- 
-    console.log('✅ Parametros recibidos:');
+
+    console.log('✅ Parámetros recibidos:');
     console.log('   respondent_user_id:', respondent_user_id);
     console.log('   nominated_user_id:', nominated_user_id);
     console.log('   reto_id:', reto_id);
     console.log('   pill_id:', pill_id);
     console.log('   section_number:', section_number);
     console.log('   vote_type:', vote_type);
- 
+
     const { data, error } = await supabase
       .from('anonymous_nominations')
       .insert([{
@@ -702,12 +1105,12 @@ app.post('/api/nominations', authenticateToken, async (req, res) => {
         created_at: new Date().toISOString(),
       }])
       .select();
- 
+
     if (error) {
       console.error('❌ Error en insert:', error);
       throw error;
     }
- 
+
     console.log('✅ Voto registrado exitosamente:', data[0].id);
     res.status(201).json({ success: true, data: data[0] });
   } catch (error) {
@@ -715,26 +1118,26 @@ app.post('/api/nominations', authenticateToken, async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
- 
+
 app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req, res) => {
   try {
     console.log('📊 GET /api/nominations/:userId/feedback-score');
     console.log('   userId:', req.params.userId);
- 
+
     const userId = req.params.userId;
- 
+
     const { data: votes, error: votesError } = await supabase
       .from('anonymous_nominations')
       .select('*')
       .eq('nominated_user_id', userId);
- 
+
     if (votesError) {
       console.error('❌ Error obteniendo votos:', votesError);
       throw votesError;
     }
- 
+
     console.log(`✅ Votos encontrados: ${votes.length}`);
- 
+
     if (votes.length === 0) {
       console.log('⚠️ No hay votos para este usuario');
       return res.json({
@@ -745,9 +1148,9 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
         totalVotes: 0
       });
     }
- 
+
     const votersMap = {};
- 
+
     votes.forEach(vote => {
       const key = `${vote.respondent_user_id}-${vote.reto_id}`;
       if (!votersMap[key]) {
@@ -760,22 +1163,22 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
         };
       }
       votersMap[key].votes.push(vote);
- 
+
       if (vote.vote_type === 'positive') {
         votersMap[key].positive_votes++;
       } else if (vote.vote_type === 'negative') {
         votersMap[key].negative_votes++;
       }
     });
- 
-    console.log(`📊 Votantes unicos (por reto): ${Object.keys(votersMap).length}`);
- 
+
+    console.log(`📊 Votantes únicos (por reto): ${Object.keys(votersMap).length}`);
+
     let totalValidVoters = 0;
     let positiveVoters = 0;
- 
+
     Object.values(votersMap).forEach(voter => {
       console.log(`   Votante ${voter.respondent_user_id} en reto ${voter.reto_id}: ${voter.positive_votes} positivos, ${voter.negative_votes} negativos`);
- 
+
       if (voter.positive_votes > voter.negative_votes) {
         console.log(`      ✅ Voto POSITIVO`);
         positiveVoters++;
@@ -787,18 +1190,18 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
         console.log(`      ⏸️ Voto ANULADO (empate)`);
       }
     });
- 
+
     console.log(`\n📈 Resumen:`);
-    console.log(`   Votantes validos: ${totalValidVoters}`);
+    console.log(`   Votantes válidos: ${totalValidVoters}`);
     console.log(`   Votantes positivos: ${positiveVoters}`);
- 
+
     let feedbackScore = 0;
     if (totalValidVoters > 0) {
       feedbackScore = (100 / totalValidVoters) * positiveVoters;
     }
- 
-    console.log(`   Calificacion: ${feedbackScore.toFixed(2)}%`);
- 
+
+    console.log(`   Calificación: ${feedbackScore.toFixed(2)}%`);
+
     res.json({
       success: true,
       feedbackScore: Math.round(feedbackScore * 100) / 100,
@@ -806,13 +1209,13 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
       positiveVoters: positiveVoters,
       totalVotes: votes.length
     });
- 
+
   } catch (error) {
     console.error('❌ Error en feedback-score:', error.message);
     res.status(400).json({ success: false, error: error.message });
   }
 });
- 
+
 app.delete('/api/nominations/:id', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
   try {
     const { error } = await supabase
@@ -820,80 +1223,79 @@ app.delete('/api/nominations/:id', authenticateToken, authorizeRole(['super_admi
       .delete()
       .eq('id', req.params.id);
     if (error) throw error;
-    res.json({ success: true, message: 'Nominacion eliminada' });
+    res.json({ success: true, message: 'Nominación eliminada' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
-// ===== ENDPOINT PARA INSERTAR TODAS LAS SECCIONES (SOLO EJECUTAR UNA VEZ) =====
+
 app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
   try {
-    console.log('🌱 Iniciando insercion de secciones...');
- 
+    console.log('🌱 Iniciando inserción de secciones...');
+
     const { data: pildoras, error: errorPildoras } = await supabase
       .from('pildoras')
       .select('id, title')
       .order('created_at', { ascending: true });
- 
+
     if (errorPildoras) throw errorPildoras;
- 
+
     if (pildoras.length === 0) {
-      return res.status(400).json({ error: 'No hay pildoras en la BD' });
+      return res.status(400).json({ error: 'No hay píldoras en la BD' });
     }
- 
-    console.log(`📚 Encontradas ${pildoras.length} pildoras`);
- 
+
+    console.log(`📚 Encontradas ${pildoras.length} píldoras`);
+
     const estructuraBase = [
       { screen_number: 1, screen_name: 'Bienvenida + frase motivante', screen_type: 'welcome' },
-      { screen_number: 2, screen_name: 'Dato/evento historico (gancho)', screen_type: 'fact' },
-      { screen_number: 3, screen_name: 'Pregunta anonima: quien lo hace mejor?', screen_type: 'anonymous_question' },
-      { screen_number: 4, screen_name: 'Por que importa (dato estadistico)', screen_type: 'statistic' },
-      { screen_number: 5, screen_name: 'Autopercepcion (escala 1-5)', screen_type: 'self_assessment' },
-      { screen_number: 6, screen_name: 'Que aprendiste + beneficio', screen_type: 'learning' },
-      { screen_number: 7, screen_name: 'Pregunta anonima: quien podria mejorar?', screen_type: 'anonymous_question' },
-      { screen_number: 8, screen_name: 'Practica social con un companero', screen_type: 'social_practice' },
+      { screen_number: 2, screen_name: 'Dato/evento histórico (gancho)', screen_type: 'fact' },
+      { screen_number: 3, screen_name: 'Pregunta anónima: ¿quién lo hace mejor?', screen_type: 'anonymous_question' },
+      { screen_number: 4, screen_name: 'Por qué importa (dato estadístico)', screen_type: 'statistic' },
+      { screen_number: 5, screen_name: 'Autopercepción (escala 1-5)', screen_type: 'self_assessment' },
+      { screen_number: 6, screen_name: 'Qué aprendiste + beneficio', screen_type: 'learning' },
+      { screen_number: 7, screen_name: 'Pregunta anónima: ¿quién podría mejorar?', screen_type: 'anonymous_question' },
+      { screen_number: 8, screen_name: 'Práctica social con un compañero', screen_type: 'social_practice' },
       { screen_number: 9, screen_name: 'Mensaje de cierre gratificante', screen_type: 'closing' },
     ];
- 
+
     let totalInserted = 0;
     let seccionesParaInsertar = [];
- 
+
     for (let i = 0; i < pildoras.length; i++) {
       const pildora = pildoras[i];
-      console.log(`📝 Procesando pildora ${i + 1}/${pildoras.length}: "${pildora.title}"`);
- 
+      console.log(`📝 Procesando píldora ${i + 1}/${pildoras.length}: "${pildora.title}"`);
+
       estructuraBase.forEach((seccion) => {
         seccionesParaInsertar.push({
           pildora_id: pildora.id,
           screen_number: seccion.screen_number,
           screen_name: seccion.screen_name,
           screen_type: seccion.screen_type,
-          screen_content: `[Contenido para completar]\n\nPildora: "${pildora.title}"\nSeccion: ${seccion.screen_number}/9 - ${seccion.screen_name}`,
+          screen_content: `[Contenido para completar]\n\nPíldora: "${pildora.title}"\nSección: ${seccion.screen_number}/9 - ${seccion.screen_name}`,
           source_note: `RetUp - ${pildora.title}`,
         });
       });
- 
+
       if ((i + 1) % 5 === 0 || i === pildoras.length - 1) {
         console.log(`✅ Insertando lote de ${seccionesParaInsertar.length} secciones...`);
         const { error } = await supabase
           .from('pantallas')
           .insert(seccionesParaInsertar);
- 
+
         if (error) {
           console.error(`❌ Error insertando secciones:`, error);
           throw error;
         }
- 
+
         totalInserted += seccionesParaInsertar.length;
         seccionesParaInsertar = [];
       }
     }
- 
-    console.log(`✅ Insercion completada: ${totalInserted} secciones en total`);
+
+    console.log(`✅ Inserción completada: ${totalInserted} secciones en total`);
     res.json({
       success: true,
-      message: `✅ ${totalInserted} secciones insertadas exitosamente`,
+      message: `✅ ${totalInserted} secciones insertadas exitosamente (${pildoras.length} píldoras × 9 secciones)`,
       totalInserted,
       pildorasProcessadas: pildoras.length,
     });
@@ -902,192 +1304,7 @@ app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']
     res.status(500).json({ success: false, error: error.message });
   }
 });
- 
-// ===== ENDPOINTS DE RACHA (PROTEGIDOS) ✅ CORREGIDOS =====
- 
-function _esDialaboral(fecha) {
-  const dia = fecha.getDay();
-  return dia >= 1 && dia <= 5;
-}
- 
-app.post('/api/racha/registrar-login', authenticateToken, async (req, res) => {
-  try {
-    const { user_id } = req.body;
- 
-    if (!user_id) {
-      return res.status(400).json({ success: false, error: 'user_id es requerido' });
-    }
- 
-    const hoy = new Date();
-    const fechaHoy = hoy.toISOString().split('T')[0];
-    const esLaboral = _esDialaboral(hoy);
- 
-    console.log(`📝 POST /api/racha/registrar-login - User: ${user_id}, Fecha: ${fechaHoy}, Laboral: ${esLaboral}`);
- 
-    if (!esLaboral) {
-      return res.json({ success: true, message: 'No es un dia laboral', data: null });
-    }
- 
-    const { data: existingRecord, error: checkError } = await supabase
-      .from('racha_daily_progress')
-      .select('*')
-      .eq('user_id', user_id)
-      .eq('fecha', fechaHoy);
- 
-    if (checkError) throw checkError;
- 
-    let result;
-    if (existingRecord && existingRecord.length > 0) {
-      const { data, error } = await supabase
-        .from('racha_daily_progress')
-        .update({ login_hecho: true, updated_at: new Date().toISOString() })
-        .eq('id', existingRecord[0].id)
-        .select();
-      if (error) throw error;
-      result = data[0];
-    } else {
-      const { data, error } = await supabase
-        .from('racha_daily_progress')
-        .insert([{
-          user_id,
-          fecha: fechaHoy,
-          login_hecho: true,
-          pildora_completada: false,
-          es_dia_laboral: esLaboral,
-        }])
-        .select();
-      if (error) throw error;
-      result = data[0];
-    }
- 
-    console.log('✅ Login registrado');
-    res.status(201).json({ success: true, message: 'Login registrado', data: result });
-  } catch (error) {
-    console.error('❌ Error en registrar-login:', error.message);
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
- 
-app.post('/api/racha/registrar-pildora', authenticateToken, async (req, res) => {
-  try {
-    const { user_id } = req.body;
- 
-    if (!user_id) {
-      return res.status(400).json({ success: false, error: 'user_id es requerido' });
-    }
- 
-    const hoy = new Date();
-    const fechaHoy = hoy.toISOString().split('T')[0];
-    const esLaboral = _esDialaboral(hoy);
- 
-    console.log(`📝 POST /api/racha/registrar-pildora - User: ${user_id}, Fecha: ${fechaHoy}, Laboral: ${esLaboral}`);
- 
-    if (!esLaboral) {
-      return res.json({ success: true, message: 'No es un dia laboral', data: null });
-    }
- 
-    const { data: existingRecord, error: checkError } = await supabase
-      .from('racha_daily_progress')
-      .select('*')
-      .eq('user_id', user_id)
-      .eq('fecha', fechaHoy);
- 
-    if (checkError) throw checkError;
- 
-    let result;
-    if (existingRecord && existingRecord.length > 0) {
-      const { data, error } = await supabase
-        .from('racha_daily_progress')
-        .update({ pildora_completada: true, updated_at: new Date().toISOString() })
-        .eq('id', existingRecord[0].id)
-        .select();
-      if (error) throw error;
-      result = data[0];
-    } else {
-      const { data, error } = await supabase
-        .from('racha_daily_progress')
-        .insert([{
-          user_id,
-          fecha: fechaHoy,
-          login_hecho: false,
-          pildora_completada: true,
-          es_dia_laboral: esLaboral,
-        }])
-        .select();
-      if (error) throw error;
-      result = data[0];
-    }
- 
-    console.log('✅ Pildora registrada');
-    res.status(201).json({ success: true, message: 'Pildora registrada', data: result });
-  } catch (error) {
-    console.error('❌ Error en registrar-pildora:', error.message);
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
- 
-app.get('/api/racha/estadisticas', authenticateToken, async (req, res) => {
-  try {
-    const { user_id, mes, ano } = req.query;
- 
-    if (!user_id || !mes || !ano) {
-      return res.status(400).json({
-        success: false,
-        error: 'user_id, mes y ano son requeridos'
-      });
-    }
- 
-    console.log(`📊 GET /api/racha/estadisticas - User: ${user_id}, Mes: ${mes}/${ano}`);
- 
-    const { data, error } = await supabase
-      .from('user_racha_stats')
-      .select('*')
-      .eq('user_id', user_id)
-      .eq('mes', parseInt(mes))
-      .eq('ano', parseInt(ano));
- 
-    if (error) throw error;
- 
-    res.json({ success: true, data: data && data.length > 0 ? data[0] : {} });
-  } catch (error) {
-    console.error('❌ Error en estadisticas:', error.message);
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
- 
-app.get('/api/racha/progreso', authenticateToken, async (req, res) => {
-  try {
-    const { user_id, mes, ano } = req.query;
- 
-    if (!user_id || !mes || !ano) {
-      return res.status(400).json({
-        success: false,
-        error: 'user_id, mes y ano son requeridos'
-      });
-    }
- 
-    const primerDia = new Date(parseInt(ano), parseInt(mes) - 1, 1).toISOString().split('T')[0];
-    const ultimoDia = new Date(parseInt(ano), parseInt(mes), 0).toISOString().split('T')[0];
- 
-    console.log(`📅 GET /api/racha/progreso - User: ${user_id}, Rango: ${primerDia} a ${ultimoDia}`);
- 
-    const { data, error } = await supabase
-      .from('racha_daily_progress')
-      .select('*')
-      .eq('user_id', user_id)
-      .gte('fecha', primerDia)
-      .lte('fecha', ultimoDia)
-      .order('fecha', { ascending: true });
- 
-    if (error) throw error;
- 
-    res.json({ success: true, data: data || [] });
-  } catch (error) {
-    console.error('❌ Error en progreso:', error.message);
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
- 
+
 app.listen(PORT, () => {
   console.log(`🚀 Servidor RetUp corriendo en puerto ${PORT}`);
 });
