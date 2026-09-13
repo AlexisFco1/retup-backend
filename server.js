@@ -104,7 +104,6 @@ app.post('/api/auth/login', async (req, res) => {
  
 app.post('/api/auth/logout', authenticateToken, async (req, res) => {
   try {
-    await supabase.auth.signOut();
     res.json({ success: true, message: 'Logout exitoso' });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
@@ -565,7 +564,30 @@ app.delete('/api/user-progress/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// ===== ENDPOINTS DE RACHAS (PROTEGIDOS) ✅ =====
+// ===== HELPER: Obtener días laborales del mes =====
+function _obtenerDiasLaboralesMes(mes, ano) {
+  const diasLaborales = [];
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  
+  for (let dia = 1; dia <= ultimoDia; dia++) {
+    const fecha = new Date(ano, mes - 1, dia);
+    // Lunes (1) a Viernes (5)
+    if (fecha.getDay() >= 1 && fecha.getDay() <= 5) {
+      const fechaStr = fecha.toISOString().split('T')[0];
+      diasLaborales.push(fechaStr);
+    }
+  }
+  
+  return diasLaborales;
+}
+
+// ===== HELPER: Verificar si es día laboral =====
+function _esDialaboral(fecha) {
+  const dia = fecha.getDay();
+  return dia >= 1 && dia <= 5;
+}
+
+// ===== ENDPOINTS DE RACHAS (PROTEGIDOS) =====
 app.post('/api/racha/registrar-login', authenticateToken, async (req, res) => {
   try {
     const { user_id } = req.body;
@@ -662,12 +684,6 @@ app.post('/api/racha/registrar-pildora', authenticateToken, async (req, res) => 
   }
 });
 
-function _esDialaboral(fecha) {
-  const dia = fecha.getDay();
-  return dia >= 1 && dia <= 5;
-}
- // ===== ENDPOINTS DE OBTENER ESTADÍSTICAS DE RACHAS (PROTEGIDOS) ✅ =====
-// ===== ENDPOINTS DE OBTENER ESTADÍSTICAS DE RACHAS (PROTEGIDOS) ✅ =====
 app.get('/api/racha/estadisticas', authenticateToken, async (req, res) => {
   try {
     const { user_id, mes, ano } = req.query;
@@ -701,10 +717,10 @@ app.get('/api/racha/estadisticas', authenticateToken, async (req, res) => {
 
     // Contar días no cumplidos (días laborales que pasaron sin píldora)
     const ahora = new Date();
-    const diasNoCumplidos = diasLaborales.filter(fecha => {
-      const fechaStr = fecha.toISOString().split('T')[0];
+    const diasNoCumplidos = diasLaborales.filter(fechaStr => {
       const registro = progreso.find(p => p.fecha === fechaStr);
-      return (!registro || !registro.pildora_completada) && fecha <= ahora;
+      const fechaDate = new Date(fechaStr);
+      return (!registro || !registro.pildora_completada) && fechaDate <= ahora;
     }).length;
 
     // Calcular racha (días consecutivos desde hoy hacia atrás)
@@ -777,66 +793,6 @@ app.get('/api/racha/progreso', authenticateToken, async (req, res) => {
   }
 });
 
-// Helper para obtener días laborales del mes
-function _obtenerDiasLaboralesMes(mes, ano) {
-  const diasLaborales = [];
-  const ultimoDia = new Date(ano, mes, 0).getDate();
-  
-  for (let dia = 1; dia <= ultimoDia; dia++) {
-    const fecha = new Date(ano, mes - 1, dia);
-    // Lunes (1) a Viernes (5)
-    if (fecha.getDay() >= 1 && fecha.getDay() <= 5) {
-      diasLaborales.push(fecha);
-    }
-  }
-  
-  return diasLaborales;
-}
-
-app.get('/api/racha/progreso-mes', authenticateToken, async (req, res) => {
-  try {
-    const { user_id } = req.query;
-    const ahora = new Date();
-    const mes = ahora.getMonth() + 1;
-    const ano = ahora.getFullYear();
-
-    console.log(`📈 GET /api/racha/progreso-mes - User: ${user_id}, Mes: ${mes}/${ano}`);
-
-    const { data: progreso, error } = await supabase
-      .from('racha_daily_progress')
-      .select('fecha, pildora_completada, es_dia_laboral')
-      .eq('user_id', user_id)
-      .gte('fecha', `${ano}-${String(mes).padStart(2, '0')}-01`)
-      .lte('fecha', `${ano}-${String(mes).padStart(2, '0')}-31`)
-      .order('fecha', { ascending: true });
-
-    if (error) throw error;
-
-    res.json({
-      success: true,
-      data: progreso || []
-    });
-  } catch (error) {
-    console.error('❌ Error en progreso-mes:', error.message);
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-// Helper para obtener días laborales del mes
-function _obtenerDiasLaboralesMes(mes, ano) {
-  const diasLaborales = [];
-  const ultimoDia = new Date(ano, mes, 0).getDate();
-  
-  for (let dia = 1; dia <= ultimoDia; dia++) {
-    const fecha = new Date(ano, mes - 1, dia);
-    // Lunes (1) a Viernes (5)
-    if (fecha.getDay() >= 1 && fecha.getDay() <= 5) {
-      diasLaborales.push(fecha);
-    }
-  }
-  
-  return diasLaborales;
-}
 // ===== ENDPOINTS DE ANONYMOUS_NOMINATIONS (PROTEGIDOS) =====
 app.get('/api/nominations', authenticateToken, async (req, res) => {
   try {
