@@ -174,7 +174,8 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       if (success && mounted) {
         // 2. Registrar la píldora completada en Rachas (CON TOKEN)
         final rachaProvider = context.read<RachaProvider>();
-        await rachaProvider.registrarPildoraCompletada(userId, token);
+        await rachaProvider.registrarPildoraCompletada(
+            userId, widget.retoId, token);
 
         showDialog(
           context: context,

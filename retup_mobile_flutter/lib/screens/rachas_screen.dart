@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/racha_provider.dart';
+import '../providers/reto_provider.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
 import 'package:intl/intl.dart';
 
@@ -23,11 +24,19 @@ class _RachasScreenState extends State<RachasScreen> {
 
   Future<void> _cargarDatos() async {
     final authProvider = context.read<AuthProvider>();
+    final retoProvider = context.read<RetoProvider>();
     final rachaProvider = context.read<RachaProvider>();
 
-    if (authProvider.userId != null) {
+    if (authProvider.userId != null &&
+        retoProvider.retoSeleccionado != null &&
+        authProvider.token != null) {
       await rachaProvider.cargarEstadisticas(
-          authProvider.userId!, authProvider.token!); // ✅
+        authProvider.userId!,
+        retoProvider.retoSeleccionado!.reto.id,
+        authProvider.token!,
+      );
+    } else {
+      print('⚠️ Advertencia: Usuario o reto no inicializado');
     }
   }
 

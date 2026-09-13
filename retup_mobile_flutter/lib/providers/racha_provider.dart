@@ -19,15 +19,17 @@ class RachaProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get progresoDiario => _progresoDiario;
 
   // Load statistics for the current month
-  Future<void> cargarEstadisticas(String userId, String token) async {
+  Future<void> cargarEstadisticas(
+      String userId, String retoId, String token) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       _estadisticasMes =
-          await _rachaService.obtenerEstadisticasMes(userId, token);
-      _progresoDiario = await _rachaService.obtenerProgresoMes(userId, token);
+          await _rachaService.obtenerEstadisticasMes(userId, retoId, token);
+      _progresoDiario =
+          await _rachaService.obtenerProgresoMes(userId, retoId, token);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -38,11 +40,12 @@ class RachaProvider extends ChangeNotifier {
   }
 
   // Register login for today (CON TOKEN)
-  Future<void> registrarLogin(String userId, String token) async {
+  Future<void> registrarLogin(
+      String userId, String retoId, String token) async {
     try {
-      await _rachaService.registrarLogin(userId, token);
+      await _rachaService.registrarLogin(userId, retoId, token);
       // Reload statistics after registering login
-      await cargarEstadisticas(userId, token);
+      await cargarEstadisticas(userId, retoId, token);
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -51,11 +54,12 @@ class RachaProvider extends ChangeNotifier {
   }
 
   // Register pildora completion for today (CON TOKEN)
-  Future<void> registrarPildoraCompletada(String userId, String token) async {
+  Future<void> registrarPildoraCompletada(
+      String userId, String retoId, String token) async {
     try {
-      await _rachaService.registrarPildoraCompletada(userId, token);
+      await _rachaService.registrarPildoraCompletada(userId, retoId, token);
       // Reload statistics after registering pildora
-      await cargarEstadisticas(userId, token);
+      await cargarEstadisticas(userId, retoId, token);
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -69,9 +73,10 @@ class RachaProvider extends ChangeNotifier {
   }
 
   // Check if pildora was completed today
-  Future<bool> completoPildoraHoy(String userId, String token) async {
+  Future<bool> completoPildoraHoy(
+      String userId, String retoId, String token) async {
     try {
-      return await _rachaService.completoPildoraHoy(userId, token);
+      return await _rachaService.completoPildoraHoy(userId, retoId, token);
     } catch (e) {
       print('Error: $e');
       return false;
@@ -79,9 +84,9 @@ class RachaProvider extends ChangeNotifier {
   }
 
   // Check if login was done today
-  Future<bool> hizoLoginHoy(String userId, String token) async {
+  Future<bool> hizoLoginHoy(String userId, String retoId, String token) async {
     try {
-      return await _rachaService.hizoLoginHoy(userId, token);
+      return await _rachaService.hizoLoginHoy(userId, retoId, token);
     } catch (e) {
       print('Error: $e');
       return false;

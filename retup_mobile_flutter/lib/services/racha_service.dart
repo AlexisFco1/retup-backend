@@ -13,7 +13,8 @@ class RachaService {
   RachaService._internal();
 
   // Register user login for current day
-  Future<void> registrarLogin(String userId, String token) async {
+  Future<void> registrarLogin(
+      String userId, String retoId, String token) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/racha/registrar-login'),
@@ -23,6 +24,7 @@ class RachaService {
         },
         body: jsonEncode({
           'user_id': userId,
+          'reto_id': retoId,
         }),
       );
 
@@ -36,7 +38,8 @@ class RachaService {
   }
 
   // Register pildora completion for current day
-  Future<void> registrarPildoraCompletada(String userId, String token) async {
+  Future<void> registrarPildoraCompletada(
+      String userId, String retoId, String token) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/racha/registrar-pildora'),
@@ -46,6 +49,7 @@ class RachaService {
         },
         body: jsonEncode({
           'user_id': userId,
+          'reto_id': retoId,
         }),
       );
 
@@ -60,7 +64,7 @@ class RachaService {
 
   // Get monthly statistics
   Future<Map<String, dynamic>> obtenerEstadisticasMes(
-      String userId, String token) async {
+      String userId, String retoId, String token) async {
     try {
       final now = DateTime.now();
       final mesActual = now.month;
@@ -68,7 +72,7 @@ class RachaService {
 
       final response = await http.get(
         Uri.parse(
-            '$baseUrl/racha/estadisticas?user_id=$userId&mes=$mesActual&ano=$anoActual'),
+            '$baseUrl/racha/estadisticas-por-reto?user_id=$userId&reto_id=$retoId&mes=$mesActual&ano=$anoActual'),
         headers: {
           'Authorization': 'Bearer $token',
         },
@@ -88,7 +92,7 @@ class RachaService {
 
   // Get daily progress for current month
   Future<List<Map<String, dynamic>>> obtenerProgresoMes(
-      String userId, String token) async {
+      String userId, String retoId, String token) async {
     try {
       final now = DateTime.now();
       final mesActual = now.month;
@@ -96,7 +100,7 @@ class RachaService {
 
       final response = await http.get(
         Uri.parse(
-            '$baseUrl/racha/progreso?user_id=$userId&mes=$mesActual&ano=$anoActual'),
+            '$baseUrl/racha/progreso?user_id=$userId&reto_id=$retoId&mes=$mesActual&ano=$anoActual'),
         headers: {
           'Authorization': 'Bearer $token',
         },
@@ -139,14 +143,15 @@ class RachaService {
   }
 
   // Check if user completed pildora today
-  Future<bool> completoPildoraHoy(String userId, String token) async {
+  Future<bool> completoPildoraHoy(
+      String userId, String retoId, String token) async {
     try {
       final hoy = DateTime.now();
       final fechaStr = DateFormat('yyyy-MM-dd').format(hoy);
 
       final response = await http.get(
         Uri.parse(
-            '$baseUrl/racha/check?user_id=$userId&fecha=$fechaStr&tipo=pildora'),
+            '$baseUrl/racha/check?user_id=$userId&reto_id=$retoId&fecha=$fechaStr&tipo=pildora'),
         headers: {
           'Authorization': 'Bearer $token',
         },
@@ -164,14 +169,14 @@ class RachaService {
   }
 
   // Check if user did login today
-  Future<bool> hizoLoginHoy(String userId, String token) async {
+  Future<bool> hizoLoginHoy(String userId, String retoId, String token) async {
     try {
       final hoy = DateTime.now();
       final fechaStr = DateFormat('yyyy-MM-dd').format(hoy);
 
       final response = await http.get(
         Uri.parse(
-            '$baseUrl/racha/check?user_id=$userId&fecha=$fechaStr&tipo=login'),
+            '$baseUrl/racha/check?user_id=$userId&reto_id=$retoId&fecha=$fechaStr&tipo=login'),
         headers: {
           'Authorization': 'Bearer $token',
         },
