@@ -564,10 +564,14 @@ app.delete('/api/user-progress/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// ===== HELPER: Obtener días laborales del mes =====
+// ===== HELPERS: Funciones auxiliares =====
+function _obtenerUltimoDiaMes(mes, ano) {
+  return new Date(ano, mes, 0).getDate();
+}
+
 function _obtenerDiasLaboralesMes(mes, ano) {
   const diasLaborales = [];
-  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const ultimoDia = _obtenerUltimoDiaMes(mes, ano);
   
   for (let dia = 1; dia <= ultimoDia; dia++) {
     const fecha = new Date(ano, mes - 1, dia);
@@ -581,7 +585,6 @@ function _obtenerDiasLaboralesMes(mes, ano) {
   return diasLaborales;
 }
 
-// ===== HELPER: Verificar si es día laboral =====
 function _esDialaboral(fecha) {
   const dia = fecha.getDay();
   return dia >= 1 && dia <= 5;
@@ -696,6 +699,7 @@ app.get('/api/racha/estadisticas', authenticateToken, async (req, res) => {
 
     const mesNum = parseInt(mes);
     const anoNum = parseInt(ano);
+    const ultimoDiaDelMes = _obtenerUltimoDiaMes(mesNum, anoNum);
 
     // Obtener días laborales del mes
     const diasLaborales = _obtenerDiasLaboralesMes(mesNum, anoNum);
@@ -706,7 +710,7 @@ app.get('/api/racha/estadisticas', authenticateToken, async (req, res) => {
       .select('*')
       .eq('user_id', user_id)
       .gte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-01`)
-      .lte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-31`);
+      .lte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-${String(ultimoDiaDelMes).padStart(2, '0')}`);
 
     if (errorProgreso) throw errorProgreso;
 
@@ -772,13 +776,14 @@ app.get('/api/racha/progreso', authenticateToken, async (req, res) => {
 
     const mesNum = parseInt(mes);
     const anoNum = parseInt(ano);
+    const ultimoDiaDelMes = _obtenerUltimoDiaMes(mesNum, anoNum);
 
     const { data: progreso, error } = await supabase
       .from('racha_daily_progress')
       .select('fecha, pildora_completada, es_dia_laboral')
       .eq('user_id', user_id)
       .gte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-01`)
-      .lte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-31`)
+      .lte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-${String(ultimoDiaDelMes).padStart(2, '0')}`)
       .order('fecha', { ascending: true });
 
     if (error) throw error;
