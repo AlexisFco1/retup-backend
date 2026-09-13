@@ -569,6 +569,56 @@ app.delete('/api/user-progress/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// ===== ENDPOINTS DE ANONYMOUS_NOMINATIONS (PROTEGIDOS) ✅ =====
+app.post('/api/nominations', authenticateToken, async (req, res) => {
+  try {
+    console.log('📝 POST /api/nominations');
+    console.log('   Body:', req.body);
+    console.log('   User:', req.user.id);
+    
+    const { 
+      respondent_user_id, 
+      nominated_user_id, 
+      reto_id, 
+      pill_id, 
+      section_number, 
+      vote_type 
+    } = req.body;
+
+    console.log('✅ Parámetros recibidos:');
+    console.log('   respondent_user_id:', respondent_user_id);
+    console.log('   nominated_user_id:', nominated_user_id);
+    console.log('   reto_id:', reto_id);
+    console.log('   pill_id:', pill_id);
+    console.log('   section_number:', section_number);
+    console.log('   vote_type:', vote_type);
+
+    const { data, error } = await supabase
+      .from('anonymous_nominations')
+      .insert([{
+        respondent_user_id,
+        nominated_user_id,
+        reto_id,
+        pill_id,
+        section_number,
+        vote_type,
+        is_anonymous: false,
+        created_at: new Date().toISOString(),
+      }])
+      .select();
+
+    if (error) {
+      console.error('❌ Error en insert:', error);
+      throw error;
+    }
+
+    console.log('✅ Voto registrado exitosamente:', data[0].id);
+    res.status(201).json({ success: true, data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en POST /nominations:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
 // ===== ENDPOINTS DE RACHAS (PROTEGIDOS) =====
 app.post('/api/racha/registrar-login', authenticateToken, async (req, res) => {
   try {

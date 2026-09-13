@@ -246,25 +246,25 @@ class _RachasScreenState extends State<RachasScreen> {
             childAspectRatio: 1.2,
             children: [
               _buildStatCard(
-                title: 'Día Píldora',
+                title: 'Día Píldora Planificada L-V',
                 value: diaPildora.toString(),
                 icon: Icons.calendar_today,
                 color: Colors.blue,
               ),
               _buildStatCard(
-                title: 'Cumplidos',
+                title: 'Pildoras cumplidas L-D',
                 value: cumplidos.toString(),
                 icon: Icons.check_circle,
                 color: Colors.green,
               ),
               _buildStatCard(
-                title: 'Racha',
+                title: 'Racha L-V',
                 value: racha.toString(),
                 icon: Icons.local_fire_department,
                 color: Colors.orange,
               ),
               _buildStatCard(
-                title: 'No Cumplidos',
+                title: 'Dias no cumplidos L-V',
                 value: noCumplidos.toString(),
                 icon: Icons.cancel,
                 color: Colors.red,
@@ -368,7 +368,7 @@ class _RachasScreenState extends State<RachasScreen> {
 
           // ===== LEADERBOARD DE DÍAS CUMPLIDOS =====
           _buildLeaderboardCard(
-            title: '✅ Por Días Cumplidos',
+            title: '✅ Por Pildoras Cumplidos',
             leaderboard: leaderboardDiasCumplidos,
             valueKey: 'dias_cumplidos_total',
             subtitleKey: 'full_name',
