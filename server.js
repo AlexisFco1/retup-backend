@@ -667,25 +667,30 @@ function _esDialaboral(fecha) {
   return dia >= 1 && dia <= 5;
 }
  // ===== ENDPOINTS DE OBTENER ESTADÍSTICAS DE RACHAS (PROTEGIDOS) ✅ =====
-app.get('/api/racha/estadisticas-mes', authenticateToken, async (req, res) => {
+// ===== ENDPOINTS DE OBTENER ESTADÍSTICAS DE RACHAS (PROTEGIDOS) ✅ =====
+app.get('/api/racha/estadisticas', authenticateToken, async (req, res) => {
   try {
-    const { user_id } = req.query;
-    const ahora = new Date();
-    const mes = ahora.getMonth() + 1;
-    const ano = ahora.getFullYear();
+    const { user_id, mes, ano } = req.query;
+    
+    if (!user_id || !mes || !ano) {
+      return res.status(400).json({ success: false, error: 'Faltan parámetros: user_id, mes, ano' });
+    }
 
-    console.log(`📊 GET /api/racha/estadisticas-mes - User: ${user_id}, Mes: ${mes}/${ano}`);
+    console.log(`📊 GET /api/racha/estadisticas - User: ${user_id}, Mes: ${mes}/${ano}`);
+
+    const mesNum = parseInt(mes);
+    const anoNum = parseInt(ano);
 
     // Obtener días laborales del mes
-    const diasLaborales = _obtenerDiasLaboralesMes(mes, ano);
+    const diasLaborales = _obtenerDiasLaboralesMes(mesNum, anoNum);
     
     // Obtener progreso del mes
     const { data: progreso, error: errorProgreso } = await supabase
       .from('racha_daily_progress')
       .select('*')
       .eq('user_id', user_id)
-      .gte('fecha', `${ano}-${String(mes).padStart(2, '0')}-01`)
-      .lte('fecha', `${ano}-${String(mes).padStart(2, '0')}-31`);
+      .gte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-01`)
+      .lte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-31`);
 
     if (errorProgreso) throw errorProgreso;
 
@@ -694,12 +699,13 @@ app.get('/api/racha/estadisticas-mes', authenticateToken, async (req, res) => {
       p.pildora_completada && p.es_dia_laboral
     ).length;
 
-    // Contar días no cumplidos (días laborales que pasaron sin píldora y son días laborales)
+    // Contar días no cumplidos (días laborales que pasaron sin píldora)
+    const ahora = new Date();
     const diasNoCumplidos = diasLaborales.filter(fecha => {
       const fechaStr = fecha.toISOString().split('T')[0];
       const registro = progreso.find(p => p.fecha === fechaStr);
-      return !registro || !registro.pildora_completada;
-    }).filter(fecha => fecha <= ahora).length;
+      return (!registro || !registro.pildora_completada) && fecha <= ahora;
+    }).length;
 
     // Calcular racha (días consecutivos desde hoy hacia atrás)
     let diasRacha = 0;
@@ -725,16 +731,67 @@ app.get('/api/racha/estadisticas-mes', authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
-      dia_pildora: diasCumplidos,
-      dias_racha: diasRacha,
-      dias_cumplidos: diasCumplidos,
-      dias_no_cumplidos: diasNoCumplidos
+      data: {
+        dia_pildora: diasCumplidos,
+        dias_racha: diasRacha,
+        dias_cumplidos: diasCumplidos,
+        dias_no_cumplidos: diasNoCumplidos
+      }
     });
   } catch (error) {
-    console.error('❌ Error en estadisticas-mes:', error.message);
+    console.error('❌ Error en estadisticas:', error.message);
     res.status(400).json({ success: false, error: error.message });
   }
 });
+
+app.get('/api/racha/progreso', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, mes, ano } = req.query;
+    
+    if (!user_id || !mes || !ano) {
+      return res.status(400).json({ success: false, error: 'Faltan parámetros: user_id, mes, ano' });
+    }
+
+    console.log(`📈 GET /api/racha/progreso - User: ${user_id}, Mes: ${mes}/${ano}`);
+
+    const mesNum = parseInt(mes);
+    const anoNum = parseInt(ano);
+
+    const { data: progreso, error } = await supabase
+      .from('racha_daily_progress')
+      .select('fecha, pildora_completada, es_dia_laboral')
+      .eq('user_id', user_id)
+      .gte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-01`)
+      .lte('fecha', `${anoNum}-${String(mesNum).padStart(2, '0')}-31`)
+      .order('fecha', { ascending: true });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: progreso || []
+    });
+  } catch (error) {
+    console.error('❌ Error en progreso:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Helper para obtener días laborales del mes
+function _obtenerDiasLaboralesMes(mes, ano) {
+  const diasLaborales = [];
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  
+  for (let dia = 1; dia <= ultimoDia; dia++) {
+    const fecha = new Date(ano, mes - 1, dia);
+    // Lunes (1) a Viernes (5)
+    if (fecha.getDay() >= 1 && fecha.getDay() <= 5) {
+      diasLaborales.push(fecha);
+    }
+  }
+  
+  return diasLaborales;
+}
 
 app.get('/api/racha/progreso-mes', authenticateToken, async (req, res) => {
   try {
