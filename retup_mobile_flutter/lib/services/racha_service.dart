@@ -148,6 +148,8 @@ class RachaService {
 
   // ===== NEW METHOD: Get leaderboard =====
 
+  // ===== NEW METHOD: Get leaderboard =====
+
   Future<Map<String, dynamic>> obtenerLeaderboard(String token) async {
     try {
       final now = DateTime.now();
@@ -155,14 +157,23 @@ class RachaService {
       final ano = now.year;
 
       final response = await http.get(
-        Uri.parse('$baseUrl/racha/leaderboard?mes=$mes&ano=$ano'),
+        Uri.parse(
+            '$baseUrl/racha/leaderboard-dias-cumplidos?mes=$mes&ano=$ano'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
-      print('🏆 GET /racha/leaderboard - Status: ${response.statusCode}');
+      print(
+          '🏆 GET /racha/leaderboard-dias-cumplidos - Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final jsonResponse = jsonDecode(response.body);
+
+        // Extraer la parte 'data' si viene envuelta
+        if (jsonResponse['data'] != null) {
+          return jsonResponse['data'] as Map<String, dynamic>;
+        }
+
+        return jsonResponse;
       }
       throw Exception('Error al obtener leaderboard: ${response.statusCode}');
     } catch (e) {

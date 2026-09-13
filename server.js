@@ -1069,7 +1069,8 @@ app.get('/api/racha/progreso', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/racha/leaderboard', authenticateToken, async (req, res) => {
+// ===== ENDPOINT CORREGIDO: Leaderboard con Días Cumplidos Y Racha =====
+app.get('/api/racha/leaderboard-dias-cumplidos', authenticateToken, async (req, res) => {
   try {
     const { mes, ano } = req.query;
 
@@ -1080,12 +1081,13 @@ app.get('/api/racha/leaderboard', authenticateToken, async (req, res) => {
       });
     }
 
-    console.log(`🏆 GET /api/racha/leaderboard - Mes: ${mes}/${ano}`);
+    console.log(`🏆 GET /api/racha/leaderboard-dias-cumplidos - Mes: ${mes}/${ano}`);
 
     const mesNum = parseInt(mes);
     const anoNum = parseInt(ano);
+    const ultimoDiaDelMes = new Date(anoNum, mesNum, 0).getDate();
 
-    // Obtener todas las rachas del mes
+    // ===== LEADERBOARD 1: Por RACHA MÁXIMA =====
     const { data: todasLasRachas, error: errorRachas } = await supabase
       .from('user_racha_stats')
       .select('*')
@@ -1094,69 +1096,96 @@ app.get('/api/racha/leaderboard', authenticateToken, async (req, res) => {
 
     if (errorRachas) throw errorRachas;
 
-    // Agrupar por usuario y obtener el MEJOR racha_maxima
-    const usuariosMap = {};
-
+    const usuariosRacha = {};
     for (const racha of todasLasRachas) {
-      if (!usuariosMap[racha.user_id]) {
-        usuariosMap[racha.user_id] = {
+      if (!usuariosRacha[racha.user_id]) {
+        usuariosRacha[racha.user_id] = {
           user_id: racha.user_id,
           mejor_racha: 0,
           retos_participados: 0
         };
       }
-
-      // Actualizar con el máximo encontrado
-      usuariosMap[racha.user_id].mejor_racha = Math.max(
-        usuariosMap[racha.user_id].mejor_racha,
+      usuariosRacha[racha.user_id].mejor_racha = Math.max(
+        usuariosRacha[racha.user_id].mejor_racha,
         racha.racha_maxima
       );
-      usuariosMap[racha.user_id].retos_participados++;
+      usuariosRacha[racha.user_id].retos_participados++;
     }
 
-    // Convertir a array y ordenar por mejor_racha descendente
-    let leaderboard = Object.values(usuariosMap);
-    leaderboard.sort((a, b) => b.mejor_racha - a.mejor_racha);
+    let leaderboardRacha = Object.values(usuariosRacha);
+    leaderboardRacha.sort((a, b) => b.mejor_racha - a.mejor_racha);
 
-    // Agregar posición y obtener info del usuario
-    leaderboard = await Promise.all(leaderboard.map(async (item, index) => {
-      const { data: usuario, error: errorUsuario } = await supabase
+    leaderboardRacha = await Promise.all(leaderboardRacha.map(async (item, index) => {
+      const { data: usuario } = await supabase
         .from('users')
-        .select('id, full_name, email')
+        .select('full_name, email')
         .eq('id', item.user_id)
         .single();
 
-      if (!errorUsuario && usuario) {
-        return {
-          posicion: index + 1,
-          usuario_id: item.user_id,
-          nombre: usuario.full_name || usuario.email,
-          mejor_racha: item.mejor_racha,
-          retos_participados: item.retos_participados
-        };
-      }
-
       return {
-        posicion: index + 1,
-        usuario_id: item.user_id,
-        nombre: 'Usuario',
+        position: index + 1,
+        full_name: usuario?.full_name || usuario?.email || 'Usuario',
+        user_id: item.user_id,
         mejor_racha: item.mejor_racha,
         retos_participados: item.retos_participados
       };
     }));
 
-    console.log(`🏆 Leaderboard generado: ${leaderboard.length} usuarios`);
+    // ===== LEADERBOARD 2: Por DÍAS CUMPLIDOS =====
+    const { data: todasCompletadas, error: errorCompletadas } = await supabase
+      .from('user_pill_progress')
+      .select('user_id')
+      .eq('is_completed', true)
+      .gte('completed_at', `${anoNum}-${String(mesNum).padStart(2, '0')}-01`)
+      .lte('completed_at', `${anoNum}-${String(mesNum).padStart(2, '0')}-${String(ultimoDiaDelMes).padStart(2, '0')}`);
+
+    if (errorCompletadas) throw errorCompletadas;
+
+    const usuariosCumplidos = {};
+    for (const item of todasCompletadas) {
+      if (!usuariosCumplidos[item.user_id]) {
+        usuariosCumplidos[item.user_id] = 0;
+      }
+      usuariosCumplidos[item.user_id]++;
+    }
+
+    let leaderboardDiasCumplidos = [];
+    for (const [user_id, dias_cumplidos] of Object.entries(usuariosCumplidos)) {
+      const { data: usuario } = await supabase
+        .from('users')
+        .select('full_name, email')
+        .eq('id', user_id)
+        .single();
+
+      if (usuario) {
+        leaderboardDiasCumplidos.push({
+          user_id,
+          full_name: usuario.full_name || usuario.email || 'Usuario',
+          dias_cumplidos_total: parseInt(dias_cumplidos)
+        });
+      }
+    }
+
+    leaderboardDiasCumplidos.sort((a, b) => b.dias_cumplidos_total - a.dias_cumplidos_total);
+    leaderboardDiasCumplidos = leaderboardDiasCumplidos.map((item, index) => ({
+      position: index + 1,
+      ...item
+    }));
+
+       console.log(`🏆 Leaderboard Racha: ${leaderboardRacha.length} usuarios`);
+    console.log(`🏆 Leaderboard Días Cumplidos: ${leaderboardDiasCumplidos.length} usuarios`);
 
     res.json({
       success: true,
       data: {
+        leaderboard_racha: leaderboardRacha,
+        leaderboard_dias_cumplidos: leaderboardDiasCumplidos,
         mes: mesNum,
-        ano: anoNum,
-        leaderboard
+        ano: anoNum
       }
     });
   } catch (error) {
-    console.error('❌ Error en leaderboard:', error.message);
+    console.error('❌ Error en leaderboard-dias-cumplidos:', error.message);
     res.status(400).json({ success: false, error: error.message });
   }
 });
