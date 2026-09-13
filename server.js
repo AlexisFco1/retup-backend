@@ -512,10 +512,10 @@ app.get('/api/user-progress/:id', authenticateToken, async (req, res) => {
  
 app.post('/api/user-progress', authenticateToken, async (req, res) => {
   try {
-    const { user_id, pill_id, current_screen, self_assessment_score } = req.body;
+    const { user_id, pill_id, current_screen, self_assesment_score } = req.body;
     const { data, error } = await supabase
       .from('user_pill_progress')
-      .insert([{ user_id, pill_id, current_screen, self_assessment_score, is_completed: false }])
+      .insert([{ user_id, pill_id, current_screen, self_assesment_score, is_completed: false }])
       .select();
     if (error) throw error;
     res.json({ success: true, data: data[0] });
@@ -526,8 +526,8 @@ app.post('/api/user-progress', authenticateToken, async (req, res) => {
  
 app.put('/api/user-progress/:id', authenticateToken, async (req, res) => {
   try {
-    const { current_screen, self_assessment_score, is_completed } = req.body;
-    const update = { current_screen, self_assessment_score, is_completed, updated_at: new Date() };
+    const { current_screen, self_assesment_score, is_completed } = req.body;
+    const update = { current_screen, self_assesment_score, is_completed, updated_at: new Date() };
     if (is_completed) update.completed_at = new Date();
     const { data, error } = await supabase
       .from('user_pill_progress')

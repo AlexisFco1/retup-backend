@@ -512,10 +512,10 @@ app.get('/api/user-progress/:id', authenticateToken, async (req, res) => {
  
 app.post('/api/user-progress', authenticateToken, async (req, res) => {
   try {
-    const { user_id, pill_id, current_screen, self_assessment_score } = req.body;
+    const { user_id, pill_id, current_screen, self_assesment_score } = req.body;
     const { data, error } = await supabase
       .from('user_pill_progress')
-      .insert([{ user_id, pill_id, current_screen, self_assessment_score, is_completed: false }])
+      .insert([{ user_id, pill_id, current_screen, self_assesment_score, is_completed: false }])
       .select();
     if (error) throw error;
     res.json({ success: true, data: data[0] });
@@ -526,8 +526,8 @@ app.post('/api/user-progress', authenticateToken, async (req, res) => {
  
 app.put('/api/user-progress/:id', authenticateToken, async (req, res) => {
   try {
-    const { current_screen, self_assessment_score, is_completed } = req.body;
-    const update = { current_screen, self_assessment_score, is_completed, updated_at: new Date() };
+    const { current_screen, self_assesment_score, is_completed } = req.body;
+    const update = { current_screen, self_assesment_score, is_completed, updated_at: new Date() };
     if (is_completed) update.completed_at = new Date();
     const { data, error } = await supabase
       .from('user_pill_progress')
@@ -885,7 +885,7 @@ app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']
       { screen_number: 2, screen_name: 'Dato/evento histórico (gancho)', screen_type: 'fact' },
       { screen_number: 3, screen_name: 'Pregunta anónima: ¿quién lo hace mejor?', screen_type: 'anonymous_question' },
       { screen_number: 4, screen_name: 'Por qué importa (dato estadístico)', screen_type: 'statistic' },
-      { screen_number: 5, screen_name: 'Autopercepción (escala 1-5)', screen_type: 'self_assessment' },
+      { screen_number: 5, screen_name: 'Autopercepción (escala 1-5)', screen_type: 'self_assesment' },
       { screen_number: 6, screen_name: 'Qué aprendiste + beneficio', screen_type: 'learning' },
       { screen_number: 7, screen_name: 'Pregunta anónima: ¿quién podría mejorar?', screen_type: 'anonymous_question' },
       { screen_number: 8, screen_name: 'Práctica social con un compañero', screen_type: 'social_practice' },

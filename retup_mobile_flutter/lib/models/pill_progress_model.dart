@@ -25,7 +25,7 @@ class PillProgress {
       userId: json['user_id'] ?? '',
       pillId: json['pill_id'] ?? '',
       currentScreen: json['current_screen'] ?? 1,
-      selfAssessmentScore: json['self_assessment_score'],
+      selfAssessmentScore: json['self_assesment_score'],
       isCompleted: json['is_completed'] ?? false,
       completedAt: json['completed_at'] != null
           ? DateTime.parse(json['completed_at'])
@@ -42,7 +42,7 @@ class PillProgress {
       'user_id': userId,
       'pill_id': pillId,
       'current_screen': currentScreen,
-      'self_assessment_score': selfAssessmentScore,
+      'self_assesment_score': selfAssessmentScore,
       'is_completed': isCompleted,
       'completed_at': completedAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
