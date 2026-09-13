@@ -714,20 +714,45 @@ app.get('/api/racha/estadisticas', authenticateToken, async (req, res) => {
 
     if (errorProgreso) throw errorProgreso;
 
-    // Contar días cumplidos (píldora completada en días laborales)
+    // ============================================
+    // 1. DIA PILDORA: Número secuencial del día laboral actual
+    // ============================================
+    const today = new Date().toISOString().split('T')[0];
+    const diaPildoraHoy = diasLaborales.indexOf(today) + 1; // +1 porque los índices empiezan en 0
+    const dia_pildora = diaPildoraHoy > 0 ? diaPildoraHoy : 0; // Si hoy no es día laboral, será 0
+
+    console.log(`📅 Día Píldora (número secuencial del día laboral): ${dia_pildora}`);
+    console.log(`   Días laborales totales del mes: ${diasLaborales.length}`);
+    console.log(`   Hoy es: ${today}`);
+
+    // ============================================
+    // 2. CUMPLIDOS: Días donde AMBAS condiciones se cumplen
+    //    login_hecho = true AND pildora_completada = true
+    // ============================================
     const diasCumplidos = progreso.filter(p => 
-      p.pildora_completada && p.es_dia_laboral
+      p.login_hecho === true && p.pildora_completada === true
     ).length;
 
-    // Contar días no cumplidos (días laborales que pasaron sin píldora)
+    console.log(`✅ Días Cumplidos (login + píldora): ${diasCumplidos}`);
+
+    // ============================================
+    // 3. NO CUMPLIDOS: Días laborales pasados sin cumplir ambas condiciones
+    // ============================================
     const ahora = new Date();
     const diasNoCumplidos = diasLaborales.filter(fechaStr => {
       const registro = progreso.find(p => p.fecha === fechaStr);
       const fechaDate = new Date(fechaStr);
-      return (!registro || !registro.pildora_completada) && fechaDate <= ahora;
+      // No cumplido si: no hay registro O si no se cumplieron AMBAS condiciones
+      const noCumplio = !registro || !(registro.login_hecho && registro.pildora_completada);
+      return noCumplio && fechaDate <= ahora;
     }).length;
 
-    // Calcular racha (días consecutivos desde hoy hacia atrás)
+    console.log(`❌ Días No Cumplidos (sin completar): ${diasNoCumplidos}`);
+
+    // ============================================
+    // 4. RACHA: Días CONSECUTIVOS donde AMBAS condiciones se cumplen
+    //    Se calcula hacia atrás desde hoy
+    // ============================================
     let diasRacha = 0;
     let fechaActual = new Date(ahora);
     
@@ -741,18 +766,23 @@ app.get('/api/racha/estadisticas', authenticateToken, async (req, res) => {
       const fechaStr = fechaActual.toISOString().split('T')[0];
       const registro = progreso.find(p => p.fecha === fechaStr);
       
-      if (registro && registro.pildora_completada) {
+      // Ambas condiciones deben cumplirse
+      if (registro && registro.login_hecho === true && registro.pildora_completada === true) {
         diasRacha++;
+        console.log(`   🔥 ${fechaStr}: CUMPLIDO (racha +1 = ${diasRacha})`);
         fechaActual.setDate(fechaActual.getDate() - 1);
       } else {
+        console.log(`   🔌 ${fechaStr}: INCUMPLIDO (racha se detiene)`);
         break;
       }
     }
 
+    console.log(`🔥 Racha (días consecutivos): ${diasRacha}`);
+
     res.json({
       success: true,
       data: {
-        dia_pildora: diasCumplidos,
+        dia_pildora: dia_pildora,
         dias_racha: diasRacha,
         dias_cumplidos: diasCumplidos,
         dias_no_cumplidos: diasNoCumplidos
