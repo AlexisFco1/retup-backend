@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuthService {
-  static const String _baseUrl = 'http://localhost:5000/api';
+  static const String _baseUrl = 'https://retup-backend.onrender.com/api';
   static const _secureStorage = FlutterSecureStorage();
 
   // LOGIN

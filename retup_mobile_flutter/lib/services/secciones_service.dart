@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/seccion_model.dart';
 
 class SeccionesService {
-  static const String baseUrl = 'http://localhost:5000/api';
+  static const String baseUrl = 'https://retup-backend.onrender.com/api';
   final _secureStorage = const FlutterSecureStorage();
 
   Future<String?> _getToken() async {

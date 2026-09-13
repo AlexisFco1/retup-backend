@@ -66,7 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, '/retos');
+        Navigator.pushReplacementNamed(context, '/');
         break;
       case 1:
         Navigator.pushReplacementNamed(context, '/social');

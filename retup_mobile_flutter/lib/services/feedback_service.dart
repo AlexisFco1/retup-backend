@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 
 class FeedbackService {
-  static const String _baseUrl = 'http://localhost:5000/api';
+  static const String _baseUrl = 'https://retup-backend.onrender.com/api';
 
   /// Registra un voto de feedback a través del backend
   Future<void> registerFeedbackVote({
