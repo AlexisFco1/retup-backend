@@ -877,9 +877,10 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
     const racha_actual = rachaStats?.racha_actual || 0;
 
     // ============================================
-    // 1. DIA PILDORA: Contar días laborales hasta hoy (inclusive)
+    // 1. DIA PILDORA: Número secuencial del día laboral actual
     // ============================================
     const ahora = new Date();
+    const today = ahora.toISOString().split('T')[0];
     const dia_pildora = diasLaborales.filter(fechaStr => {
       const fecha = new Date(fechaStr);
       return fecha <= ahora;
@@ -888,13 +889,36 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
     console.log(`📅 Día Píldora: ${dia_pildora} (de ${diasLaborales.length} días laborales)`);
 
     // ============================================
-    // 2. CUMPLIDOS: Días donde AMBAS condiciones se cumplen
+    // 2. CUMPLIDOS: Total de píldoras completadas del reto en el mes
     // ============================================
-    const diasCumplidos = progreso.filter(p =>
-      p.login_hecho === true && p.pildora_completada === true
-    ).length;
+    // Obtener todas las píldoras del reto
+    const { data: pildoras, error: errorPildoras } = await supabase
+      .from('pildoras')
+      .select('id')
+      .eq('reto_id', reto_id);
 
-    console.log(`✅ Días Cumplidos: ${diasCumplidos}`);
+    if (errorPildoras) throw errorPildoras;
+
+    const pildoraIds = pildoras.map(p => p.id);
+    let dias_cumplidos = 0;
+
+    if (pildoraIds.length > 0) {
+      // Contar píldoras completadas para este usuario en este reto durante el mes
+      const { data: completadas, error: errorCompletadas } = await supabase
+        .from('user_pill_progress')
+        .select('*')
+        .eq('user_id', user_id)
+        .in('pill_id', pildoraIds)
+        .eq('is_completed', true)
+        .gte('completed_at', `${anoNum}-${String(mesNum).padStart(2, '0')}-01`)
+        .lte('completed_at', `${anoNum}-${String(mesNum).padStart(2, '0')}-${String(ultimoDiaDelMes).padStart(2, '0')}`);
+
+      if (errorCompletadas) throw errorCompletadas;
+
+      dias_cumplidos = completadas.length;
+    }
+
+    console.log(`✅ Días Cumplidos (Píldoras completadas): ${dias_cumplidos}`);
 
     // ============================================
     // 3. NO CUMPLIDOS: Días laborales pasados sin cumplir ambas condiciones
@@ -917,7 +941,7 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
         dia_pildora,
         racha_actual,
         racha_maxima,
-        dias_cumplidos: diasCumplidos,
+        dias_cumplidos: dias_cumplidos,
         dias_no_cumplidos: diasNoCumplidos,
         dias_laborales_total: diasLaborales.length
       }
@@ -1055,257 +1079,7 @@ app.get('/api/racha/leaderboard', authenticateToken, async (req, res) => {
   }
 });
 
-// ===== ENDPOINTS DE ANONYMOUS_NOMINATIONS (PROTEGIDOS) =====
-app.get('/api/nominations', authenticateToken, async (req, res) => {
-  try {
-    const { reto_id, nominated_id } = req.query;
-    let query = supabase.from('anonymous_nominations').select('*');
-    if (reto_id) query = query.eq('reto_id', reto_id);
-    if (nominated_id) query = query.eq('nominated_user_id', nominated_id);
-    const { data, error } = await query;
-    if (error) throw error;
-    res.json({ success: true, data });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/nominations', authenticateToken, async (req, res) => {
-  try {
-    console.log('📝 POST /api/nominations');
-    console.log('   Body:', req.body);
-    console.log('   User:', req.user.id);
-
-    const {
-      respondent_user_id,
-      nominated_user_id,
-      reto_id,
-      pill_id,
-      section_number,
-      vote_type
-    } = req.body;
-
-    console.log('✅ Parámetros recibidos:');
-    console.log('   respondent_user_id:', respondent_user_id);
-    console.log('   nominated_user_id:', nominated_user_id);
-    console.log('   reto_id:', reto_id);
-    console.log('   pill_id:', pill_id);
-    console.log('   section_number:', section_number);
-    console.log('   vote_type:', vote_type);
-
-    const { data, error } = await supabase
-      .from('anonymous_nominations')
-      .insert([{
-        respondent_user_id,
-        nominated_user_id,
-        reto_id,
-        pill_id,
-        section_number,
-        vote_type,
-        is_anonymous: false,
-        created_at: new Date().toISOString(),
-      }])
-      .select();
-
-    if (error) {
-      console.error('❌ Error en insert:', error);
-      throw error;
-    }
-
-    console.log('✅ Voto registrado exitosamente:', data[0].id);
-    res.status(201).json({ success: true, data: data[0] });
-  } catch (error) {
-    console.error('❌ Error en POST /nominations:', error.message);
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req, res) => {
-  try {
-    console.log('📊 GET /api/nominations/:userId/feedback-score');
-    console.log('   userId:', req.params.userId);
-
-    const userId = req.params.userId;
-
-    const { data: votes, error: votesError } = await supabase
-      .from('anonymous_nominations')
-      .select('*')
-      .eq('nominated_user_id', userId);
-
-    if (votesError) {
-      console.error('❌ Error obteniendo votos:', votesError);
-      throw votesError;
-    }
-
-    console.log(`✅ Votos encontrados: ${votes.length}`);
-
-    if (votes.length === 0) {
-      console.log('⚠️ No hay votos para este usuario');
-      return res.json({
-        success: true,
-        feedbackScore: 0,
-        totalVoters: 0,
-        positiveVoters: 0,
-        totalVotes: 0
-      });
-    }
-
-    const votersMap = {};
-
-    votes.forEach(vote => {
-      const key = `${vote.respondent_user_id}-${vote.reto_id}`;
-      if (!votersMap[key]) {
-        votersMap[key] = {
-          respondent_user_id: vote.respondent_user_id,
-          reto_id: vote.reto_id,
-          positive_votes: 0,
-          negative_votes: 0,
-          votes: []
-        };
-      }
-      votersMap[key].votes.push(vote);
-
-      if (vote.vote_type === 'positive') {
-        votersMap[key].positive_votes++;
-      } else if (vote.vote_type === 'negative') {
-        votersMap[key].negative_votes++;
-      }
-    });
-
-    console.log(`📊 Votantes únicos (por reto): ${Object.keys(votersMap).length}`);
-
-    let totalValidVoters = 0;
-    let positiveVoters = 0;
-
-    Object.values(votersMap).forEach(voter => {
-      console.log(`   Votante ${voter.respondent_user_id} en reto ${voter.reto_id}: ${voter.positive_votes} positivos, ${voter.negative_votes} negativos`);
-
-      if (voter.positive_votes > voter.negative_votes) {
-        console.log(`      ✅ Voto POSITIVO`);
-        positiveVoters++;
-        totalValidVoters++;
-      } else if (voter.negative_votes > voter.positive_votes) {
-        console.log(`      ❌ Voto NEGATIVO`);
-        totalValidVoters++;
-      } else {
-        console.log(`      ⏸️ Voto ANULADO (empate)`);
-      }
-    });
-
-    console.log(`\n📈 Resumen:`);
-    console.log(`   Votantes válidos: ${totalValidVoters}`);
-    console.log(`   Votantes positivos: ${positiveVoters}`);
-
-    let feedbackScore = 0;
-    if (totalValidVoters > 0) {
-      feedbackScore = (100 / totalValidVoters) * positiveVoters;
-    }
-
-    console.log(`   Calificación: ${feedbackScore.toFixed(2)}%`);
-
-    res.json({
-      success: true,
-      feedbackScore: Math.round(feedbackScore * 100) / 100,
-      totalVoters: totalValidVoters,
-      positiveVoters: positiveVoters,
-      totalVotes: votes.length
-    });
-
-  } catch (error) {
-    console.error('❌ Error en feedback-score:', error.message);
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.delete('/api/nominations/:id', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
-  try {
-    const { error } = await supabase
-      .from('anonymous_nominations')
-      .delete()
-      .eq('id', req.params.id);
-    if (error) throw error;
-    res.json({ success: true, message: 'Nominación eliminada' });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
-  try {
-    console.log('🌱 Iniciando inserción de secciones...');
-
-    const { data: pildoras, error: errorPildoras } = await supabase
-      .from('pildoras')
-      .select('id, title')
-      .order('created_at', { ascending: true });
-
-    if (errorPildoras) throw errorPildoras;
-
-    if (pildoras.length === 0) {
-      return res.status(400).json({ error: 'No hay píldoras en la BD' });
-    }
-
-    console.log(`📚 Encontradas ${pildoras.length} píldoras`);
-
-    const estructuraBase = [
-      { screen_number: 1, screen_name: 'Bienvenida + frase motivante', screen_type: 'welcome' },
-      { screen_number: 2, screen_name: 'Dato/evento histórico (gancho)', screen_type: 'fact' },
-      { screen_number: 3, screen_name: 'Pregunta anónima: ¿quién lo hace mejor?', screen_type: 'anonymous_question' },
-      { screen_number: 4, screen_name: 'Por qué importa (dato estadístico)', screen_type: 'statistic' },
-      { screen_number: 5, screen_name: 'Autopercepción (escala 1-5)', screen_type: 'self_assessment' },
-      { screen_number: 6, screen_name: 'Qué aprendiste + beneficio', screen_type: 'learning' },
-      { screen_number: 7, screen_name: 'Pregunta anónima: ¿quién podría mejorar?', screen_type: 'anonymous_question' },
-      { screen_number: 8, screen_name: 'Práctica social con un compañero', screen_type: 'social_practice' },
-      { screen_number: 9, screen_name: 'Mensaje de cierre gratificante', screen_type: 'closing' },
-    ];
-
-    let totalInserted = 0;
-    let seccionesParaInsertar = [];
-
-    for (let i = 0; i < pildoras.length; i++) {
-      const pildora = pildoras[i];
-      console.log(`📝 Procesando píldora ${i + 1}/${pildoras.length}: "${pildora.title}"`);
-
-      estructuraBase.forEach((seccion) => {
-        seccionesParaInsertar.push({
-          pildora_id: pildora.id,
-          screen_number: seccion.screen_number,
-          screen_name: seccion.screen_name,
-          screen_type: seccion.screen_type,
-          screen_content: `[Contenido para completar]\n\nPíldora: "${pildora.title}"\nSección: ${seccion.screen_number}/9 - ${seccion.screen_name}`,
-          source_note: `RetUp - ${pildora.title}`,
-        });
-      });
-
-      if ((i + 1) % 5 === 0 || i === pildoras.length - 1) {
-        console.log(`✅ Insertando lote de ${seccionesParaInsertar.length} secciones...`);
-        const { error } = await supabase
-          .from('pantallas')
-          .insert(seccionesParaInsertar);
-
-        if (error) {
-          console.error(`❌ Error insertando secciones:`, error);
-          throw error;
-        }
-
-        totalInserted += seccionesParaInsertar.length;
-        seccionesParaInsertar = [];
-      }
-    }
-
-    console.log(`✅ Inserción completada: ${totalInserted} secciones en total`);
-    res.json({
-      success: true,
-      message: `✅ ${totalInserted} secciones insertadas exitosamente (${pildoras.length} píldoras × 9 secciones)`,
-      totalInserted,
-      pildorasProcessadas: pildoras.length,
-    });
-  } catch (error) {
-    console.error('❌ Error en seed:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
+// Iniciar servidor
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor RetUp corriendo en puerto ${PORT}`);
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
