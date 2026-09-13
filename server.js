@@ -257,7 +257,7 @@ app.get('/api/retos', authenticateToken, async (req, res) => {
     }
  
     console.log('📦 Retos encontrados:', data.length);
-    res.json(data);  // ✅ Responder SOLO el array
+    res.json(data);
   } catch (error) {
     console.error('❌ Error en GET /retos:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -293,7 +293,7 @@ app.get('/api/retos/:id/pills', authenticateToken, async (req, res) => {
     }
  
     console.log('💊 Píldoras encontradas:', data.length);
-    res.json(data);  // ✅ Responder SOLO el array
+    res.json(data);
   } catch (error) {
     console.error('❌ Error en GET /pills:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -301,9 +301,6 @@ app.get('/api/retos/:id/pills', authenticateToken, async (req, res) => {
 });
  
 // ===== ENDPOINTS DE PILDORAS (PROTEGIDOS) =====
-// ⚠️ RUTAS MÁS ESPECÍFICAS PRIMERO, LUEGO LAS MÁS GENÉRICAS
- 
-// ✅ RUTA ESPECÍFICA: Obtener secciones de una píldora
 app.get('/api/pildoras/:pildoraId/secciones', authenticateToken, async (req, res) => {
   try {
     console.log('📺 GET /api/pildoras/:pildoraId/secciones - Píldora ID:', req.params.pildoraId);
@@ -320,14 +317,13 @@ app.get('/api/pildoras/:pildoraId/secciones', authenticateToken, async (req, res
     }
  
     console.log('✅ Secciones encontradas:', data.length);
-    res.json(data);  // ✅ Responder SOLO el array
+    res.json(data);
   } catch (error) {
     console.error('❌ Error en GET /secciones:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
  
-// ✅ RUTA GENÉRICA: Obtener todas las píldoras
 app.get('/api/pildoras', authenticateToken, async (req, res) => {
   try {
     const { reto_id } = req.query;
@@ -341,7 +337,6 @@ app.get('/api/pildoras', authenticateToken, async (req, res) => {
   }
 });
  
-// ✅ RUTA GENÉRICA: Obtener una píldora por ID
 app.get('/api/pildoras/:id', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -569,8 +564,110 @@ app.delete('/api/user-progress/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// ===== ENDPOINTS DE RACHAS (PROTEGIDOS) ✅ =====
+app.post('/api/racha/registrar-login', authenticateToken, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+    
+    console.log(`📍 POST /api/racha/registrar-login - User: ${user_id}, Fecha: ${today}`);
+
+    const { data: existente, error: errorCheck } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('fecha', today)
+      .single();
+
+    if (errorCheck && errorCheck.code !== 'PGRST116') {
+      throw errorCheck;
+    }
+
+    if (existente) {
+      const { data, error } = await supabase
+        .from('racha_daily_progress')
+        .update({ login_hecho: true })
+        .eq('id', existente.id)
+        .select();
+
+      if (error) throw error;
+      return res.json({ success: true, message: 'Login registrado', data: data[0] });
+    }
+
+    const { data, error } = await supabase
+      .from('racha_daily_progress')
+      .insert([{
+        user_id,
+        fecha: today,
+        pildora_completada: false,
+        login_hecho: true,
+        es_dia_laboral: _esDialaboral(new Date()),
+      }])
+      .select();
+
+    if (error) throw error;
+    res.json({ success: true, message: 'Login registrado', data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en registrar-login:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/racha/registrar-pildora', authenticateToken, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+
+    console.log(`📍 POST /api/racha/registrar-pildora - User: ${user_id}, Fecha: ${today}`);
+
+    const { data: existente, error: errorCheck } = await supabase
+      .from('racha_daily_progress')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('fecha', today)
+      .single();
+
+    if (errorCheck && errorCheck.code !== 'PGRST116') {
+      throw errorCheck;
+    }
+
+    if (existente) {
+      const { data, error } = await supabase
+        .from('racha_daily_progress')
+        .update({ pildora_completada: true })
+        .eq('id', existente.id)
+        .select();
+
+      if (error) throw error;
+      return res.json({ success: true, message: 'Píldora registrada', data: data[0] });
+    }
+
+    const { data, error } = await supabase
+      .from('racha_daily_progress')
+      .insert([{
+        user_id,
+        fecha: today,
+        pildora_completada: true,
+        login_hecho: false,
+        es_dia_laboral: _esDialaboral(new Date()),
+      }])
+      .select();
+
+    if (error) throw error;
+    res.json({ success: true, message: 'Píldora registrada', data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en registrar-pildora:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+function _esDialaboral(fecha) {
+  const dia = fecha.getDay();
+  return dia >= 1 && dia <= 5;
+}
  
-// ===== ENDPOINTS DE ANONYMOUS_NOMINATIONS (PROTEGIDOS) ✅ ACTUALIZADO =====
+// ===== ENDPOINTS DE ANONYMOUS_NOMINATIONS (PROTEGIDOS) =====
 app.get('/api/nominations', authenticateToken, async (req, res) => {
   try {
     const { reto_id, nominated_id } = req.query;
@@ -635,7 +732,6 @@ app.post('/api/nominations', authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ NUEVO ENDPOINT: Calcular feedback score para un usuario
 app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req, res) => {
   try {
     console.log('📊 GET /api/nominations/:userId/feedback-score');
@@ -643,7 +739,6 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
 
     const userId = req.params.userId;
 
-    // PASO 1: Obtener todos los votos donde este usuario fue nominado
     const { data: votes, error: votesError } = await supabase
       .from('anonymous_nominations')
       .select('*')
@@ -656,7 +751,6 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
 
     console.log(`✅ Votos encontrados: ${votes.length}`);
 
-    // Si no hay votos, retornar 0
     if (votes.length === 0) {
       console.log('⚠️ No hay votos para este usuario');
       return res.json({ 
@@ -668,7 +762,6 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
       });
     }
 
-    // PASO 2: Agrupar votos por votante (respondent_user_id) y reto
     const votersMap = {};
     
     votes.forEach(vote => {
@@ -693,7 +786,6 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
 
     console.log(`📊 Votantes únicos (por reto): ${Object.keys(votersMap).length}`);
 
-    // PASO 3: Calcular voto neto por votante
     let totalValidVoters = 0;
     let positiveVoters = 0;
 
@@ -709,7 +801,6 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
         totalValidVoters++;
       } else {
         console.log(`      ⏸️ Voto ANULADO (empate)`);
-        // No cuenta
       }
     });
 
@@ -717,7 +808,6 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
     console.log(`   Votantes válidos: ${totalValidVoters}`);
     console.log(`   Votantes positivos: ${positiveVoters}`);
 
-    // PASO 4: Calcular porcentaje
     let feedbackScore = 0;
     if (totalValidVoters > 0) {
       feedbackScore = (100 / totalValidVoters) * positiveVoters;
@@ -727,7 +817,7 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
 
     res.json({
       success: true,
-      feedbackScore: Math.round(feedbackScore * 100) / 100, // Redondear a 2 decimales
+      feedbackScore: Math.round(feedbackScore * 100) / 100,
       totalVoters: totalValidVoters,
       positiveVoters: positiveVoters,
       totalVotes: votes.length
@@ -752,12 +842,10 @@ app.delete('/api/nominations/:id', authenticateToken, authorizeRole(['super_admi
   }
 });
  
-// ===== ENDPOINT PARA INSERTAR TODAS LAS SECCIONES (SOLO EJECUTAR UNA VEZ) =====
 app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
   try {
-    console.log('🌱 Iniciando inserción de secciones (20 píldoras x 9 secciones = 180 secciones)...');
+    console.log('🌱 Iniciando inserción de secciones...');
  
-    // Obtener todos los IDs de las píldoras
     const { data: pildoras, error: errorPildoras } = await supabase
       .from('pildoras')
       .select('id, title')
@@ -771,7 +859,6 @@ app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']
  
     console.log(`📚 Encontradas ${pildoras.length} píldoras`);
  
-    // Estructura estándar de 9 secciones (aplica a todas las píldoras)
     const estructuraBase = [
       { screen_number: 1, screen_name: 'Bienvenida + frase motivante', screen_type: 'welcome' },
       { screen_number: 2, screen_name: 'Dato/evento histórico (gancho)', screen_type: 'fact' },
@@ -787,12 +874,10 @@ app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']
     let totalInserted = 0;
     let seccionesParaInsertar = [];
  
-    // Para CADA píldora, crear 9 secciones con la estructura base y contenido genérico
     for (let i = 0; i < pildoras.length; i++) {
       const pildora = pildoras[i];
       console.log(`📝 Procesando píldora ${i + 1}/${pildoras.length}: "${pildora.title}"`);
  
-      // Crear las 9 secciones para esta píldora
       estructuraBase.forEach((seccion) => {
         seccionesParaInsertar.push({
           pildora_id: pildora.id,
@@ -804,7 +889,6 @@ app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']
         });
       });
  
-      // Insertar en lotes de 45 (5 píldoras × 9 secciones)
       if ((i + 1) % 5 === 0 || i === pildoras.length - 1) {
         console.log(`✅ Insertando lote de ${seccionesParaInsertar.length} secciones...`);
         const { error } = await supabase
@@ -817,7 +901,7 @@ app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']
         }
  
         totalInserted += seccionesParaInsertar.length;
-        seccionesParaInsertar = []; // Limpiar para el siguiente lote
+        seccionesParaInsertar = [];
       }
     }
  
@@ -834,7 +918,6 @@ app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']
   }
 });
  
-// Inicia servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor RetUp corriendo en puerto ${PORT}`);
 });
