@@ -16,7 +16,7 @@ Future<void> main() async {
   // Inicializar Supabase con credenciales directas
   await Supabase.initialize(
     url: 'https://ebysbekfijndklgkpk.supabase.co',
-    publishableKey:
+    anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVieXNic2Vma2Zqam5ka2xna3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3ODk1ODEsImV4cCI6MjEwNDM2NTU4MX0.WL5wGCnAA9v8QIwX7drFxhHVaKaIEfHj7-48vupu8xI',
   );
 
