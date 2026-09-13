@@ -619,6 +619,108 @@ app.post('/api/nominations', authenticateToken, async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
+// ✅ ENDPOINT: Calcular feedback score para un usuario
+app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req, res) => {
+  try {
+    console.log('📊 GET /api/nominations/:userId/feedback-score');
+    console.log('   userId:', req.params.userId);
+
+    const userId = req.params.userId;
+
+    // PASO 1: Obtener todos los votos donde este usuario fue nominado
+    const { data: votes, error: votesError } = await supabase
+      .from('anonymous_nominations')
+      .select('*')
+      .eq('nominated_user_id', userId);
+
+    if (votesError) {
+      console.error('❌ Error obteniendo votos:', votesError);
+      throw votesError;
+    }
+
+    console.log(`✅ Votos encontrados: ${votes.length}`);
+
+    // Si no hay votos, retornar 0
+    if (votes.length === 0) {
+      console.log('⚠️ No hay votos para este usuario');
+      return res.json({ 
+        success: true, 
+        feedbackScore: 0, 
+        totalVoters: 0, 
+        positiveVoters: 0,
+        totalVotes: 0
+      });
+    }
+
+    // PASO 2: Agrupar votos por votante (respondent_user_id) y reto
+    const votersMap = {};
+    
+    votes.forEach(vote => {
+      const key = `${vote.respondent_user_id}-${vote.reto_id}`;
+      if (!votersMap[key]) {
+        votersMap[key] = {
+          respondent_user_id: vote.respondent_user_id,
+          reto_id: vote.reto_id,
+          positive_votes: 0,
+          negative_votes: 0,
+          votes: []
+        };
+      }
+      votersMap[key].votes.push(vote);
+      
+      if (vote.vote_type === 'positive') {
+        votersMap[key].positive_votes++;
+      } else if (vote.vote_type === 'negative') {
+        votersMap[key].negative_votes++;
+      }
+    });
+
+    console.log(`📊 Votantes únicos (por reto): ${Object.keys(votersMap).length}`);
+
+    // PASO 3: Calcular voto neto por votante
+    let totalValidVoters = 0;
+    let positiveVoters = 0;
+
+    Object.values(votersMap).forEach(voter => {
+      console.log(`   Votante ${voter.respondent_user_id} en reto ${voter.reto_id}: ${voter.positive_votes} positivos, ${voter.negative_votes} negativos`);
+      
+      if (voter.positive_votes > voter.negative_votes) {
+        console.log(`      ✅ Voto POSITIVO`);
+        positiveVoters++;
+        totalValidVoters++;
+      } else if (voter.negative_votes > voter.positive_votes) {
+        console.log(`      ❌ Voto NEGATIVO`);
+        totalValidVoters++;
+      } else {
+        console.log(`      ⏸️ Voto ANULADO (empate)`);
+      }
+    });
+
+    console.log(`\n📈 Resumen:`);
+    console.log(`   Votantes válidos: ${totalValidVoters}`);
+    console.log(`   Votantes positivos: ${positiveVoters}`);
+
+    // PASO 4: Calcular porcentaje
+    let feedbackScore = 0;
+    if (totalValidVoters > 0) {
+      feedbackScore = (100 / totalValidVoters) * positiveVoters;
+    }
+
+    console.log(`   Calificación: ${feedbackScore.toFixed(2)}%`);
+
+    res.json({
+      success: true,
+      feedbackScore: Math.round(feedbackScore * 100) / 100,
+      totalVoters: totalValidVoters,
+      positiveVoters: positiveVoters,
+      totalVotes: votes.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error en feedback-score:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
 // ===== ENDPOINTS DE RACHAS (PROTEGIDOS) =====
 app.post('/api/racha/registrar-login', authenticateToken, async (req, res) => {
   try {
