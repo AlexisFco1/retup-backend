@@ -509,7 +509,7 @@ app.post('/api/user-progress', authenticateToken, async (req, res) => {
     console.log('📝 POST /api/user-progress');
     console.log('   Body:', req.body);
 
-    const { user_id, pill_id, current_screen, self_assessment_score } = req.body;
+    const { user_id, pill_id, current_screen, self_assesment_score } = req.body;
 
     if (!user_id || !pill_id) {
       return res.status(400).json({ 
@@ -524,7 +524,7 @@ app.post('/api/user-progress', authenticateToken, async (req, res) => {
         user_id,
         pill_id,
         current_screen: current_screen || 1,
-        self_assessment_score: self_assessment_score || null,
+        self_assesment_score: self_assesment_score || null,
         is_completed: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -556,7 +556,7 @@ app.put('/api/user-progress/:id', authenticateToken, async (req, res) => {
     console.log(`📝 PUT /api/user-progress/:id - ID: ${req.params.id}`);
     console.log('   Body:', req.body);
 
-    const { current_screen, self_assessment_score, is_completed } = req.body;
+    const { current_screen, self_assesment_score, is_completed } = req.body;
     
     // Construir el objeto update de forma defensiva (solo campos definidos)
     const update = { updated_at: new Date().toISOString() };
@@ -564,8 +564,8 @@ app.put('/api/user-progress/:id', authenticateToken, async (req, res) => {
     if (current_screen !== undefined) {
       update.current_screen = current_screen;
     }
-    if (self_assessment_score !== undefined) {
-      update.self_assessment_score = self_assessment_score;
+    if (self_assesment_score !== undefined) {
+      update.self_assesment_score = self_assesment_score;
     }
     if (is_completed !== undefined) {
       update.is_completed = is_completed;
@@ -849,7 +849,7 @@ app.post('/api/seed/secciones', authenticateToken, authorizeRole(['super_admin']
       { screen_number: 2, screen_name: 'Dato/evento historico (gancho)', screen_type: 'fact' },
       { screen_number: 3, screen_name: 'Pregunta anonima: quien lo hace mejor?', screen_type: 'anonymous_question' },
       { screen_number: 4, screen_name: 'Por que importa (dato estadistico)', screen_type: 'statistic' },
-      { screen_number: 5, screen_name: 'Autopercepcion (escala 1-5)', screen_type: 'self_assessment' },
+      { screen_number: 5, screen_name: 'Autopercepcion (escala 1-5)', screen_type: 'self_assesment' },
       { screen_number: 6, screen_name: 'Que aprendiste + beneficio', screen_type: 'learning' },
       { screen_number: 7, screen_name: 'Pregunta anonima: quien podria mejorar?', screen_type: 'anonymous_question' },
       { screen_number: 8, screen_name: 'Practica social con un companero', screen_type: 'social_practice' },
