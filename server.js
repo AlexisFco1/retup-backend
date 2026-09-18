@@ -707,45 +707,10 @@ function _esDialaboral(fecha) {
 }
 
 async function _actualizarRacha(user_id, reto_id, mes, ano) {
+  console.log(`🔄 Actualizando racha para user: ${user_id}, reto: ${reto_id}`);
+
   try {
-    console.log(`🔄 Actualizando racha para user: ${user_id}, reto: ${reto_id}`);
-
-    const ultimoDiaDelMes = _obtenerUltimoDiaMes(mes, ano);
-    const diasLaborales = _obtenerDiasLaboralesMes(mes, ano);
-
-    // Obtener progreso del mes para este reto
-    const { data: progreso, error: errorProgreso } = await supabase
-      .from('racha_daily_progress')
-      .select('*')
-      .eq('user_id', user_id)
-      .eq('reto_id', reto_id)
-      .gte('fecha', `${ano}-${String(mes).padStart(2, '0')}-01`)
-      .lte('fecha', `${ano}-${String(mes).padStart(2, '0')}-${String(ultimoDiaDelMes).padStart(2, '0')}`);
-
-    if (errorProgreso) throw errorProgreso;
-
-    // Calcular racha_actual (hacia atrás desde hoy)
-    let racha_actual = 0;
-    let fechaActual = new Date();
-
-    while (racha_actual < 365) {
-      if (fechaActual.getDay() === 0 || fechaActual.getDay() === 6) {
-        fechaActual.setDate(fechaActual.getDate() - 1);
-        continue;
-      }
-
-      const fechaStr = fechaActual.toISOString().split('T')[0];
-      const registro = progreso.find(p => p.fecha === fechaStr);
-
-      if (registro && registro.login_hecho === true && registro.pildora_completada === true) {
-        racha_actual++;
-        fechaActual.setDate(fechaActual.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-
-    // Obtener racha_maxima actual
+    // Query 1: Get previous racha_maxima
     const { data: rachaActual, error: errorRachaActual } = await supabase
       .from('user_racha_stats')
       .select('racha_maxima')
@@ -756,13 +721,78 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       .single();
 
     if (errorRachaActual && errorRachaActual.code !== 'PGRST116') {
+      console.error('❌ Error en SELECT racha_maxima:', errorRachaActual);
       throw errorRachaActual;
     }
 
+    // Query 2: Count consecutive days from racha_daily_progress
+    const { data: ultimoDia, error: errorUltimoDia } = await supabase
+      .from('racha_daily_progress')
+      .select('fecha')
+      .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
+      .eq('mes', mes)
+      .eq('año', ano)
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (errorUltimoDia && errorUltimoDia.code !== 'PGRST116') {
+      console.error('❌ Error en SELECT última fecha:', errorUltimoDia);
+      throw errorUltimoDia;
+    }
+
+    // Calculate racha_actual
+    let racha_actual = 0;
+    if (ultimoDia) {
+      const ultimaFecha = new Date(ultimoDia.fecha);
+      const hoy = new Date();
+
+      if (
+        ultimaFecha.getFullYear() === hoy.getFullYear() &&
+        ultimaFecha.getMonth() === hoy.getMonth() &&
+        ultimaFecha.getDate() === hoy.getDate()
+      ) {
+        const { data: dias, error: errorDias } = await supabase
+          .from('racha_daily_progress')
+          .select('fecha')
+          .eq('user_id', user_id)
+          .eq('reto_id', reto_id)
+          .eq('mes', mes)
+          .eq('año', ano)
+          .order('fecha', { ascending: false });
+
+        if (errorDias) {
+          console.error('❌ Error en SELECT días:', errorDias);
+          throw errorDias;
+        }
+
+        racha_actual = 0;
+        if (dias && dias.length > 0) {
+          for (let i = 0; i < dias.length; i++) {
+            const fechaActual = new Date(dias[i].fecha);
+            const fechaEsperada = new Date(hoy);
+            fechaEsperada.setDate(fechaEsperada.getDate() - i);
+
+            if (
+              fechaActual.getFullYear() === fechaEsperada.getFullYear() &&
+              fechaActual.getMonth() === fechaEsperada.getMonth() &&
+              fechaActual.getDate() === fechaEsperada.getDate()
+            ) {
+              racha_actual++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Calculate new racha_maxima
     const racha_maxima_anterior = rachaActual?.racha_maxima || 0;
     const racha_maxima_nueva = Math.max(racha_maxima_anterior, racha_actual);
 
-    // Actualizar o crear registro en user_racha_stats
+    // Query 3: Check if record exists
     const { data: existente, error: errorExistente } = await supabase
       .from('user_racha_stats')
       .select('id')
@@ -773,11 +803,12 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       .single();
 
     if (errorExistente && errorExistente.code !== 'PGRST116') {
+      console.error('❌ Error en SELECT existente:', errorExistente);
       throw errorExistente;
     }
 
+    // Update or Insert
     if (existente) {
-      // Actualizar
       const { error: updateError } = await supabase
         .from('user_racha_stats')
         .update({
@@ -792,14 +823,13 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
         throw updateError;
       }
     } else {
-      // Crear nuevo
       const { error: insertError } = await supabase
         .from('user_racha_stats')
         .insert([{
           user_id,
           reto_id,
           mes,
-          ano,
+          año: ano,
           racha_actual,
           racha_maxima: racha_maxima_nueva
         }]);
