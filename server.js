@@ -1512,20 +1512,7 @@ app.get('/api/racha/leaderboard-dias-cumplidos', authenticateToken, async (req, 
       .eq('año', anoNum);
 
     if (errorRachas) throw errorRachas;
-console.log(`🔍 Consulta user_racha_stats - mes: ${mesNum}, año: ${anoNum}`);
-console.log(`📊 Registros obtenidos: ${todasLasRachas?.length || 0}`);
-if (todasLasRachas) {
-  console.log(`📋 Usuarios en todasLasRachas:`, todasLasRachas.map(r => ({ 
-    user_id: r.user_id, 
-    racha_maxima: r.racha_maxima, 
-    reto_id: r.reto_id 
-  })));
-}
-console.log(`📊 DESPUÉS de agregar: ${leaderboardRacha.length} usuarios únicos`);
-console.log(`📋 Users después de agregar:`, leaderboardRacha.map(u => ({ 
-  user_id: u.user_id, 
-  mejor_racha: u.mejor_racha 
-})));
+
     const usuariosRacha = {};
     for (const racha of todasLasRachas) {
       if (!usuariosRacha[racha.user_id]) {
