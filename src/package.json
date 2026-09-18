@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "dev": "node src/backend/server.js",
-  "build": "tsc",
-  "start": "node server.js"
-},
+    "dev": "node src/backend/server.js",
+    "build": "tsc",
+    "start": "node server.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -17,6 +17,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "node-cron": "^4.6.0",
     "ts-node": "^10.9.2",
     "typescript": "^7.0.2"
   },
