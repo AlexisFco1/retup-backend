@@ -752,6 +752,15 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
     const diasLaborales = diasDelMes.filter(d => d.es_dia_laboral === true);
     console.log(`📅 Días laborales encontrados: ${diasLaborales.length}`);
 
+    // ========== HELPER: Verificar si hueco es solo fin de semana ==========
+    const esHuecoSoloFinDeSemana = (diaPrevio, diaActual, diasDelMes) => {
+      const diasEnHueco = diasDelMes.filter(d => {
+        const fecha = new Date(d.fecha);
+        return fecha > diaPrevio && fecha < diaActual && d.es_dia_laboral === true;
+      });
+      return diasEnHueco.length === 0; // Si no hay días laborales, es solo fin de semana
+    };
+
     // ========== PASO 5: Calcular racha_actual ==========
     let racha_actual = 0;
     
@@ -784,8 +793,13 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
             const diffDias = (diaSiguiente - diaActual) / (1000 * 60 * 60 * 24);
             
             if (diffDias > 1) {
-              console.log(`🔴 Hueco detectado entre ${registro.fecha} y ${diasLaborales[i + 1].fecha}`);
-              break;
+              // Verificar si es solo fin de semana
+              if (esHuecoSoloFinDeSemana(diaActual, diaSiguiente, diasDelMes)) {
+                console.log(`⏭️ Fin de semana entre ${registro.fecha} y ${diasLaborales[i + 1].fecha} - racha continúa`);
+              } else {
+                console.log(`🔴 Hueco con días laborales faltantes entre ${registro.fecha} y ${diasLaborales[i + 1].fecha}`);
+                break;
+              }
             }
           }
           
@@ -805,7 +819,7 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       console.log(`🔴 No hay días laborales registrados este mes`);
     }
 
-    // ========== PASO 6: NUEVO - Buscar MÁXIMA secuencia consecutiva verificando huecos ==========
+    // ========== PASO 6: NUEVO - Buscar MÁXIMA secuencia verificando huecos (ignorando fines de semana) ==========
     let racha_maxima_mes = 0;
     let racha_temporal = 0;
 
@@ -818,14 +832,20 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
         const diaPrevio = new Date(diasLaborales[i - 1].fecha);
         const diffDias = (diaActual - diaPrevio) / (1000 * 60 * 60 * 24);
         
-        // Si hay más de 1 día de diferencia, se rompe la secuencia
+        // Si hay más de 1 día de diferencia, verificar si son todos no-laborales
         if (diffDias > 1) {
-          console.log(`🔴 Hueco detectado entre ${diasLaborales[i - 1].fecha} y ${registro.fecha}`);
-          if (racha_temporal > racha_maxima_mes) {
-            racha_maxima_mes = racha_temporal;
-            console.log(`🏆 Nueva máxima encontrada: ${racha_maxima_mes}`);
+          // Verificar si es solo fin de semana
+          if (esHuecoSoloFinDeSemana(diaPrevio, diaActual, diasDelMes)) {
+            console.log(`⏭️ Fin de semana entre ${diasLaborales[i - 1].fecha} y ${registro.fecha} - racha continúa`);
+          } else {
+            // Hay días laborales faltantes, se rompe la secuencia
+            console.log(`🔴 Hueco con días laborales faltantes entre ${diasLaborales[i - 1].fecha} y ${registro.fecha}`);
+            if (racha_temporal > racha_maxima_mes) {
+              racha_maxima_mes = racha_temporal;
+              console.log(`🏆 Nueva máxima encontrada: ${racha_maxima_mes}`);
+            }
+            racha_temporal = 0;
           }
-          racha_temporal = 0;
         }
       }
       
