@@ -1548,30 +1548,32 @@ app.get('/api/racha/test-cron', async (req, res) => {
     });
   }
 });
-app.get('/api/racha/test-user/:user_id', async (req, res) => {
+app.get('/api/racha/test-user/:user_id/:reto_id', async (req, res) => {
   try {
-    const { user_id } = req.params;
+    const { user_id, reto_id } = req.params;
     const hoy = new Date().toISOString().split('T')[0];
     const mes = new Date().getMonth() + 1;
     const ano = new Date().getFullYear();
 
-    console.log(`🧪 TEST: Verificando racha para user_id: ${user_id}, mes: ${mes}, año: ${ano}`);
+    console.log(`🧪 TEST: Verificando racha para user_id: ${user_id}, reto_id: ${reto_id}, mes: ${mes}, año: ${ano}`);
 
-    // Primero actualizamos la racha
-    await _actualizarRacha(user_id, null, mes, ano);
+    // Primero actualizamos la racha con el reto_id correcto
+    await _actualizarRacha(user_id, reto_id, mes, ano);
 
     // Luego obtenemos los datos actualizados
     const { data, error } = await supabase
       .from('user_racha_stats')
       .select('*')
       .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
       .eq('mes', mes)
-      .eq('año', ano);
+      .eq('año', ano)
+      .single();
 
     if (error) {
       return res.status(404).json({ 
         success: false, 
-        error: 'Usuario no encontrado en user_racha_stats',
+        error: 'Racha no encontrada en user_racha_stats',
         detalle: error.message
       });
     }
@@ -1586,14 +1588,17 @@ app.get('/api/racha/test-user/:user_id', async (req, res) => {
       .from('racha_daily_progress')
       .select('fecha, login_hecho, pildora_completada, es_dia_laboral')
       .eq('user_id', user_id)
+      .eq('reto_id', reto_id)
       .gte('fecha', primerDiaDelMes)
       .lt('fecha', primerDiaProximoMes)
-      .order('fecha', { ascending: false });
+      .order('fecha', { ascending: true });
+
+    console.log(`✅ Racha encontrada - Actual: ${data.racha_actual}, Máxima: ${data.racha_maxima}`);
 
     res.json({
       success: true,
       racha_stats: data,
-      ultimos_dias: registrosDiarios ? registrosDiarios.slice(0, 15) : []
+      ultimos_dias: registrosDiarios ? registrosDiarios : []
     });
   } catch (error) {
     console.error('❌ Error en test-user:', error);
