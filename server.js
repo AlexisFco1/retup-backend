@@ -793,13 +793,40 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       console.log(`🔴 No hay días laborales registrados este mes`);
     }
 
-    // ========== PASO 6: Calcular racha_maxima (nunca disminuye) ==========
-    const racha_maxima_anterior = rachaActual?.racha_maxima || 0;
-    const racha_maxima_nueva = Math.max(racha_maxima_anterior, racha_actual);
-    
-    console.log(`📊 Racha anterior: ${racha_maxima_anterior}, Nueva racha actual: ${racha_actual}, Nueva racha máxima: ${racha_maxima_nueva}`);
+    // ========== PASO 6: NUEVO - Buscar MÁXIMA secuencia consecutiva en TODO el mes ==========
+    let racha_maxima_mes = 0;
+    let racha_temporal = 0;
 
-    // ========== PASO 7: Verificar si el registro ya existe ==========
+    for (let i = 0; i < diasLaborales.length; i++) {
+      const registro = diasLaborales[i];
+      
+      // Si ambas condiciones son true, sumamos a la racha temporal
+      if (registro.login_hecho === true && registro.pildora_completada === true) {
+        racha_temporal++;
+        console.log(`📈 Secuencia en ${registro.fecha}: racha_temporal = ${racha_temporal}`);
+      } else {
+        // Si se rompe, comparamos si es la máxima
+        if (racha_temporal > racha_maxima_mes) {
+          racha_maxima_mes = racha_temporal;
+          console.log(`🏆 Nueva máxima encontrada: ${racha_maxima_mes}`);
+        }
+        racha_temporal = 0;
+      }
+    }
+    
+    // Verificar la última secuencia (si termina el mes con racha)
+    if (racha_temporal > racha_maxima_mes) {
+      racha_maxima_mes = racha_temporal;
+      console.log(`🏆 Nueva máxima al final del mes: ${racha_maxima_mes}`);
+    }
+
+    // ========== PASO 7: Calcular racha_maxima final (nunca disminuye) ==========
+    const racha_maxima_anterior = rachaActual?.racha_maxima || 0;
+    const racha_maxima_nueva = Math.max(racha_maxima_anterior, racha_maxima_mes);
+    
+    console.log(`📊 Racha anterior: ${racha_maxima_anterior}, Máxima del mes: ${racha_maxima_mes}, Final: ${racha_maxima_nueva}`);
+
+    // ========== PASO 8: Verificar si el registro ya existe ==========
     const { data: existente, error: errorExistente } = await supabase
       .from('user_racha_stats')
       .select('id')
@@ -814,7 +841,7 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       throw errorExistente;
     }
 
-    // ========== PASO 8: Actualizar o insertar el registro ==========
+    // ========== PASO 9: Actualizar o insertar el registro ==========
     if (existente) {
       // Actualizar registro existente
       const { error: updateError } = await supabase
