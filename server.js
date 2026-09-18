@@ -1533,20 +1533,32 @@ app.get('/api/racha/leaderboard-dias-cumplidos', authenticateToken, async (req, 
     leaderboardRacha.sort((a, b) => b.mejor_racha - a.mejor_racha);
 
     leaderboardRacha = await Promise.all(leaderboardRacha.map(async (item, index) => {
-      const { data: usuario } = await supabase
-        .from('users')
-        .select('full_name, email')
-        .eq('id', item.user_id)
-        .single();
+  const { data: usuario, error: errorUsuario } = await supabase
+    .from('users')
+    .select('full_name, email')
+    .eq('id', item.user_id)
+    .single();
 
-      return {
-        position: index + 1,
-        full_name: usuario?.full_name || usuario?.email || 'Usuario',
-        user_id: item.user_id,
-        mejor_racha: item.mejor_racha,
-        retos_participados: item.retos_participados
-      };
-    }));
+  // Si el usuario no existe, usar un valor por defecto
+  if (errorUsuario || !usuario) {
+    console.warn(`⚠️ Usuario ${item.user_id} no encontrado en tabla users`);
+    return {
+      position: index + 1,
+      full_name: 'Usuario Eliminado',
+      user_id: item.user_id,
+      mejor_racha: item.mejor_racha,
+      retos_participados: item.retos_participados
+    };
+  }
+
+  return {
+    position: index + 1,
+    full_name: usuario.full_name || usuario.email || 'Usuario',
+    user_id: item.user_id,
+    mejor_racha: item.mejor_racha,
+    retos_participados: item.retos_participados
+  };
+}));
 
     // ===== LEADERBOARD 2: Por DÍAS CUMPLIDOS =====
     const { data: todasCompletadas, error: errorCompletadas } = await supabase
