@@ -3,9 +3,10 @@ const { authenticateToken, authorizeRole } = require('./middleware');
 const express = require('express');
 const cors = require('cors');
 const supabase = require('./supabase');
+const cron = require('node-cron'); 
 const app = express();
 const PORT = process.env.PORT || 5000;
-//const cron = require('node-cron');
+
 
 // Middleware
 app.use(cors());
@@ -1535,12 +1536,10 @@ app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
 // ========== INICIALIZAR CRON JOB ==========
-// const cron = require('node-cron');
+// Ejecutar cada día a las 00:00 (UTC)
+cron.schedule('0 0 * * *', () => {
+  console.log(`⏰ [CRON] Ejecutando verificación de rachas rotas`);
+  _verificarYResetearRachas();
+});
 
-// // Ejecutar cada día a las 00:00 (UTC)
-// cron.schedule('0 0 * * *', () => {
-//   console.log(`⏰ [CRON] Ejecutando verificación de rachas rotas`);
-//   _verificarYResetearRachas();
-// });
-
-// console.log(`⏰ Cron Job registrado: Verificación de rachas rotas diariamente a las 00:00 UTC`);
+console.log(`⏰ Cron Job registrado: Verificación de rachas rotas diariamente a las 00:00 UTC`);
