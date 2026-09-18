@@ -1530,6 +1530,8 @@ app.get('/api/racha/leaderboard-dias-cumplidos', authenticateToken, async (req, 
     }
 
     let leaderboardRacha = Object.values(usuariosRacha);
+    // Filtrar solo usuarios con racha > 0
+leaderboardRacha = leaderboardRacha.filter(u => u.mejor_racha > 0);
     leaderboardRacha.sort((a, b) => b.mejor_racha - a.mejor_racha);
 
     leaderboardRacha = await Promise.all(leaderboardRacha.map(async (item, index) => {
