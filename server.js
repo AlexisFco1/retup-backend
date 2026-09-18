@@ -777,6 +777,18 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
         for (let i = indicioHoy; i >= 0; i--) {
           const registro = diasLaborales[i];
           
+          // Verificar si hay un hueco con el registro siguiente (hacia el futuro)
+          if (i < indicioHoy) {
+            const diaActual = new Date(registro.fecha);
+            const diaSiguiente = new Date(diasLaborales[i + 1].fecha);
+            const diffDias = (diaSiguiente - diaActual) / (1000 * 60 * 60 * 24);
+            
+            if (diffDias > 1) {
+              console.log(`🔴 Hueco detectado entre ${registro.fecha} y ${diasLaborales[i + 1].fecha}`);
+              break;
+            }
+          }
+          
           // ✅ VERIFICAR QUE AMBAS CONDICIONES SEAN TRUE
           if (registro.login_hecho === true && registro.pildora_completada === true) {
             racha_actual++;
@@ -793,12 +805,29 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       console.log(`🔴 No hay días laborales registrados este mes`);
     }
 
-    // ========== PASO 6: NUEVO - Buscar MÁXIMA secuencia consecutiva en TODO el mes ==========
+    // ========== PASO 6: NUEVO - Buscar MÁXIMA secuencia consecutiva verificando huecos ==========
     let racha_maxima_mes = 0;
     let racha_temporal = 0;
 
     for (let i = 0; i < diasLaborales.length; i++) {
       const registro = diasLaborales[i];
+      
+      // Verificar si hay un hueco con el registro anterior
+      if (i > 0) {
+        const diaActual = new Date(registro.fecha);
+        const diaPrevio = new Date(diasLaborales[i - 1].fecha);
+        const diffDias = (diaActual - diaPrevio) / (1000 * 60 * 60 * 24);
+        
+        // Si hay más de 1 día de diferencia, se rompe la secuencia
+        if (diffDias > 1) {
+          console.log(`🔴 Hueco detectado entre ${diasLaborales[i - 1].fecha} y ${registro.fecha}`);
+          if (racha_temporal > racha_maxima_mes) {
+            racha_maxima_mes = racha_temporal;
+            console.log(`🏆 Nueva máxima encontrada: ${racha_maxima_mes}`);
+          }
+          racha_temporal = 0;
+        }
+      }
       
       // Si ambas condiciones son true, sumamos a la racha temporal
       if (registro.login_hecho === true && registro.pildora_completada === true) {
