@@ -741,7 +741,7 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       .eq('reto_id', reto_id)
       .gte('fecha', primerDiaDelMes)
       .lt('fecha', primerDiaProximoMes)
-      .order('fecha', { ascending: false });
+      .order('fecha', { ascending: true });
 
     if (errorDias) {
       console.error('❌ Error en SELECT racha_daily_progress:', errorDias);
