@@ -1530,7 +1530,79 @@ app.get('/api/racha/leaderboard-dias-cumplidos', authenticateToken, async (req, 
     res.status(400).json({ success: false, error: error.message });
   }
 });
+// ===== ENDPOINTS DE TEST (SOLO PARA DESARROLLO) =====
+app.get('/api/racha/test-cron', async (req, res) => {
+  try {
+    console.log('🧪 TEST: Ejecutando verificación manual de rachas...');
+    await _verificarYResetearRachas();
+    res.json({ 
+      success: true, 
+      mensaje: '✅ Verificación de rachas completada exitosamente',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error en test-cron:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+app.get('/api/racha/test-user/:user_id', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const hoy = new Date().toISOString().split('T')[0];
+    const mes = new Date().getMonth() + 1;
+    const ano = new Date().getFullYear();
 
+    console.log(`🧪 TEST: Verificando racha para user_id: ${user_id}, mes: ${mes}, año: ${ano}`);
+
+    // Primero actualizamos la racha
+    await _actualizarRacha(user_id, null, mes, ano);
+
+    // Luego obtenemos los datos actualizados
+    const { data, error } = await supabase
+      .from('user_racha_stats')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('mes', mes)
+      .eq('año', ano);
+
+    if (error) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Usuario no encontrado en user_racha_stats',
+        detalle: error.message
+      });
+    }
+
+    // También traemos los registros diarios del usuario
+    const primerDiaDelMes = `${ano}-${String(mes).padStart(2, '0')}-01`;
+    const proximoMes = mes === 12 ? 1 : mes + 1;
+    const proximoAno = mes === 12 ? ano + 1 : ano;
+    const primerDiaProximoMes = `${proximoAno}-${String(proximoMes).padStart(2, '0')}-01`;
+
+    const { data: registrosDiarios } = await supabase
+      .from('racha_daily_progress')
+      .select('fecha, login_hecho, pildora_completada, es_dia_laboral')
+      .eq('user_id', user_id)
+      .gte('fecha', primerDiaDelMes)
+      .lt('fecha', primerDiaProximoMes)
+      .order('fecha', { ascending: false });
+
+    res.json({
+      success: true,
+      racha_stats: data,
+      ultimos_dias: registrosDiarios ? registrosDiarios.slice(0, 15) : []
+    });
+  } catch (error) {
+    console.error('❌ Error en test-user:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
