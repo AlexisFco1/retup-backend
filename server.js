@@ -1039,7 +1039,7 @@ app.post('/api/racha/verificar-racha', authenticateToken, async (req, res) => {
       .from('user_pill_progress')
       .select('pill_id(reto_id)')
       .eq('user_id', user_id)
-      .distinct();
+      
 
     if (errorRetos) throw errorRetos;
 
