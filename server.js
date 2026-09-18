@@ -751,6 +751,8 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       .select('racha_maxima')
       .eq('user_id', user_id)
       .eq('reto_id', reto_id)
+      .eq('mes', mes)
+      .eq('año', ano)
       .single();
 
     if (errorRachaActual && errorRachaActual.code !== 'PGRST116') {
@@ -766,6 +768,8 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       .select('id')
       .eq('user_id', user_id)
       .eq('reto_id', reto_id)
+      .eq('mes', mes)
+      .eq('año', ano)
       .single();
 
     if (errorExistente && errorExistente.code !== 'PGRST116') {
@@ -774,17 +778,22 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
 
     if (existente) {
       // Actualizar
-      await supabase
+      const { error: updateError } = await supabase
         .from('user_racha_stats')
         .update({
           racha_actual,
           racha_maxima: racha_maxima_nueva,
-          updated_at: new Date()
+          updated_at: new Date().toISOString()
         })
         .eq('id', existente.id);
+
+      if (updateError) {
+        console.error('❌ Error en UPDATE user_racha_stats:', updateError);
+        throw updateError;
+      }
     } else {
       // Crear nuevo
-      await supabase
+      const { error: insertError } = await supabase
         .from('user_racha_stats')
         .insert([{
           user_id,
@@ -794,6 +803,11 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
           racha_actual,
           racha_maxima: racha_maxima_nueva
         }]);
+
+      if (insertError) {
+        console.error('❌ Error en INSERT user_racha_stats:', insertError);
+        throw insertError;
+      }
     }
 
     console.log(`✅ Racha actualizada - Actual: ${racha_actual}, Máxima: ${racha_maxima_nueva}`);
