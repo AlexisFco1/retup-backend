@@ -1,2 +1,7 @@
 .env
 node_modules/
+*.hprof
+build/
+.gradle/
+*.apk
+*.aab
