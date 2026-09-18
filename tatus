@@ -1,0 +1,29 @@
+[33mcommit 0df680492fa60b19924afb9fdc39f455a0ed1589[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: AlexisFco1 <alexisfco7@gmail.com>
+Date:   Sun Sep 13 22:19:02 2026 +0200
+
+    Fix: Update racha endpoints to match service calls
+
+[33mcommit f34b7205d64bc36be1d5b21f40931cf0fe35f042[m
+Author: AlexisFco1 <alexisfco7@gmail.com>
+Date:   Sun Sep 13 22:16:09 2026 +0200
+
+    Fix: Add GET endpoints for racha estadisticas and progreso
+
+[33mcommit abe7e369aee535cccd31bb9ae5dacde34c843713[m
+Author: AlexisFco1 <alexisfco7@gmail.com>
+Date:   Sun Sep 13 22:13:40 2026 +0200
+
+    Fix: Add racha endpoints and fix self_assesment_score column
+
+[33mcommit b79b5507489019c11f546971d4a77cea464b524e[m
+Author: AlexisFco1 <alexisfco7@gmail.com>
+Date:   Sun Sep 13 21:49:52 2026 +0200
+
+    Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+
+[33mcommit 688e9219f34aa3e487edf1be1922db9ba2364f98[m
+Author: AlexisFco1 <alexisfco7@gmail.com>
+Date:   Sun Sep 13 21:32:24 2026 +0200
+
+    Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema

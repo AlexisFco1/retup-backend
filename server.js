@@ -751,8 +751,6 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       .select('racha_maxima')
       .eq('user_id', user_id)
       .eq('reto_id', reto_id)
-      .eq('mes', mes)
-      .eq('año', ano)
       .single();
 
     if (errorRachaActual && errorRachaActual.code !== 'PGRST116') {
@@ -768,8 +766,6 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       .select('id')
       .eq('user_id', user_id)
       .eq('reto_id', reto_id)
-      .eq('mes', mes)
-      .eq('año', ano)
       .single();
 
     if (errorExistente && errorExistente.code !== 'PGRST116') {
@@ -1022,6 +1018,85 @@ app.post('/api/racha/registrar-pildora', authenticateToken, async (req, res) => 
   }
 });
 
+app.post('/api/racha/verificar-racha', authenticateToken, async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Falta parámetro: user_id'
+      });
+    }
+
+    console.log(`🔍 POST /api/racha/verificar-racha - User: ${user_id}`);
+
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+    // Obtener TODOS los retos del usuario
+    const { data: userRetos, error: errorRetos } = await supabase
+      .from('user_pill_progress')
+      .select('pill_id(reto_id)')
+      .eq('user_id', user_id)
+      .distinct();
+
+    if (errorRetos) throw errorRetos;
+
+    const retoIds = [...new Set(userRetos.map(r => r.pill_id?.reto_id))].filter(Boolean);
+
+    // Para cada reto, verificar y resetear si es necesario
+    for (const retoId of retoIds) {
+      const { data: stats, error: errorStats } = await supabase
+        .from('user_racha_stats')
+        .select('*')
+        .eq('user_id', user_id)
+        .eq('reto_id', retoId)
+        .single();
+
+      if (errorStats && errorStats.code !== 'PGRST116') {
+        throw errorStats;
+      }
+
+      if (!stats) continue;
+
+      // Verificar si ayer cumplió AMBAS condiciones
+      const { data: ayer, error: errorAyer } = await supabase
+        .from('racha_daily_progress')
+        .select('*')
+        .eq('user_id', user_id)
+        .eq('reto_id', retoId)
+        .eq('fecha', yesterday)
+        .single();
+
+      const cumplioAyer = ayer && ayer.login_hecho && ayer.pildora_completada;
+
+      if (!cumplioAyer && stats.racha_actual > 0) {
+        console.log(`🔌 RACHA ROTA para user ${user_id}, reto ${retoId}. Reseteando a 0`);
+        
+        await supabase
+          .from('user_racha_stats')
+          .update({
+            racha_actual: 0,
+            fecha_ultima_racha: yesterday
+          })
+          .eq('user_id', user_id)
+          .eq('reto_id', retoId);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Verificación de racha completada',
+      retos_verificados: retoIds.length 
+    });
+
+  } catch (error) {
+    console.error('❌ Error en verificar-racha:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) => {
   try {
     const { user_id, reto_id, mes, ano } = req.query;
@@ -1059,8 +1134,6 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
       .select('racha_maxima, racha_actual')
       .eq('user_id', user_id)
       .eq('reto_id', reto_id)
-      .eq('mes', mesNum)
-      .eq('año', anoNum)
       .single();
 
     if (errorRachaStats && errorRachaStats.code !== 'PGRST116') {

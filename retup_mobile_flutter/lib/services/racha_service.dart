@@ -181,4 +181,29 @@ class RachaService {
       throw e;
     }
   }
+
+  Future<Map<String, dynamic>> verificarRacha(
+    String userId,
+    String token,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/racha/verificar-racha'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+        }),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Error al verificar racha: ${response.statusCode}');
+    } catch (e) {
+      print('❌ Error en verificarRacha: $e');
+      throw e;
+    }
+  }
 }

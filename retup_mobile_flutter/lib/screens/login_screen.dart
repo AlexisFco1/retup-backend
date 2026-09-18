@@ -45,6 +45,11 @@ class _LoginScreenState extends State<LoginScreen> {
             _emailController.text,
             _passwordController.text,
           );
+
+      // 🆕 Si el login fue exitoso, verificar racha
+      if (context.read<AuthProvider>().isAuthenticated) {
+        await context.read<AuthProvider>().verificarRachaAlLogin();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

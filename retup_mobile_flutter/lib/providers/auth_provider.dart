@@ -95,17 +95,32 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // 🆕 MÉTODO PARA REGISTRAR LOGIN EN TODOS LOS RETOS
+  // 🆕 MÉTODO PARA REGISTRAR LOGIN Y VERIFICAR RACHA
   Future<void> _registrarLoginEnRachas() async {
     if (_userId == null || _token == null) return;
 
     try {
-      // Si tienes acceso a los retos del usuario desde aquí, hazlo
-      // Por ahora, asumimos que se hace en otra parte de la app
       print('✅ Login registrado en el sistema de racha');
+
+      // Aquí se puede agregar más lógica si es necesaria
+      // Por ahora solo se registra en backend
     } catch (e) {
       print('⚠️ Error registrando login en racha: $e');
       // No lanzar error, solo loguear - no debe bloquear el login principal
+    }
+  }
+
+  // 🆕 MÉTODO PARA VERIFICAR RACHA (se llama desde la UI después de login)
+  Future<void> verificarRachaAlLogin() async {
+    if (_userId == null || _token == null) return;
+
+    try {
+      print('🔍 Verificando racha después del login...');
+      await _rachaService.verificarRacha(_userId!, _token!);
+      print('✅ Verificación de racha completada');
+    } catch (e) {
+      print('⚠️ Error verificando racha: $e');
+      // No lanzar error - esto es un verificación, no debe bloquear
     }
   }
 

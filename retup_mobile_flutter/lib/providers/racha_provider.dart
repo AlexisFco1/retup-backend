@@ -149,6 +149,19 @@ class RachaProvider extends ChangeNotifier {
     return await _rachaService.hizoLoginHoy(userId, retoId, token);
   }
 
+  Future<void> verificarRacha(
+    String userId,
+    String token,
+  ) async {
+    try {
+      await _rachaService.verificarRacha(userId, token);
+      print('✅ Racha verificada para usuario: $userId');
+    } catch (e) {
+      print('⚠️ Error al verificar racha: $e');
+      // No lanzar error aquí, solo logear para no interrumpir el login
+    }
+  }
+
   // Obtener stats de un reto específico
   Map<String, dynamic>? obtenerStatsReto(String retoId) {
     return estadisticasPorReto[retoId];

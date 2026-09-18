@@ -1,0 +1,35 @@
+[33m159c99a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m2ea9a02[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m5dcd591[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m2dd4e5b[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33mb3f69c1[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m31286f1[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m9347314[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33ma3b51fc[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m059f872[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m24a1471[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33me536a9b[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m9ab2511[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m2c17a42[m Fix: Corregir cálculo de racha para contar solo días laborales
+[33m0df6804[m Fix: Update racha endpoints to match service calls
+[33mf34b720[m Fix: Add GET endpoints for racha estadisticas and progreso
+[33mabe7e36[m Fix: Add racha endpoints and fix self_assesment_score column
+[33mb79b550[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m688e921[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m40bf0d9[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m14f8926[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m78440f1[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m1e03a54[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m67bb093[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33mbcda663[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m8b19305[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m4cdf3d1[m Fix: Clean up server.js - Remove duplications and fix racha endpoints
+[33m2c2b5fb[m Fix: Handle months with different number of days in racha endpoints
+[33m6890c32[m Fix: Clean up server.js - Remove duplications and fix racha endpoints
+[33ma98c5b6[m Fix: Update racha endpoints to match service calls
+[33m89a82a1[m Fix: Add GET endpoints for racha estadisticas and progreso
+[33m9719084[m Fix: Add racha endpoints and fix self_assesment_score column
+[33m03ab423[m Fix: Change all self_assessment_score to self_assesment_score to match Supabase schema
+[33m6465edd[m Fix: correct column name self_assesment_score (one s)
+[33m85a2f8f[m Fix: Corregir endpoints user-progress y complete-pill
+[33m27ae8f9[m Add INTERNET permission to AndroidManifest and generate working APK with Render backend
