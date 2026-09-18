@@ -710,13 +710,13 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
   console.log(`🔄 Actualizando racha para user: ${user_id}, reto: ${reto_id}`);
 
   try {
-    // Calcular rango de fechas del mes
+    // ========== PASO 1: Calcular rango de fechas del mes ==========
     const primerDiaDelMes = `${ano}-${String(mes).padStart(2, '0')}-01`;
     const proximoMes = mes === 12 ? 1 : mes + 1;
     const proximoAno = mes === 12 ? ano + 1 : ano;
     const primerDiaProximoMes = `${proximoAno}-${String(proximoMes).padStart(2, '0')}-01`;
 
-    // Query 1: Get previous racha_maxima from user_racha_stats
+    // ========== PASO 2: Obtener racha_maxima anterior ==========
     const { data: rachaActual, error: errorRachaActual } = await supabase
       .from('user_racha_stats')
       .select('racha_maxima')
@@ -731,10 +731,10 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       throw errorRachaActual;
     }
 
-    // Query 2: Get all days in the month from racha_daily_progress (filtered by fecha, not mes/año)
+    // ========== PASO 3: Obtener todos los días del mes con sus datos ==========
     const { data: diasDelMes, error: errorDias } = await supabase
       .from('racha_daily_progress')
-      .select('fecha')
+      .select('fecha, login_hecho, pildora_completada, es_dia_laboral')
       .eq('user_id', user_id)
       .eq('reto_id', reto_id)
       .gte('fecha', primerDiaDelMes)
@@ -746,33 +746,58 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       throw errorDias;
     }
 
-    // Calculate racha_actual (consecutive days from today backwards)
-    let racha_actual = 0;
-    if (diasDelMes && diasDelMes.length > 0) {
-      const hoy = new Date();
-      
-      for (let i = 0; i < diasDelMes.length; i++) {
-        const fechaActual = new Date(diasDelMes[i].fecha);
-        const fechaEsperada = new Date(hoy);
-        fechaEsperada.setDate(fechaEsperada.getDate() - i);
+    // ========== PASO 4: Filtrar solo días laborales ==========
+    const diasLaborales = diasDelMes.filter(d => d.es_dia_laboral === true);
+    console.log(`📅 Días laborales encontrados: ${diasLaborales.length}`);
 
-        if (
-          fechaActual.getFullYear() === fechaEsperada.getFullYear() &&
-          fechaActual.getMonth() === fechaEsperada.getMonth() &&
-          fechaActual.getDate() === fechaEsperada.getDate()
-        ) {
-          racha_actual++;
-        } else {
+    // ========== PASO 5: Calcular racha_actual ==========
+    let racha_actual = 0;
+    
+    if (diasLaborales && diasLaborales.length > 0) {
+      const hoy = new Date();
+      const hoyString = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+      
+      // Buscar el índice de hoy en la lista de días laborales
+      let indicioHoy = -1;
+      for (let i = 0; i < diasLaborales.length; i++) {
+        if (diasLaborales[i].fecha === hoyString) {
+          indicioHoy = i;
           break;
         }
       }
+
+      // Si hoy no es un día laboral, se rompe la racha
+      if (indicioHoy === -1) {
+        racha_actual = 0;
+        console.log(`🔴 Racha rota - Hoy (${hoyString}) no es día laboral`);
+      } else {
+        // Contar consecutivos desde hoy hacia atrás verificando AMBAS condiciones
+        for (let i = indicioHoy; i >= 0; i--) {
+          const registro = diasLaborales[i];
+          
+          // ✅ VERIFICAR QUE AMBAS CONDICIONES SEAN TRUE
+          if (registro.login_hecho === true && registro.pildora_completada === true) {
+            racha_actual++;
+            console.log(`✅ Día ${registro.fecha}: login ✓ + píldora ✓ → racha_actual = ${racha_actual}`);
+          } else {
+            // ❌ Si no cumple AMBAS condiciones, se rompe la racha
+            console.log(`🔴 Racha rota en ${registro.fecha}: login = ${registro.login_hecho}, píldora = ${registro.pildora_completada}`);
+            break;
+          }
+        }
+      }
+    } else {
+      racha_actual = 0;
+      console.log(`🔴 No hay días laborales registrados este mes`);
     }
 
-    // Calculate new racha_maxima
+    // ========== PASO 6: Calcular racha_maxima (nunca disminuye) ==========
     const racha_maxima_anterior = rachaActual?.racha_maxima || 0;
     const racha_maxima_nueva = Math.max(racha_maxima_anterior, racha_actual);
+    
+    console.log(`📊 Racha anterior: ${racha_maxima_anterior}, Nueva racha actual: ${racha_actual}, Nueva racha máxima: ${racha_maxima_nueva}`);
 
-    // Query 3: Check if record exists in user_racha_stats
+    // ========== PASO 7: Verificar si el registro ya existe ==========
     const { data: existente, error: errorExistente } = await supabase
       .from('user_racha_stats')
       .select('id')
@@ -787,8 +812,9 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       throw errorExistente;
     }
 
-    // Update or Insert
+    // ========== PASO 8: Actualizar o insertar el registro ==========
     if (existente) {
+      // Actualizar registro existente
       const { error: updateError } = await supabase
         .from('user_racha_stats')
         .update({
@@ -802,7 +828,10 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
         console.error('❌ Error en UPDATE user_racha_stats:', updateError);
         throw updateError;
       }
+      
+      console.log(`✅ Registro actualizado: racha_actual = ${racha_actual}, racha_maxima = ${racha_maxima_nueva}`);
     } else {
+      // Insertar nuevo registro
       const { error: insertError } = await supabase
         .from('user_racha_stats')
         .insert([{
@@ -818,9 +847,11 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
         console.error('❌ Error en INSERT user_racha_stats:', insertError);
         throw insertError;
       }
+      
+      console.log(`✅ Registro insertado: racha_actual = ${racha_actual}, racha_maxima = ${racha_maxima_nueva}`);
     }
 
-    console.log(`✅ Racha actualizada - Actual: ${racha_actual}, Máxima: ${racha_maxima_nueva}`);
+    console.log(`🎯 Racha finalizada - Actual: ${racha_actual}, Máxima: ${racha_maxima_nueva}`);
   } catch (error) {
     console.error('❌ Error en _actualizarRacha:', error.message);
   }
