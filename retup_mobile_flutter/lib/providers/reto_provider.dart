@@ -39,7 +39,7 @@ class RetoProvider extends ChangeNotifier {
     try {
       _isLoading = true;
       _errorMessage = null;
-      notifyListeners();
+      Future.microtask(() => notifyListeners());
 
       final retosBackend = await _retosService.getAll();
 
@@ -65,7 +65,7 @@ class RetoProvider extends ChangeNotifier {
     try {
       _isLoading = true;
       _errorMessage = null;
-      notifyListeners();
+      Future.microtask(() => notifyListeners());
 
       final retosBackend = await _retosService.getByUserId(userId);
 

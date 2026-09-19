@@ -182,6 +182,36 @@ class RachaService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> obtenerProgresoDiario(
+    String userId,
+    String retoId,
+    String token,
+  ) async {
+    try {
+      final now = DateTime.now();
+      final mes = now.month;
+      final ano = now.year;
+
+      final response = await http.get(
+        Uri.parse(
+          '$baseUrl/racha/progreso?user_id=$userId&reto_id=$retoId&mes=$mes&ano=$ano',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        final data = jsonResponse['data'] as List<dynamic>;
+        return data.map((item) => item as Map<String, dynamic>).toList();
+      }
+      throw Exception(
+          'Error al obtener progreso diario: ${response.statusCode}');
+    } catch (e) {
+      print('❌ Error en obtenerProgresoDiario: $e');
+      throw e;
+    }
+  }
+
   Future<Map<String, dynamic>> verificarRacha(
     String userId,
     String token,

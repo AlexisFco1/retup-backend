@@ -35,7 +35,7 @@ class RetosService {
 
   Future<List<Reto>> getByUserId(String userId) async {
     try {
-      final response = await _apiService.get('/retos/user/$userId');
+      final response = await _apiService.get('/retos');
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body) as List;
         List<Reto> retos =

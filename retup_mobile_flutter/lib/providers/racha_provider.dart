@@ -11,6 +11,7 @@ class RachaProvider extends ChangeNotifier {
 
   // Estado para leaderboard
   Map<String, dynamic> leaderboard = {};
+  Map<String, List<Map<String, dynamic>>> progresoDiarioPorReto = {};
 
   bool isLoading = false;
   String? errorMessage;
@@ -180,5 +181,35 @@ class RachaProvider extends ChangeNotifier {
       return leaderboard['leaderboard_dias_cumplidos'] as List<dynamic>;
     }
     return [];
+  }
+  // ===== PROGRESO DIARIO =====
+
+  Future<void> cargarProgresoDiario(
+    String userId,
+    String retoId,
+    String token,
+  ) async {
+    try {
+      final progreso = await _rachaService.obtenerProgresoDiario(
+        userId,
+        retoId,
+        token,
+      );
+      print('🔍 DEBUG: Registros traídos del backend: ${progreso.length}');
+      print('🔍 DEBUG: Primeros registros: ${progreso.take(3).toList()}');
+      progresoDiarioPorReto[retoId] = progreso;
+      notifyListeners();
+
+      print(
+          '✅ Progreso diario cargado para reto: $retoId (${progreso.length} días)');
+    } catch (e) {
+      print('❌ Error en cargarProgresoDiario: $e');
+      errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
+  List<Map<String, dynamic>>? obtenerProgresoDiario(String retoId) {
+    return progresoDiarioPorReto[retoId];
   }
 }

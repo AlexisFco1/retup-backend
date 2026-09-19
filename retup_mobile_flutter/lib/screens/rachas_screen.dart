@@ -54,7 +54,15 @@ class _RachasScreenState extends State<RachasScreen> {
         // Cargar leaderboard
         print('✅ Cargando leaderboard...');
         await rachaProvider.cargarLeaderboard(authProvider.token!);
-
+        // Cargar progreso diario para cada reto
+        print('✅ Cargando progreso diario...');
+        for (var retoLocal in retos) {
+          await rachaProvider.cargarProgresoDiario(
+            authProvider.userId!,
+            retoLocal.reto.id,
+            authProvider.token!,
+          );
+        }
         print('✅ Datos cargados completamente');
       } else {
         print('❌ No hay retos disponibles');
@@ -246,7 +254,7 @@ class _RachasScreenState extends State<RachasScreen> {
             childAspectRatio: 1.2,
             children: [
               _buildStatCard(
-                title: 'Día Píldora Planificada L-V',
+                title: 'Dia Pildora Planificada L-V',
                 value: diaPildora.toString(),
                 icon: Icons.calendar_today,
                 color: Colors.blue,
@@ -271,7 +279,13 @@ class _RachasScreenState extends State<RachasScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
 
+          // ===== WIDGET DE BOLITAS DE PROGRESO DIARIO =====
+          _buildBolitasProgreso(
+            retoLocal: retoLocal,
+            rachaProvider: rachaProvider,
+          ),
           const SizedBox(height: 16),
 
           // Separador
@@ -522,5 +536,132 @@ class _RachasScreenState extends State<RachasScreen> {
       default:
         return Colors.deepPurple; // Otros
     }
+  }
+
+  // ===== WIDGET PARA BOLITAS DE PROGRESO DIARIO =====
+  Widget _buildBolitasProgreso({
+    required RetoLocal retoLocal,
+    required RachaProvider rachaProvider,
+  }) {
+    final progresoDiario =
+        rachaProvider.obtenerProgresoDiario(retoLocal.reto.id);
+
+    if (progresoDiario == null || progresoDiario.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Calcular TODOS los dias laborables teoricos del mes (L-V)
+    final hoy = DateTime.now();
+    final mes = hoy.month;
+    final ano = hoy.year;
+    final ultimoDiaDelMes = DateTime(ano, mes + 1, 0).day;
+
+    final diasLaborablesTeoricos = <DateTime>[];
+    for (int day = 1; day <= ultimoDiaDelMes; day++) {
+      final fecha = DateTime(ano, mes, day);
+      if (fecha.weekday >= 1 && fecha.weekday <= 5) {
+        // L-V
+        diasLaborablesTeoricos.add(fecha);
+      }
+    }
+
+    final totalDiasLaborables = diasLaborablesTeoricos.length;
+
+    if (totalDiasLaborables == 0) {
+      return const SizedBox.shrink();
+    }
+
+    // Crear mapa de datos del backend por fecha
+    final datosMap = <String, Map<String, dynamic>>{};
+    for (var registro in progresoDiario) {
+      datosMap[registro['fecha']] = registro;
+    }
+
+    // Obtener hoy como string
+    final hoyString = hoy.toIso8601String().split('T')[0];
+
+    // Contar cuantos dias laborables han pasado hasta hoy (inclusive)
+    int diaLaboralActual = 0;
+    for (int i = 0; i < diasLaborablesTeoricos.length; i++) {
+      final fechaStr =
+          diasLaborablesTeoricos[i].toIso8601String().split('T')[0];
+      if (fechaStr.compareTo(hoyString) <= 0) {
+        diaLaboralActual = i + 1;
+      } else {
+        break;
+      }
+    }
+
+    // Crear lista de bolitas
+    final bolitas = <Map<String, dynamic>>[];
+
+    for (int i = 0; i < totalDiasLaborables; i++) {
+      final numeroDelDia = i + 1; // 1, 2, 3, ..., 22
+      final esDiaGracia = numeroDelDia > 20;
+      final fechaStr =
+          diasLaborablesTeoricos[i].toIso8601String().split('T')[0];
+      final diaData = datosMap[fechaStr]; // Buscar en el mapa
+
+      // Determinar color
+      Color? color;
+
+      if (esDiaGracia) {
+        // Dias de gracia: siempre morado
+        color = Colors.purple;
+      } else if (numeroDelDia <= diaLaboralActual) {
+        // Dia pasado: verde o rojo segun cumplimiento
+        if (diaData != null) {
+          final cumple = diaData['login_hecho'] == true &&
+              diaData['pildora_completada'] == true;
+          color = cumple ? Colors.green : Colors.red;
+        } else {
+          // Sin registro = no cumplio
+          color = Colors.red;
+        }
+      } else {
+        // Dia futuro: gris claro
+        color = Colors.grey[300];
+      }
+
+      bolitas.add({
+        'color': color,
+        'fecha': fechaStr,
+      });
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Etiqueta
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Text(
+            'Progreso diario ($totalDiasLaborables dias laborables - dia $diaLaboralActual)',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        // Grid de bolitas - ocupan todo el ancho disponible
+        Row(
+          children: bolitas.map((bolita) {
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: bolita['color'],
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 }
