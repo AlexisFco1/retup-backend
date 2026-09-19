@@ -785,6 +785,7 @@ app.post('/api/notifications', authenticateToken, async (req, res) => {
 });
 
 // Obtener notificaciones sin leer de un usuario
+// Obtener TODAS las notificaciones de un usuario (leídas y no leídas)
 app.get('/api/notifications/:userId/unread', authenticateToken, async (req, res) => {
   try {
     console.log('🔔 GET /api/notifications/:userId/unread');
@@ -794,7 +795,6 @@ app.get('/api/notifications/:userId/unread', authenticateToken, async (req, res)
       .from('notifications')
       .select('*')
       .eq('recipient_user_id', req.params.userId)
-      .eq('is_read', false)
       .order('created_at', { ascending: false });
 
     if (error) {

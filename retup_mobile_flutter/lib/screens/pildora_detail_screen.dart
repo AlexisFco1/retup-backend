@@ -9,6 +9,7 @@ import '../services/secciones_service.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
 import '../services/feedback_service.dart';
+import '../services/notification_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
 
@@ -32,6 +33,7 @@ class PildoraDetailScreen extends StatefulWidget {
 class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   final SeccionesService _seccionesService = SeccionesService();
   final FeedbackService _feedbackService = FeedbackService();
+  final NotificationService _notificationService = NotificationService();
   List<Seccion> _secciones = [];
   int _seccionActual = 0;
   bool _isLoading = false;
@@ -366,6 +368,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                 mensaje,
                 token,
                 respondentUserId,
+                _usuarioSeleccionado!.id, // ← AGREGAR ESTA LÍNEA
               );
             },
             style: ElevatedButton.styleFrom(
@@ -384,6 +387,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     String mensaje,
     String token,
     String respondentUserId,
+    String destinatarioUserId, // ← AGREGAR ESTE PARÁMETRO
   ) async {
     try {
       setState(() => _isVoting = true);
@@ -392,6 +396,16 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         token: token,
         nominationId: nominationId,
         message: mensaje,
+      );
+      // Crear notificación para el usuario que recibe el mensaje
+      await _notificationService.createNotification(
+        recipientUserId: destinatarioUserId,
+        senderUserId: respondentUserId,
+        type: 'anonymous_message',
+        message: mensaje,
+        token: token,
+        retoId: widget.retoId,
+        pillId: widget.pildora.id,
       );
 
       if (mounted) {
