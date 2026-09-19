@@ -162,4 +162,39 @@ class NotificationService {
       rethrow;
     }
   }
+
+  // ✅ MARCAR MÚLTIPLES NOTIFICACIONES COMO LEÍDAS (BATCH)
+  Future<void> markAllAsRead({
+    required List<String> notificationIds,
+    required String token,
+  }) async {
+    try {
+      print(
+          '🔔 Marcando ${notificationIds.length} notificaciones como leídas...');
+
+      final response = await http.put(
+        Uri.parse('$_baseUrl/notifications/batch/mark-as-read'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'notification_ids': notificationIds,
+        }),
+      );
+
+      print('   Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        print(
+            '✅ ${jsonData['marked_count']} notificaciones marcadas como leídas');
+      } else {
+        throw Exception('Error al marcar como leídas: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error en markAllAsRead: $e');
+      rethrow;
+    }
+  }
 }

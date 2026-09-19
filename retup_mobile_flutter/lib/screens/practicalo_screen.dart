@@ -87,18 +87,22 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
 
       // 🔔 Marcar automáticamente todas las notificaciones como leído
       // 🔔 Marcar automáticamente todas las notificaciones como leído
-      for (var grupo in agrupadas.values) {
-        final notificationIds = grupo['notificationIds'] as List<String>;
-        for (var notifId in notificationIds) {
-          try {
-            await _notificationService.markAsRead(
-              token: token,
-              notificationId: notifId,
-            );
-          } catch (e) {
-            print('⚠️ Error marcando como leído: $e');
-          }
+      // 🔔 Marcar automáticamente todas las notificaciones como leídas (BATCH)
+      try {
+        final allNotificationIds = agrupadas.values
+            .expand((grupo) => grupo['notificationIds'] as List<String>)
+            .toList();
+
+        if (allNotificationIds.isNotEmpty) {
+          await _notificationService.markAllAsRead(
+            token: token,
+            notificationIds: allNotificationIds,
+          );
+          print(
+              '✅ Todas las notificaciones marcadas como leídas en una sola llamada');
         }
+      } catch (e) {
+        print('⚠️ Error marcando como leído: $e');
       }
 
       // Resetear el contador en el NotificationProvider

@@ -858,6 +858,41 @@ app.put('/api/notifications/:notificationId/read', authenticateToken, async (req
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// 📥 MARCAR MÚLTIPLES NOTIFICACIONES COMO LEÍDAS (BATCH)
+app.put('/api/notifications/batch/mark-as-read', authenticateToken, async (req, res) => {
+  try {
+    const { notification_ids } = req.body;
+    
+    console.log('🔔 PUT /api/notifications/batch/mark-as-read');
+    console.log('   Count:', notification_ids?.length);
+
+    if (!notification_ids || notification_ids.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No notification IDs provided' 
+      });
+    }
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true, updated_at: new Date() })
+      .in('id', notification_ids);
+
+    if (error) {
+      console.error('❌ Error en update:', error);
+      throw error;
+    }
+
+    console.log(`✅ ${notification_ids.length} notificaciones marcadas como leídas`);
+    res.json({ 
+      success: true, 
+      marked_count: notification_ids.length 
+    });
+  } catch (error) {
+    console.error('❌ Error en batch mark-as-read:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
 // ===== HELPERS: Funciones auxiliares =====
 function _obtenerUltimoDiaMes(mes, ano) {
   return new Date(ano, mes, 0).getDate();
