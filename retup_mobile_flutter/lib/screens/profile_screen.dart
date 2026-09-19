@@ -20,6 +20,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, double> _asistenciaScores = {}; // Nueva variable
+  Map<String, double> _feedbackScoresPerReto =
+      {}; // Nueva variable para feedback por reto
 
   @override
   void initState() {
@@ -56,6 +58,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Cargar retos del usuario
       await retoProvider.cargarRetosDelUsuario(userId);
+
+      // Cargar feedback score POR RETO (NUEVO)
+      _feedbackScoresPerReto.clear();
+      for (var retoLocal in retoProvider.retos) {
+        try {
+          final feedbackScore =
+              await _feedbackService.calculateUserFeedbackScore(
+            userId,
+            token,
+            retoId: retoLocal.reto.id, // NUEVO: pasar retoId
+          );
+          _feedbackScoresPerReto[retoLocal.reto.id] = feedbackScore;
+        } catch (e) {
+          print('Error loading feedback for reto ${retoLocal.reto.id}: $e');
+          _feedbackScoresPerReto[retoLocal.reto.id] = 0.0;
+        }
+      }
 
       // Cargar progreso diario para cada reto
       for (var retoLocal in retoProvider.retos) {
@@ -415,6 +434,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ],
                                         ),
                                       ),
+
+                                      // Tarjeta Feedback POR RETO (NUEVO)
+                                      Container(
+                                        padding: const EdgeInsets.all(24),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color:
+                                                  Colors.blue.withOpacity(0.3),
+                                              width: 1),
+                                          boxShadow: [
+                                            BoxShadow(
+                                                color: Colors.grey
+                                                    .withOpacity(0.1),
+                                                spreadRadius: 1,
+                                                blurRadius: 3)
+                                          ],
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Text('Calificación Feedback',
+                                                style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey[700])),
+                                            const SizedBox(height: 20),
+                                            RichText(
+                                              text: TextSpan(
+                                                children: [
+                                                  TextSpan(
+                                                      text:
+                                                          (_feedbackScoresPerReto[
+                                                                      retoLocal
+                                                                          .reto
+                                                                          .id] ??
+                                                                  0.0)
+                                                              .toStringAsFixed(
+                                                                  0),
+                                                      style: const TextStyle(
+                                                          fontSize: 72,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.blue)),
+                                                  TextSpan(
+                                                      text: '%',
+                                                      style: TextStyle(
+                                                          fontSize: 32,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Colors
+                                                              .blue[400])),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(height: 20),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8),
+                                              decoration: BoxDecoration(
+                                                  color: Colors.blue[50],
+                                                  borderRadius:
+                                                      BorderRadius.circular(8)),
+                                              child: Text(
+                                                  _getFeedbackDescription(
+                                                      _feedbackScoresPerReto[
+                                                              retoLocal
+                                                                  .reto.id] ??
+                                                          0.0),
+                                                  style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.blue[700],
+                                                      fontWeight:
+                                                          FontWeight.w500),
+                                                  textAlign: TextAlign.center),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: LinearProgressIndicator(
+                                                value: (_feedbackScoresPerReto[
+                                                            retoLocal
+                                                                .reto.id] ??
+                                                        0.0) /
+                                                    100,
+                                                minHeight: 8,
+                                                backgroundColor:
+                                                    Colors.grey[200],
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                        Color>(
+                                                  _getFeedbackColor(
+                                                      _feedbackScoresPerReto[
+                                                              retoLocal
+                                                                  .reto.id] ??
+                                                          0.0),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
 
                                       // Tarjeta Asistencia
                                       Container(

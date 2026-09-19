@@ -615,12 +615,26 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
   try {
     console.log('📊 GET /api/nominations/:userId/feedback-score');
     console.log('   userId:', req.params.userId);
+    console.log('   retoId (query):', req.query.reto_id);
 
     const userId = req.params.userId;
-    const { data: votes, error: votesError } = await supabase
+    const retoId = req.query.reto_id; // Parámetro opcional
+
+    // Construir query base
+    let query = supabase
       .from('anonymous_nominations')
       .select('*')
       .eq('nominated_user_id', userId);
+
+    // Si se proporciona reto_id, filtrar por ese reto
+    if (retoId) {
+      query = query.eq('reto_id', retoId);
+      console.log(`   Filtrando por reto: ${retoId}`);
+    } else {
+      console.log('   Sin filtro de reto - obteniendo votos globales');
+    }
+
+    const { data: votes, error: votesError } = await query;
 
     if (votesError) throw votesError;
 
@@ -630,13 +644,19 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
         feedbackScore: 0, 
         totalVoters: 0, 
         positiveVoters: 0,
-        totalVotes: 0
+        totalVotes: 0,
+        reto_id: retoId || null,
+        scope: retoId ? 'por_reto' : 'global'
       });
     }
 
     const votersMap = {};
     votes.forEach(vote => {
-      const key = `${vote.respondent_user_id}-${vote.reto_id}`;
+      // Si es filtrado por reto, la clave es simple. Si es global, incluir reto_id
+      const key = retoId 
+        ? `${vote.respondent_user_id}` 
+        : `${vote.respondent_user_id}-${vote.reto_id}`;
+      
       if (!votersMap[key]) {
         votersMap[key] = {
           respondent_user_id: vote.respondent_user_id,
@@ -669,12 +689,20 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
       feedbackScore = (100 / totalValidVoters) * positiveVoters;
     }
 
+    console.log(`✅ Feedback Score Calculado:`);
+    console.log(`   Score: ${feedbackScore.toFixed(2)}%`);
+    console.log(`   Votantes válidos: ${totalValidVoters}`);
+    console.log(`   Votantes positivos: ${positiveVoters}`);
+    console.log(`   Total votos: ${votes.length}`);
+
     res.json({
       success: true,
       feedbackScore: Math.round(feedbackScore * 100) / 100,
       totalVoters: totalValidVoters,
       positiveVoters: positiveVoters,
-      totalVotes: votes.length
+      totalVotes: votes.length,
+      reto_id: retoId || null,
+      scope: retoId ? 'por_reto' : 'global'
     });
 
   } catch (error) {

@@ -95,17 +95,30 @@ class FeedbackService {
 
   /// Calcula la puntuación de feedback para un usuario
   /// Consulta el backend para obtener el score basado en votos anónimos
-  Future<double> calculateUserFeedbackScore(String userId, String token) async {
+  Future<double> calculateUserFeedbackScore(
+    String userId,
+    String token, {
+    String? retoId,
+  }) async {
     try {
       print('\n═══════════════════════════════════════════════════════════');
       print('📊 [PASO 1] CALCULANDO FEEDBACK SCORE');
       print('═══════════════════════════════════════════════════════════');
       print('   Usuario ID: $userId');
+      if (retoId != null) print('   Reto ID: $retoId');
 
-      final url = Uri.parse('$_baseUrl/nominations/$userId/feedback-score');
+// Construir URL base
+      String urlString = '$_baseUrl/nominations/$userId/feedback-score';
+
+// Agregar parámetro reto_id si se proporciona
+      if (retoId != null) {
+        urlString += '?reto_id=$retoId';
+      }
+
+      final url = Uri.parse(urlString);
 
       print('\n🚀 [PASO 2] ENVIANDO GET A BACKEND...');
-      print('   URL: $_baseUrl/nominations/$userId/feedback-score');
+      print('   URL: $urlString');
       print('   Esperando respuesta...');
 
       final response = await http.get(
