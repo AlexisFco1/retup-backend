@@ -792,10 +792,11 @@ app.get('/api/notifications/:userId/unread', authenticateToken, async (req, res)
     console.log('   userId:', req.params.userId);
 
     const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('recipient_user_id', req.params.userId)
-      .order('created_at', { ascending: false });
+  .from('notifications')
+  .select('*')
+  .eq('recipient_user_id', req.params.userId)
+  .eq('is_read', false)
+  .order('created_at', { ascending: false });
 
     if (error) {
       console.error('❌ Error en query:', error);

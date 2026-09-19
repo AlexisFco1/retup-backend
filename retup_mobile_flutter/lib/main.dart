@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart'; // ← AGREGAR ESTE IMPORT
+import 'package:intl/intl.dart';
 import 'providers/auth_provider.dart';
 import 'providers/reto_provider.dart';
 import 'providers/pildora_provider.dart';
@@ -14,7 +14,6 @@ import 'screens/social_screen.dart';
 import 'screens/rachas_screen.dart';
 import 'screens/practicalo_screen.dart';
 import 'utils/colors.dart';
-import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 Future<void> main() async {
@@ -25,7 +24,6 @@ Future<void> main() async {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVieXNic2Vma2Zqam5ka2xna3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3ODk1ODEsImV4cCI6MjEwNDM2NTU4MX0.WL5wGCnAA9v8QIwX7drFxhHVaKaIEfHj7-48vupu8xI',
   );
 
-  // ← AGREGAR ESTAS DOS LÍNEAS
   await initializeDateFormatting('es_ES', null);
   await initializeDateFormatting('es', null);
 

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/reto_provider.dart';
 import '../providers/racha_provider.dart';
+import '../providers/notification_provider.dart';
 import '../utils/colors.dart';
 import 'package:retup_mobile_flutter/screens/pildoras_list_screen.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
@@ -21,6 +22,23 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadRetosYRegistrarLogin();
+    _loadNotificationCount();
+  }
+
+  Future<void> _loadNotificationCount() async {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final notificationProvider = context.read<NotificationProvider>();
+
+      if (authProvider.userId != null && authProvider.token != null) {
+        await notificationProvider.loadUnreadCount(
+          userId: authProvider.userId!,
+          token: authProvider.token!,
+        );
+      }
+    } catch (e) {
+      print('❌ Error cargando contador de notificaciones: $e');
+    }
   }
 
   Future<void> _loadRetosYRegistrarLogin() async {

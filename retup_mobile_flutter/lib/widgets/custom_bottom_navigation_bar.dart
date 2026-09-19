@@ -22,28 +22,6 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
   @override
   void initState() {
     super.initState();
-    _cargarCounterNotificaciones();
-  }
-
-  Future<void> _cargarCounterNotificaciones() async {
-    try {
-      final authProvider = context.read<AuthProvider>();
-      final notificationProvider = context.read<NotificationProvider>();
-
-      final userId = authProvider.userId;
-      final token = authProvider.token;
-
-      if (userId == null || token == null) {
-        return;
-      }
-
-      await notificationProvider.loadUnreadCount(
-        userId: userId,
-        token: token,
-      );
-    } catch (e) {
-      print('❌ Error cargando contador de notificaciones: $e');
-    }
   }
 
   @override

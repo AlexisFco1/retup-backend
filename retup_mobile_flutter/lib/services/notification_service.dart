@@ -92,7 +92,7 @@ class NotificationService {
       print('🔔 Obteniendo todas las notificaciones de $userId...');
 
       final response = await http.get(
-        Uri.parse('$_baseUrl/notifications/$userId/all'),
+        Uri.parse('$_baseUrl/notifications/$userId/unread'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
