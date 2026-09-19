@@ -810,7 +810,30 @@ app.get('/api/notifications/:userId/unread', authenticateToken, async (req, res)
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// 📥 OBTENER TODAS LAS NOTIFICACIONES (LEÍDAS Y SIN LEER)
+app.get('/api/notifications/:userId/all', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔔 GET /api/notifications/:userId/all');
+    console.log('   userId:', req.params.userId);
 
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('recipient_user_id', req.params.userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error en query:', error);
+      throw error;
+    }
+
+    console.log('✅ Todas las notificaciones encontradas:', data.length);
+    res.json({ success: true, data, count: data.length });
+  } catch (error) {
+    console.error('❌ Error en GET /all:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 // Marcar notificación como leída
 app.put('/api/notifications/:notificationId/read', authenticateToken, async (req, res) => {
   try {
