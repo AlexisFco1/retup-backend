@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
 import '../providers/auth_provider.dart';
+import '../providers/notification_provider.dart';
 import '../services/notification_service.dart';
 
 class PracticaloScreen extends StatefulWidget {
@@ -85,6 +86,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
       print('✅ Mensajes agrupados: ${_mensajesAgrupados.length}');
 
       // 🔔 Marcar automáticamente todas las notificaciones como leído
+      // 🔔 Marcar automáticamente todas las notificaciones como leído
       for (var grupo in agrupadas.values) {
         final notificationIds = grupo['notificationIds'] as List<String>;
         for (var notifId in notificationIds) {
@@ -97,6 +99,15 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
             print('⚠️ Error marcando como leído: $e');
           }
         }
+      }
+
+      // Resetear el contador en el NotificationProvider
+      try {
+        if (mounted) {
+          context.read<NotificationProvider>().resetUnreadCount();
+        }
+      } catch (e) {
+        print('⚠️ Error reseteando contador: $e');
       }
     } catch (e) {
       print('❌ Error al cargar mensajes: $e');

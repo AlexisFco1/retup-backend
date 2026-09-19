@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/reto_provider.dart';
 import 'providers/pildora_provider.dart';
 import 'providers/racha_provider.dart';
+import 'providers/notification_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
@@ -42,6 +43,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => RetoProvider()),
         ChangeNotifierProvider(create: (_) => PildoraProvider()),
         ChangeNotifierProvider(create: (_) => RachaProvider()),
+        ChangeNotifierProvider(
+          create: (context) => NotificationProvider(),
+        ),
       ],
       child: MaterialApp(
         title: 'RetUp',

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/notification_service.dart';
+import '../providers/notification_provider.dart';
 
 class CustomBottomNavigationBar extends StatefulWidget {
   final int currentIndex;
@@ -19,10 +19,6 @@ class CustomBottomNavigationBar extends StatefulWidget {
 }
 
 class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
-  final NotificationService _notificationService = NotificationService();
-  int _notificationCount = 0;
-  bool _isLoadingNotifications = false;
-
   @override
   void initState() {
     super.initState();
@@ -32,6 +28,8 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
   Future<void> _cargarCounterNotificaciones() async {
     try {
       final authProvider = context.read<AuthProvider>();
+      final notificationProvider = context.read<NotificationProvider>();
+
       final userId = authProvider.userId;
       final token = authProvider.token;
 
@@ -39,24 +37,12 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
         return;
       }
 
-      setState(() => _isLoadingNotifications = true);
-
-      final count = await _notificationService.getUnreadCount(
-        token: token,
+      await notificationProvider.loadUnreadCount(
         userId: userId,
+        token: token,
       );
-
-      if (mounted) {
-        setState(() {
-          _notificationCount = count;
-          _isLoadingNotifications = false;
-        });
-      }
     } catch (e) {
       print('❌ Error cargando contador de notificaciones: $e');
-      if (mounted) {
-        setState(() => _isLoadingNotifications = false);
-      }
     }
   }
 
@@ -98,12 +84,16 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
                 isActive: widget.currentIndex == 2,
                 onTap: () => widget.onTap(2),
               ),
-              _NavItem(
-                label: 'Practicalo',
-                emoji: '💪',
-                isActive: widget.currentIndex == 3,
-                onTap: () => widget.onTap(3),
-                badgeCount: _notificationCount,
+              Consumer<NotificationProvider>(
+                builder: (context, notificationProvider, _) {
+                  return _NavItem(
+                    label: 'Practicalo',
+                    emoji: '💪',
+                    isActive: widget.currentIndex == 3,
+                    onTap: () => widget.onTap(3),
+                    badgeCount: notificationProvider.unreadCount,
+                  );
+                },
               ),
               _NavItem(
                 label: 'Perfil',
