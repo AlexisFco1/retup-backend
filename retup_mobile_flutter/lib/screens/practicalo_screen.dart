@@ -48,7 +48,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
       print('🔍 Cargando notificaciones para usuario: $userId');
 
       // Obtener notificaciones del usuario
-      final notificaciones = await _notificationService.getUnreadNotifications(
+      final notificaciones = await _notificationService.getAllNotifications(
         token: token,
         userId: userId,
       );

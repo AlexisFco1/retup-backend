@@ -83,6 +83,39 @@ class NotificationService {
     }
   }
 
+// 📥 OBTENER TODAS LAS NOTIFICACIONES (LEÍDAS Y NO LEÍDAS)
+  Future<List<Map<String, dynamic>>> getAllNotifications({
+    required String userId,
+    required String token,
+  }) async {
+    try {
+      print('🔔 Obteniendo todas las notificaciones de $userId...');
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/notifications/$userId/all'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      print('   Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        final data = jsonData['data'] as List;
+        print('✅ Todas las notificaciones obtenidas: ${data.length}');
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        throw Exception(
+            'Error al cargar notificaciones: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error en getAllNotifications: $e');
+      return [];
+    }
+  }
+
   // 🔢 CONTAR NOTIFICACIONES SIN LEER
   Future<int> getUnreadCount({
     required String userId,
