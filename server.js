@@ -604,7 +604,11 @@ app.post('/api/nominations', authenticateToken, async (req, res) => {
     }
 
     console.log('✅ Voto registrado exitosamente');
-    res.status(201).json({ success: true, data: data[0] });
+        res.status(201).json({ 
+      success: true, 
+      data: data[0],
+      nominationId: data[0].id  // ← NUEVO: agregar esta línea
+    });
   } catch (error) {
     console.error('❌ Error en POST /nominations:', error.message);
     res.status(400).json({ success: false, error: error.message });
@@ -708,6 +712,126 @@ app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req
   } catch (error) {
     console.error('❌ Error en feedback-score:', error.message);
     res.status(400).json({ success: false, error: error.message });
+  }
+});
+// 📨 Nuevo endpoint: Actualizar nominación con mensaje
+app.put('/api/nominations/:nominationId/message', authenticateToken, async (req, res) => {
+  try {
+    const { message } = req.body;
+    
+    console.log('📝 PUT /api/nominations/:nominationId/message');
+    console.log('   nominationId:', req.params.nominationId);
+    console.log('   message:', message);
+    
+    const { data, error } = await supabase
+      .from('anonymous_nominations')
+      .update({ message, updated_at: new Date() })
+      .eq('id', req.params.nominationId)
+      .select();
+
+    if (error) {
+      console.error('❌ Error en update:', error);
+      throw error;
+    }
+
+    console.log('✅ Mensaje actualizado exitosamente');
+    res.json({ success: true, data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en PUT /message:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+// ===== ENDPOINTS DE NOTIFICACIONES (PROTEGIDOS) =====
+app.post('/api/notifications', authenticateToken, async (req, res) => {
+  try {
+    const { 
+      recipient_user_id, 
+      sender_user_id, 
+      type, 
+      message, 
+      reto_id, 
+      pill_id 
+    } = req.body;
+
+    console.log('🔔 POST /api/notifications');
+    console.log('   recipient:', recipient_user_id);
+    console.log('   sender:', sender_user_id);
+    console.log('   message:', message);
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert([{
+        recipient_user_id,
+        sender_user_id,
+        type,
+        message,
+        reto_id,
+        pill_id,
+        is_read: false
+      }])
+      .select();
+
+    if (error) {
+      console.error('❌ Error en insert notificación:', error);
+      throw error;
+    }
+
+    console.log('✅ Notificación creada exitosamente');
+    res.status(201).json({ success: true, data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en POST /notifications:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Obtener notificaciones sin leer de un usuario
+app.get('/api/notifications/:userId/unread', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔔 GET /api/notifications/:userId/unread');
+    console.log('   userId:', req.params.userId);
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('recipient_user_id', req.params.userId)
+      .eq('is_read', false)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error en query:', error);
+      throw error;
+    }
+
+    console.log('✅ Notificaciones encontradas:', data.length);
+    res.json({ success: true, data, count: data.length });
+  } catch (error) {
+    console.error('❌ Error en GET /unread:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Marcar notificación como leída
+app.put('/api/notifications/:notificationId/read', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔔 PUT /api/notifications/:notificationId/read');
+    console.log('   notificationId:', req.params.notificationId);
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ is_read: true, updated_at: new Date() })
+      .eq('id', req.params.notificationId)
+      .select();
+
+    if (error) {
+      console.error('❌ Error en update:', error);
+      throw error;
+    }
+
+    console.log('✅ Notificación marcada como leída');
+    res.json({ success: true, data: data[0] });
+  } catch (error) {
+    console.error('❌ Error en PUT /read:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 // ===== HELPERS: Funciones auxiliares =====

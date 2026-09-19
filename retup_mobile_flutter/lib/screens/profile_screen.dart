@@ -307,89 +307,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 32),
 
-                          // Sección de Calificación
-                          Text('Calificación',
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[600],
-                                  letterSpacing: 1.2)),
-                          const SizedBox(height: 16),
-
-                          // Tarjeta Feedback General (MANTENER IGUAL)
-                          Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                  color: Colors.grey[200]!, width: 1),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4))
-                              ],
-                            ),
-                            child: Column(
-                              children: [
-                                Text('Calificación Feedback General',
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[700])),
-                                const SizedBox(height: 20),
-                                RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                          text:
-                                              _feedbackScore.toStringAsFixed(0),
-                                          style: const TextStyle(
-                                              fontSize: 72,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.blue)),
-                                      TextSpan(
-                                          text: '%',
-                                          style: TextStyle(
-                                              fontSize: 32,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.blue[400])),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                      color: Colors.blue[50],
-                                      borderRadius: BorderRadius.circular(8)),
-                                  child: Text(
-                                      _getFeedbackDescription(_feedbackScore),
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.blue[700],
-                                          fontWeight: FontWeight.w500),
-                                      textAlign: TextAlign.center),
-                                ),
-                                const SizedBox(height: 16),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: LinearProgressIndicator(
-                                    value: _feedbackScore / 100,
-                                    minHeight: 8,
-                                    backgroundColor: Colors.grey[200],
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                        _getFeedbackColor(_feedbackScore)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 32),
-
                           // Calificaciones por Reto - NUEVO
                           if (retos.isNotEmpty)
                             Column(
@@ -435,181 +352,192 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                       ),
 
-                                      // Tarjeta Feedback POR RETO (NUEVO)
+                                      // Container con dos tarjetas lado a lado
                                       Container(
-                                        padding: const EdgeInsets.all(24),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                              color:
-                                                  Colors.blue.withOpacity(0.3),
-                                              width: 1),
-                                          boxShadow: [
-                                            BoxShadow(
-                                                color: Colors.grey
-                                                    .withOpacity(0.1),
-                                                spreadRadius: 1,
-                                                blurRadius: 3)
-                                          ],
-                                        ),
-                                        child: Column(
+                                        child: Row(
                                           children: [
-                                            Text('Calificación Feedback',
-                                                style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.grey[700])),
-                                            const SizedBox(height: 20),
-                                            RichText(
-                                              text: TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                      text:
-                                                          (_feedbackScoresPerReto[
-                                                                      retoLocal
-                                                                          .reto
-                                                                          .id] ??
-                                                                  0.0)
-                                                              .toStringAsFixed(
-                                                                  0),
-                                                      style: const TextStyle(
-                                                          fontSize: 72,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Colors.blue)),
-                                                  TextSpan(
-                                                      text: '%',
-                                                      style: TextStyle(
-                                                          fontSize: 32,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Colors
-                                                              .blue[400])),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 20),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 8),
-                                              decoration: BoxDecoration(
-                                                  color: Colors.blue[50],
+                                            // Tarjeta Feedback
+                                            Expanded(
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(24),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
                                                   borderRadius:
-                                                      BorderRadius.circular(8)),
-                                              child: Text(
-                                                  _getFeedbackDescription(
-                                                      _feedbackScoresPerReto[
-                                                              retoLocal
-                                                                  .reto.id] ??
-                                                          0.0),
-                                                  style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: Colors.blue[700],
-                                                      fontWeight:
-                                                          FontWeight.w500),
-                                                  textAlign: TextAlign.center),
-                                            ),
-                                            const SizedBox(height: 16),
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              child: LinearProgressIndicator(
-                                                value: (_feedbackScoresPerReto[
-                                                            retoLocal
-                                                                .reto.id] ??
-                                                        0.0) /
-                                                    100,
-                                                minHeight: 8,
-                                                backgroundColor:
-                                                    Colors.grey[200],
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                        Color>(
-                                                  _getFeedbackColor(
-                                                      _feedbackScoresPerReto[
-                                                              retoLocal
-                                                                  .reto.id] ??
-                                                          0.0),
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                      color: Colors.blue
+                                                          .withOpacity(0.3),
+                                                      width: 1),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                        color: Colors.grey
+                                                            .withOpacity(0.1),
+                                                        spreadRadius: 1,
+                                                        blurRadius: 3)
+                                                  ],
                                                 ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-
-                                      // Tarjeta Asistencia
-                                      Container(
-                                        padding: const EdgeInsets.all(24),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                              color:
-                                                  Colors.green.withOpacity(0.3),
-                                              width: 1),
-                                          boxShadow: [
-                                            BoxShadow(
-                                                color: Colors.grey
-                                                    .withOpacity(0.1),
-                                                spreadRadius: 1,
-                                                blurRadius: 3)
-                                          ],
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            Text('Calificación Asistencia',
-                                                style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.grey[700])),
-                                            const SizedBox(height: 20),
-                                            RichText(
-                                              text: TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                      text: asistencia > 0
-                                                          ? asistencia
-                                                              .toStringAsFixed(
-                                                                  0)
-                                                          : '--',
-                                                      style: const TextStyle(
-                                                          fontSize: 72,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Colors.green)),
-                                                  if (asistencia > 0)
-                                                    TextSpan(
-                                                        text: '%',
+                                                child: Column(
+                                                  children: [
+                                                    Text(
+                                                        'Calificación Feedback',
                                                         style: TextStyle(
-                                                            fontSize: 32,
+                                                            fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w600,
                                                             color: Colors
-                                                                .green[400])),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 20),
-                                            if (asistencia > 0)
-                                              ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: LinearProgressIndicator(
-                                                  value: asistencia / 100,
-                                                  minHeight: 8,
-                                                  backgroundColor:
-                                                      Colors.grey[200],
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(Colors.green),
+                                                                .grey[700])),
+                                                    const SizedBox(height: 20),
+                                                    RichText(
+                                                      text: TextSpan(
+                                                        children: [
+                                                          TextSpan(
+                                                              text: (_feedbackScoresPerReto[retoLocal
+                                                                          .reto
+                                                                          .id] ??
+                                                                      0.0)
+                                                                  .toStringAsFixed(
+                                                                      0),
+                                                              style: const TextStyle(
+                                                                  fontSize: 72,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color: Colors
+                                                                      .blue)),
+                                                          TextSpan(
+                                                              text: '%',
+                                                              style: TextStyle(
+                                                                  fontSize: 32,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: Colors
+                                                                          .blue[
+                                                                      400])),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                      child:
+                                                          LinearProgressIndicator(
+                                                        value: (_feedbackScoresPerReto[
+                                                                    retoLocal
+                                                                        .reto
+                                                                        .id] ??
+                                                                0.0) /
+                                                            100,
+                                                        minHeight: 8,
+                                                        backgroundColor:
+                                                            Colors.grey[200],
+                                                        valueColor:
+                                                            AlwaysStoppedAnimation<
+                                                                Color>(
+                                                          _getFeedbackColor(
+                                                              _feedbackScoresPerReto[
+                                                                      retoLocal
+                                                                          .reto
+                                                                          .id] ??
+                                                                  0.0),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            // Tarjeta Asistencia
+                                            Expanded(
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(24),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                      color: Colors.green
+                                                          .withOpacity(0.3),
+                                                      width: 1),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                        color: Colors.grey
+                                                            .withOpacity(0.1),
+                                                        spreadRadius: 1,
+                                                        blurRadius: 3)
+                                                  ],
+                                                ),
+                                                child: Column(
+                                                  children: [
+                                                    Text(
+                                                        'Calificación Asistencia',
+                                                        style: TextStyle(
+                                                            fontSize: 16,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: Colors
+                                                                .grey[700])),
+                                                    const SizedBox(height: 20),
+                                                    RichText(
+                                                      text: TextSpan(
+                                                        children: [
+                                                          TextSpan(
+                                                              text: asistencia >
+                                                                      0
+                                                                  ? asistencia
+                                                                      .toStringAsFixed(
+                                                                          0)
+                                                                  : '--',
+                                                              style: const TextStyle(
+                                                                  fontSize: 72,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color: Colors
+                                                                      .green)),
+                                                          if (asistencia > 0)
+                                                            TextSpan(
+                                                                text: '%',
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        32,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: Colors
+                                                                            .green[
+                                                                        400])),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 20),
+                                                    if (asistencia > 0)
+                                                      ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                        child:
+                                                            LinearProgressIndicator(
+                                                          value:
+                                                              asistencia / 100,
+                                                          minHeight: 8,
+                                                          backgroundColor:
+                                                              Colors.grey[200],
+                                                          valueColor:
+                                                              AlwaysStoppedAnimation<
+                                                                      Color>(
+                                                                  Colors.green),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -619,33 +547,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 }).toList(),
                               ],
                             ),
-
-                          // Nota informativa (MANTENER IGUAL)
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                                color: Colors.amber[50],
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.amber[200]!)),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(Icons.info_outline,
-                                    color: Colors.amber[700], size: 20),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Tu puntuación se calcula basada en los votos de tus compañeros en cada reto completado.',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.amber[900],
-                                        height: 1.5),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 32),
                         ],
                       ),
                     );

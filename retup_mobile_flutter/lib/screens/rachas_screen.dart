@@ -255,7 +255,7 @@ class _RachasScreenState extends State<RachasScreen> {
             children: [
               _buildStatCard(
                 title: 'Dia Pildora Planificada L-V',
-                value: diaPildora.toString(),
+                value: '$diaPildora/20',
                 icon: Icons.calendar_today,
                 color: Colors.blue,
               ),

@@ -6,7 +6,7 @@ class FeedbackService {
   static const String _baseUrl = 'https://retup-backend.onrender.com/api';
 
   /// Registra un voto de feedback a través del backend
-  Future<void> registerFeedbackVote({
+  Future<String> registerFeedbackVote({
     required String token,
     required String respondentUserId,
     required String nominatedUserId,
@@ -73,7 +73,13 @@ class FeedbackService {
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         print('\n✅ [ÉXITO] Voto registrado correctamente en base de datos');
+        // Extraer nominationId de la respuesta
+        final jsonResponse = jsonDecode(response.body);
+        final nominationId = jsonResponse['nominationId'] as String;
+        print('   Nomination ID: $nominationId');
         print('═══════════════════════════════════════════════════════════\n');
+
+        return nominationId;
       } else {
         print('\n❌ [ERROR HTTP] El servidor retornó un error');
         print('   Status: ${response.statusCode}');
@@ -174,6 +180,81 @@ class FeedbackService {
       print('\n❌ [ERROR] $e');
       print('═══════════════════════════════════════════════════════════\n');
       return 0.0;
+    }
+  }
+
+  /// Actualiza una nominación anónima con un mensaje
+  Future<void> updateNominationWithMessage({
+    required String token,
+    required String nominationId,
+    required String message,
+  }) async {
+    try {
+      print('\n═══════════════════════════════════════════════════════════');
+      print('📝 [PASO 1] ENVIANDO MENSAJE ANÓNIMO');
+      print('═══════════════════════════════════════════════════════════');
+      print('   Nomination ID: $nominationId');
+      print('   Mensaje: $message');
+
+      final url = Uri.parse('$_baseUrl/nominations/$nominationId/message');
+
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+
+      print('\n🔐 [PASO 2] HEADERS');
+      print('   Content-Type: application/json');
+      print('   Authorization: Bearer ${token.substring(0, 20)}...');
+
+      final body = jsonEncode({
+        'message': message,
+      });
+
+      print('\n📦 [PASO 3] BODY (JSON)');
+      print('   $body');
+
+      print('\n🚀 [PASO 4] ENVIANDO PUT A BACKEND...');
+      print('   URL: $_baseUrl/nominations/$nominationId/message');
+      print('   Esperando respuesta...');
+
+      final response = await http
+          .put(
+        url,
+        headers: headers,
+        body: body,
+      )
+          .timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('⏱️ TIMEOUT: La solicitud tardó más de 30 segundos');
+          throw TimeoutException('HTTP request timeout after 30 seconds');
+        },
+      );
+
+      print('\n📥 [PASO 5] RESPUESTA RECIBIDA');
+      print('   Status Code: ${response.statusCode}');
+      print('   Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('\n✅ [ÉXITO] Mensaje anónimo enviado correctamente');
+        print('═══════════════════════════════════════════════════════════\n');
+      } else {
+        print('\n❌ [ERROR HTTP] El servidor retornó un error');
+        print('   Status: ${response.statusCode}');
+        print('   Respuesta: ${response.body}');
+        print('═══════════════════════════════════════════════════════════\n');
+        throw Exception(
+            'Error enviando mensaje: ${response.statusCode} - ${response.body}');
+      }
+    } on TimeoutException catch (e) {
+      print('\n❌ [ERROR TIMEOUT] $e');
+      print('═══════════════════════════════════════════════════════════\n');
+      rethrow;
+    } catch (e) {
+      print('\n❌ [ERROR] $e');
+      print('═══════════════════════════════════════════════════════════\n');
+      rethrow;
     }
   }
 }

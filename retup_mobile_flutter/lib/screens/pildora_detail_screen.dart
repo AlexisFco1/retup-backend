@@ -241,7 +241,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         return;
       }
 
-      await _feedbackService.registerFeedbackVote(
+      final nominationId = await _feedbackService.registerFeedbackVote(
         token: token,
         respondentUserId: respondentUserId,
         nominatedUserId: _usuarioSeleccionado!.id,
@@ -257,6 +257,11 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
           backgroundColor: Colors.green,
         ),
       );
+
+      // Mostrar diálogo SOLO para votos positivos (sección 3)
+      if (mounted && voteType == 'positive') {
+        _mostrarDialogoMensajeAnonimo(nominationId, token, respondentUserId);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Error: $e')),
@@ -296,6 +301,119 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         ],
       ),
     );
+  }
+
+  void _mostrarDialogoMensajeAnonimo(
+    String nominationId,
+    String token,
+    String respondentUserId,
+  ) {
+    final mensaje = 'Valoro tu habilidad de ${widget.pildora.titulo}';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('📨 Mensaje Anónimo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tu mensaje será:',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Text(
+                mensaje,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '¿Deseas enviar este mensaje de forma anónima?',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('No enviar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _enviarMensajeAnonimo(
+                nominationId,
+                mensaje,
+                token,
+                respondentUserId,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Enviar mensaje'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _enviarMensajeAnonimo(
+    String nominationId,
+    String mensaje,
+    String token,
+    String respondentUserId,
+  ) async {
+    try {
+      setState(() => _isVoting = true);
+
+      await _feedbackService.updateNominationWithMessage(
+        token: token,
+        nominationId: nominationId,
+        message: mensaje,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ ¡Mensaje anónimo enviado!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error al enviar mensaje: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isVoting = false);
+    }
   }
 
   @override
