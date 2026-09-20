@@ -5,6 +5,7 @@ import '../models/seccion_model.dart';
 import '../providers/pildora_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/racha_provider.dart';
+import '../providers/practicalo_provider.dart';
 import '../services/secciones_service.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
@@ -743,10 +744,12 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                                       ),
                             const SizedBox(height: 24),
 
-                            // 🗳️ Botón "Enviar voto" (SOLO en secciones 3 y 7)
-                            if (_secciones[_seccionActual].screenNumber == 3 ||
-                                _secciones[_seccionActual].screenNumber ==
-                                    7) ...[
+                            // 🗳️ Botón "Enviar voto" (SOLO en secciones 3, 7 y 8)
+                            if ((_secciones[_seccionActual].screenNumber == 3 ||
+                                    _secciones[_seccionActual].screenNumber ==
+                                        7) &&
+                                _secciones[_seccionActual].screenNumber !=
+                                    8) ...[
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
@@ -784,6 +787,49 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                                         )
                                       : const Text(
                                           'Enviar voto',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                            // 🎯 Botón "Enviar Reto" (SOLO en sección 8)
+                            if (_secciones[_seccionActual].screenNumber ==
+                                8) ...[
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _isVoting
+                                      ? null
+                                      : () {
+                                          _enviarReto();
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: _isVoting
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Enviar Reto',
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
@@ -901,5 +947,66 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         onTap: _onNavTap,
       ),
     );
+  }
+
+  Future<void> _enviarReto() async {
+    if (_usuarioSeleccionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor selecciona un usuario')),
+      );
+      return;
+    }
+
+    try {
+      setState(() => _isVoting = true);
+
+      final authProvider = context.read<AuthProvider>();
+      final token = authProvider.token;
+      final userId = authProvider.userId;
+
+      if (token == null || userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: No hay sesión activa')),
+        );
+        return;
+      }
+
+      final practicaloProvider = context.read<PracticaloProvider>();
+
+      // Mensaje automático
+      final mensaje = 'Te desafío a hacer la píldora: ${widget.pildora.titulo}';
+
+      final success = await practicaloProvider.crearInvitacion(
+        token: token,
+        recipientUserId: _usuarioSeleccionado!.id,
+        retoId: widget.retoId,
+        pillId: widget.pildora.id,
+        message: mensaje,
+      );
+
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ ¡Reto enviado correctamente!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ Error al enviar el reto'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isVoting = false);
+    }
   }
 }
