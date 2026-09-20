@@ -893,6 +893,432 @@ app.put('/api/notifications/batch/mark-as-read', authenticateToken, async (req, 
     res.status(400).json({ success: false, error: error.message });
   }
 });
+// ===== ENDPOINTS DE PRACTICALO (PROTEGIDOS) =====
+
+// 1️⃣ CREAR INVITACIÓN DE PRACTICALO (Sección 8 de píldora)
+app.post('/api/practicalo', authenticateToken, async (req, res) => {
+  try {
+    const { 
+      recipient_user_id, 
+      reto_id, 
+      pill_id, 
+      message 
+    } = req.body;
+
+    const sender_user_id = req.user.id; // Usuario autenticado es el que envía
+
+    console.log('🤝 POST /api/practicalo - Crear Invitación Practicalo');
+    console.log('   Sender:', sender_user_id);
+    console.log('   Recipient:', recipient_user_id);
+    console.log('   Reto ID:', reto_id);
+    console.log('   Píldora ID:', pill_id);
+    console.log('   Message:', message);
+
+    // Validar que no sea a uno mismo
+    if (sender_user_id === recipient_user_id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No puedes enviar una invitación a ti mismo' 
+      });
+    }
+
+    // Crear registro en practicalo
+    const { data: practicalo, error: practicaloError } = await supabase
+      .from('practicalo')
+      .insert([{
+        sender_user_id,
+        recipient_user_id,
+        reto_id,
+        pill_id,
+        section_number: 8,
+        message,
+        status: 'pending'
+      }])
+      .select();
+
+    if (practicaloError) {
+      console.error('❌ Error creando practicalo:', practicaloError);
+      throw practicaloError;
+    }
+
+    const practicaloId = practicalo[0].id;
+    console.log('✅ Practicalo creado:', practicaloId);
+
+    // Crear notificación para el receptor
+    const { data: notification, error: notifError } = await supabase
+      .from('notifications')
+      .insert([{
+        recipient_user_id,
+        sender_user_id,
+        type: 'practicalo_invitation',
+        message: `Te han enviado una invitación de práctica: "${message}"`,
+        reto_id,
+        pill_id,
+        is_read: false
+      }])
+      .select();
+
+    if (notifError) {
+      console.error('⚠️ Error creando notificación:', notifError);
+      // No lancar error, la notificación es secundaria
+    } else {
+      console.log('✅ Notificación creada:', notification[0].id);
+    }
+
+    res.status(201).json({ 
+      success: true, 
+      data: practicalo[0] 
+    });
+  } catch (error) {
+    console.error('❌ Error en POST /practicalo:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// 2️⃣ OBTENER PRACTICALO RECIBIDAS (las que recibió el usuario)
+app.get('/api/practicalo/received/:userId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    console.log('📥 GET /api/practicalo/received/:userId');
+    console.log('   userId:', userId);
+
+    const { data, error } = await supabase
+      .from('practicalo')
+      .select(`
+        *,
+        sender_user:sender_user_id(id, full_name, email),
+        reto:reto_id(id, title)
+      `)
+      .eq('recipient_user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error en query:', error);
+      throw error;
+    }
+
+    console.log('✅ Practicalo recibidas encontradas:', data.length);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('❌ Error en GET /received:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3️⃣ OBTENER PRACTICALO ENVIADAS (las que envió el usuario)
+app.get('/api/practicalo/sent/:userId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    console.log('📤 GET /api/practicalo/sent/:userId');
+    console.log('   userId:', userId);
+
+    const { data, error } = await supabase
+      .from('practicalo')
+      .select(`
+        *,
+        recipient_user:recipient_user_id(id, full_name, email),
+        reto:reto_id(id, title)
+      `)
+      .eq('sender_user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error en query:', error);
+      throw error;
+    }
+
+    console.log('✅ Practicalo enviadas encontradas:', data.length);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('❌ Error en GET /sent:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4️⃣ RESPONDER INVITACIÓN DE PRACTICALO
+app.put('/api/practicalo/:id/response', authenticateToken, async (req, res) => {
+  try {
+    const practicaloId = req.params.id;
+    const { response } = req.body; // 'yes_today', 'yes_later', 'no_thanks'
+    const userId = req.user.id;
+
+    console.log('💬 PUT /api/practicalo/:id/response');
+    console.log('   Practicalo ID:', practicaloId);
+    console.log('   Response:', response);
+    console.log('   User ID:', userId);
+
+    // Obtener el registro
+    const { data: practicalo, error: getError } = await supabase
+      .from('practicalo')
+      .select('*')
+      .eq('id', practicaloId)
+      .single();
+
+    if (getError || !practicalo) {
+      return res.status(404).json({ success: false, error: 'Practicalo no encontrado' });
+    }
+
+    // Validar que el usuario sea el receptor
+    if (practicalo.recipient_user_id !== userId) {
+      return res.status(403).json({ success: false, error: 'No autorizado' });
+    }
+
+    // Determinar el nuevo estado
+    let newStatus = 'accepted';
+    let isBlocked = false;
+    
+    if (response === 'no_thanks') {
+      newStatus = 'rejected';
+      isBlocked = true;
+    }
+
+    // Actualizar el registro
+    const { data: updated, error: updateError } = await supabase
+      .from('practicalo')
+      .update({
+        response,
+        response_date: new Date().toISOString(),
+        status: newStatus,
+        is_blocked: isBlocked,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', practicaloId)
+      .select();
+
+    if (updateError) {
+      console.error('❌ Error actualizando:', updateError);
+      throw updateError;
+    }
+
+    console.log('✅ Respuesta registrada:', response);
+
+    // Crear notificación para el sender
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert([{
+        recipient_user_id: practicalo.sender_user_id,
+        sender_user_id: userId,
+        type: 'practicalo_response',
+        message: `Respondieron tu invitación de práctica: ${response === 'yes_today' ? 'Sí, hoy' : response === 'yes_later' ? 'Sí, después' : 'No, disculpa'}`,
+        reto_id: practicalo.reto_id,
+        pill_id: practicalo.pill_id,
+        is_read: false
+      }])
+      .select();
+
+    if (notifError) {
+      console.error('⚠️ Error creando notificación de respuesta:', notifError);
+    } else {
+      console.log('✅ Notificación de respuesta enviada');
+    }
+
+    res.json({ success: true, data: updated[0] });
+  } catch (error) {
+    console.error('❌ Error en PUT /response:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// 5️⃣ CONFIRMAR QUE SE REUNIERON (envía el sender)
+app.put('/api/practicalo/:id/confirm', authenticateToken, async (req, res) => {
+  try {
+    const practicaloId = req.params.id;
+    const userId = req.user.id;
+
+    console.log('✅ PUT /api/practicalo/:id/confirm');
+    console.log('   Practicalo ID:', practicaloId);
+    console.log('   User ID:', userId);
+
+    // Obtener el registro
+    const { data: practicalo, error: getError } = await supabase
+      .from('practicalo')
+      .select('*')
+      .eq('id', practicaloId)
+      .single();
+
+    if (getError || !practicalo) {
+      return res.status(404).json({ success: false, error: 'Practicalo no encontrado' });
+    }
+
+    // Validar que el usuario sea el sender
+    if (practicalo.sender_user_id !== userId) {
+      return res.status(403).json({ success: false, error: 'Solo el que envió puede confirmar' });
+    }
+
+    // Actualizar
+    const { data: updated, error: updateError } = await supabase
+      .from('practicalo')
+      .update({
+        confirmed_by_sender: true,
+        confirmed_date: new Date().toISOString(),
+        status: 'completed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', practicaloId)
+      .select();
+
+    if (updateError) {
+      console.error('❌ Error confirmando:', updateError);
+      throw updateError;
+    }
+
+    console.log('✅ Reunión confirmada');
+
+    // Crear notificación para el receptor
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert([{
+        recipient_user_id: practicalo.recipient_user_id,
+        sender_user_id: userId,
+        type: 'practicalo_confirmed',
+        message: `Confirmó que ya se reunieron. ¡Por favor califica!`,
+        reto_id: practicalo.reto_id,
+        pill_id: practicalo.pill_id,
+        is_read: false
+      }])
+      .select();
+
+    if (notifError) {
+      console.error('⚠️ Error creando notificación de confirmación:', notifError);
+    }
+
+    res.json({ success: true, data: updated[0] });
+  } catch (error) {
+    console.error('❌ Error en PUT /confirm:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// 6️⃣ CALIFICAR AL OTRO USUARIO (5 estrellas)
+app.put('/api/practicalo/:id/rate', authenticateToken, async (req, res) => {
+  try {
+    const practicaloId = req.params.id;
+    const { star_rating } = req.body; // 1-5
+    const userId = req.user.id;
+
+    console.log('⭐ PUT /api/practicalo/:id/rate');
+    console.log('   Practicalo ID:', practicaloId);
+    console.log('   Rating:', star_rating);
+    console.log('   User ID:', userId);
+
+    // Validar rating
+    if (!star_rating || star_rating < 1 || star_rating > 5) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Rating debe ser entre 1 y 5' 
+      });
+    }
+
+    // Obtener el registro
+    const { data: practicalo, error: getError } = await supabase
+      .from('practicalo')
+      .select('*')
+      .eq('id', practicaloId)
+      .single();
+
+    if (getError || !practicalo) {
+      return res.status(404).json({ success: false, error: 'Practicalo no encontrado' });
+    }
+
+    // Validar que el usuario sea el receptor (quien califica es el que recibió la invitación)
+    if (practicalo.recipient_user_id !== userId) {
+      return res.status(403).json({ success: false, error: 'Solo el receptor puede calificar' });
+    }
+
+    // Actualizar con la calificación
+    const { data: updated, error: updateError } = await supabase
+      .from('practicalo')
+      .update({
+        star_rating,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', practicaloId)
+      .select();
+
+    if (updateError) {
+      console.error('❌ Error calificando:', updateError);
+      throw updateError;
+    }
+
+    console.log('✅ Calificación registrada:', star_rating);
+
+    // Crear notificación para el sender
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert([{
+        recipient_user_id: practicalo.sender_user_id,
+        sender_user_id: userId,
+        type: 'practicalo_rated',
+        message: `Te calificó con ${star_rating} ⭐ en la práctica`,
+        reto_id: practicalo.reto_id,
+        pill_id: practicalo.pill_id,
+        is_read: false
+      }])
+      .select();
+
+    if (notifError) {
+      console.error('⚠️ Error creando notificación de calificación:', notifError);
+    }
+
+    res.json({ success: true, data: updated[0] });
+  } catch (error) {
+    console.error('❌ Error en PUT /rate:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// 7️⃣ OBTENER PROMEDIO DE CALIFICACIÓN POR USUARIO Y RETO
+app.get('/api/practicalo/rating/:userId/:retoId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const retoId = req.params.retoId;
+
+    console.log('📊 GET /api/practicalo/rating/:userId/:retoId');
+    console.log('   User ID:', userId);
+    console.log('   Reto ID:', retoId);
+
+    // Obtener todas las calificaciones del usuario en ese reto
+    const { data: ratings, error } = await supabase
+      .from('practicalo')
+      .select('star_rating')
+      .eq('sender_user_id', userId)
+      .eq('reto_id', retoId)
+      .not('star_rating', 'is', null);
+
+    if (error) {
+      console.error('❌ Error en query:', error);
+      throw error;
+    }
+
+    // Calcular promedio
+    let average = 0;
+    let count = ratings.length;
+
+    if (count > 0) {
+      const sum = ratings.reduce((acc, r) => acc + (r.star_rating || 0), 0);
+      average = sum / count;
+    }
+
+    console.log(`✅ Promedio calculado: ${average.toFixed(2)} (${count} calificaciones)`);
+
+    res.json({ 
+      success: true, 
+      average: average.toFixed(2),
+      count,
+      data: {
+        user_id: userId,
+        reto_id: retoId,
+        average_rating: parseFloat(average.toFixed(2)),
+        total_ratings: count
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error en GET /rating:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 // ===== HELPERS: Funciones auxiliares =====
 function _obtenerUltimoDiaMes(mes, ano) {
   return new Date(ano, mes, 0).getDate();
