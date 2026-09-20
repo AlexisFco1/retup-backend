@@ -116,7 +116,76 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
+// ===== GUARDAR PREFERENCIA DE REGALO POR RETO =====
+app.post('/api/racha/guardar-preferencia-regalo', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, reto_id, regalo_tipo } = req.body;
 
+    // Validar que regalo_tipo sea uno de los permitidos
+    const tiposValidos = ['social', 'restaurante', 'tarjeta'];
+    if (!tiposValidos.includes(regalo_tipo)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Tipo de regalo no válido' 
+      });
+    }
+
+    // Guardar o actualizar en Supabase
+    const { data, error } = await supabase
+      .from('user_regalo_preferencia')
+      .upsert([{
+        user_id,
+        reto_id,
+        regalo_tipo,
+        updated_at: new Date(),
+      }], {
+        onConflict: 'user_id,reto_id'
+      })
+      .select();
+
+    if (error) throw error;
+
+    res.json({ 
+      success: true, 
+      message: 'Preferencia de regalo guardada',
+      data: data[0]
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// ===== OBTENER PREFERENCIA DE REGALO BY RETO =====
+app.get('/api/racha/preferencia-regalo/:userId/:retoId', authenticateToken, async (req, res) => {
+  try {
+    const { userId, retoId } = req.params;
+
+    const { data, error } = await supabase
+      .from('user_regalo_preferencia')
+      .select('regalo_tipo')
+      .eq('user_id', userId)
+      .eq('reto_id', retoId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = no row found, eso es normal
+      throw error;
+    }
+
+    res.json({ 
+      success: true, 
+      data: data ? data.regalo_tipo : null
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
 // ===== ENDPOINTS DE COMPANIES (PROTEGIDOS) =====
 app.get('/api/companies', authenticateToken, async (req, res) => {
   try {
