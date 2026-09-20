@@ -132,11 +132,11 @@ app.post('/api/racha/guardar-preferencia-regalo', authenticateToken, async (req,
 
     // Guardar o actualizar en Supabase
     const { data, error } = await supabase
-      .from('user_regalo_preferencia')
-      .upsert([{
-        user_id,
-        reto_id,
-        regalo_tipo,
+  .from('user_reto_gifts')
+  .upsert([{
+    user_id,
+    reto_id,
+    gift_type: regalo_tipo,
         updated_at: new Date(),
       }], {
         onConflict: 'user_id,reto_id'
@@ -164,8 +164,8 @@ app.get('/api/racha/preferencia-regalo/:userId/:retoId', authenticateToken, asyn
     const { userId, retoId } = req.params;
 
     const { data, error } = await supabase
-      .from('user_regalo_preferencia')
-      .select('regalo_tipo')
+  .from('user_reto_gifts')
+  .select('gift_type')
       .eq('user_id', userId)
       .eq('reto_id', retoId)
       .single();
@@ -177,7 +177,7 @@ app.get('/api/racha/preferencia-regalo/:userId/:retoId', authenticateToken, asyn
 
     res.json({ 
       success: true, 
-      data: data ? data.regalo_tipo : null
+      data: data ? data.gift_type : null
     });
   } catch (error) {
     res.status(500).json({ 
