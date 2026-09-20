@@ -1,4 +1,4 @@
-// rachas_screen.dart - COMPLETO CON BOTTOM NAV BAR
+// rachas_screen.dart - COMPLETO CON BOTONES DE INCENTIVOS
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -54,6 +54,7 @@ class _RachasScreenState extends State<RachasScreen> {
         // Cargar leaderboard
         print('✅ Cargando leaderboard...');
         await rachaProvider.cargarLeaderboard(authProvider.token!);
+
         // Cargar progreso diario para cada reto
         print('✅ Cargando progreso diario...');
         for (var retoLocal in retos) {
@@ -63,6 +64,17 @@ class _RachasScreenState extends State<RachasScreen> {
             authProvider.token!,
           );
         }
+
+        // Cargar preferencias de regalo para cada reto
+        print('✅ Cargando preferencias de regalo...');
+        for (var retoLocal in retos) {
+          await rachaProvider.cargarPreferenciaRegalo(
+            authProvider.userId!,
+            retoLocal.reto.id,
+            authProvider.token!,
+          );
+        }
+
         print('✅ Datos cargados completamente');
       } else {
         print('❌ No hay retos disponibles');
@@ -173,6 +185,7 @@ class _RachasScreenState extends State<RachasScreen> {
                     retoLocal: retoLocal,
                     stats: stats,
                     rachaProvider: rachaProvider,
+                    authProvider: authProvider,
                   );
                 }).toList(),
 
@@ -199,6 +212,7 @@ class _RachasScreenState extends State<RachasScreen> {
     required RetoLocal retoLocal,
     required Map<String, dynamic>? stats,
     required RachaProvider rachaProvider,
+    required AuthProvider authProvider,
   }) {
     // Default values si no hay datos
     final diaPildora = stats?['dia_pildora'] ?? 0; // ✅ correcto
@@ -286,6 +300,15 @@ class _RachasScreenState extends State<RachasScreen> {
             retoLocal: retoLocal,
             rachaProvider: rachaProvider,
           ),
+          const SizedBox(height: 24),
+
+          // ===== WIDGET DE BOTONES DE INCENTIVOS =====
+          _buildBotonesIncentivos(
+            retoLocal: retoLocal,
+            rachaProvider: rachaProvider,
+            authProvider: authProvider,
+          ),
+
           const SizedBox(height: 16),
 
           // Separador
@@ -663,5 +686,177 @@ class _RachasScreenState extends State<RachasScreen> {
         ),
       ],
     );
+  }
+
+  // ===== WIDGET PARA BOTONES DE INCENTIVOS =====
+  Widget _buildBotonesIncentivos({
+    required RetoLocal retoLocal,
+    required RachaProvider rachaProvider,
+    required AuthProvider authProvider,
+  }) {
+    final regaloSeleccionado =
+        rachaProvider.obtenerPreferenciaRegalo(retoLocal.reto.id);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Pregunta
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12.0),
+          child: Text(
+            '¿Qué regalo prefieres para este reto?',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+        ),
+
+        // Grid de 3 botones
+        Row(
+          children: [
+            // Botón 1: Social
+            Expanded(
+              child: _buildBotoRegalo(
+                emoji: '🍹',
+                label: 'Social',
+                tipoRegalo: 'social',
+                estaSeleccionado: regaloSeleccionado == 'social',
+                onTap: () => _seleccionarRegalo(
+                  retoLocal.reto.id,
+                  'social',
+                  rachaProvider,
+                  authProvider,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Botón 2: Restaurante
+            Expanded(
+              child: _buildBotoRegalo(
+                emoji: '🍽️',
+                label: 'Restaurante',
+                tipoRegalo: 'restaurante',
+                estaSeleccionado: regaloSeleccionado == 'restaurante',
+                onTap: () => _seleccionarRegalo(
+                  retoLocal.reto.id,
+                  'restaurante',
+                  rachaProvider,
+                  authProvider,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Botón 3: Tarjeta de regalo
+            Expanded(
+              child: _buildBotoRegalo(
+                emoji: '🎁',
+                label: 'Tarjeta\nregalo',
+                tipoRegalo: 'tarjeta',
+                estaSeleccionado: regaloSeleccionado == 'tarjeta',
+                onTap: () => _seleccionarRegalo(
+                  retoLocal.reto.id,
+                  'tarjeta',
+                  rachaProvider,
+                  authProvider,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ===== WIDGET PARA UN BOTÓN DE REGALO =====
+  Widget _buildBotoRegalo({
+    required String emoji,
+    required String label,
+    required String tipoRegalo,
+    required bool estaSeleccionado,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: estaSeleccionado ? Colors.deepPurple : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: estaSeleccionado ? Colors.deepPurple : Colors.grey[300]!,
+            width: 2,
+          ),
+          boxShadow: estaSeleccionado
+              ? [
+                  BoxShadow(
+                    color: Colors.deepPurple.withOpacity(0.3),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  )
+                ]
+              : [],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              emoji,
+              style: const TextStyle(fontSize: 24),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: estaSeleccionado ? Colors.white : Colors.grey[700],
+              ),
+            ),
+            if (estaSeleccionado)
+              Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Icon(
+                  Icons.check_circle,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== MÉTODO PARA SELECCIONAR REGALO =====
+  Future<void> _seleccionarRegalo(
+    String retoId,
+    String tipoRegalo,
+    RachaProvider rachaProvider,
+    AuthProvider authProvider,
+  ) async {
+    try {
+      if (authProvider.userId != null && authProvider.token != null) {
+        await rachaProvider.guardarPreferenciaRegalo(
+          authProvider.userId!,
+          retoId,
+          tipoRegalo,
+          authProvider.token!,
+        );
+
+        print('✅ Regalo seleccionado: $tipoRegalo para reto: $retoId');
+      }
+    } catch (e) {
+      print('❌ Error al seleccionar regalo: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al guardar preferencia: $e')),
+        );
+      }
+    }
   }
 }

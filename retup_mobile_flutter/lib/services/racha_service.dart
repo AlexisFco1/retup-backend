@@ -236,4 +236,60 @@ class RachaService {
       throw e;
     }
   }
+
+  // ===== GUARDAR PREFERENCIA DE REGALO =====
+  Future<Map<String, dynamic>> guardarPreferenciaRegalo(
+    String userId,
+    String retoId,
+    String regaloTipo,
+    String token,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/racha/guardar-preferencia-regalo'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+          'reto_id': retoId,
+          'regalo_tipo': regaloTipo,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Error al guardar preferencia: ${response.statusCode}');
+    } catch (e) {
+      print('❌ Error en guardarPreferenciaRegalo: $e');
+      throw e;
+    }
+  }
+
+  // ===== OBTENER PREFERENCIA DE REGALO =====
+  Future<String?> obtenerPreferenciaRegalo(
+    String userId,
+    String retoId,
+    String token,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '$baseUrl/racha/preferencia-regalo/$userId/$retoId',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        return jsonResponse['data'];
+      }
+      throw Exception('Error al obtener preferencia: ${response.statusCode}');
+    } catch (e) {
+      print('❌ Error en obtenerPreferenciaRegalo: $e');
+      throw e;
+    }
+  }
 }
