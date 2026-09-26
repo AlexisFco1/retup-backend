@@ -186,6 +186,72 @@ app.get('/api/racha/preferencia-regalo/:userId/:retoId', authenticateToken, asyn
     });
   }
 });
+// ===== GUARDAR PREFERENCIA DE REGALO GLOBAL =====
+app.post('/api/racha/guardar-preferencia-regalo-global', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, regalo_tipo } = req.body;
+
+    if (!user_id || !regalo_tipo) {
+      return res.status(400).json({
+        success: false,
+        error: 'Faltan parámetros: user_id, regalo_tipo'
+      });
+    }
+
+    console.log(`🎁 POST guardar-preferencia-regalo-global: user=${user_id}, tipo=${regalo_tipo}`);
+
+    // Usar 'global' como reto_id para la preferencia global
+    const { data: existente } = await supabase
+      .from('user_reto_gifts')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('reto_id', 'global')
+      .maybeSingle();
+
+    if (existente) {
+      const { error } = await supabase
+        .from('user_reto_gifts')
+        .update({ gift_type: regalo_tipo, updated_at: new Date().toISOString() })
+        .eq('id', existente.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('user_reto_gifts')
+        .insert({
+          user_id,
+          reto_id: 'global',
+          gift_type: regalo_tipo,
+        });
+      if (error) throw error;
+    }
+
+    res.json({ success: true, data: regalo_tipo });
+  } catch (error) {
+    console.error('❌ Error en guardar-preferencia-regalo-global:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// ===== OBTENER PREFERENCIA DE REGALO GLOBAL =====
+app.get('/api/racha/preferencia-regalo-global/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const { data, error } = await supabase
+      .from('user_reto_gifts')
+      .select('gift_type')
+      .eq('user_id', userId)
+      .eq('reto_id', 'global')
+      .maybeSingle();
+
+    if (error) throw error;
+
+    res.json({ success: true, data: data?.gift_type || null });
+  } catch (error) {
+    console.error('❌ Error en preferencia-regalo-global:', error.message);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
 // ===== ENDPOINTS DE COMPANIES (PROTEGIDOS) =====
 app.get('/api/companies', authenticateToken, async (req, res) => {
   try {
@@ -2310,7 +2376,37 @@ leaderboardRacha = leaderboardRacha.filter(u => u.mejor_racha > 0);
       position: index + 1,
       ...item
     }));
-
+    // ===== LEADERBOARD UNIFICADO: Racha + Píldoras Cumplidas =====
+    const unificadoMap = {};
+    for (const item of leaderboardRacha) {
+      unificadoMap[item.user_id] = {
+        user_id: item.user_id,
+        full_name: item.full_name,
+        mejor_racha: item.mejor_racha,
+        pildoras_cumplidas: 0
+      };
+    }
+    for (const item of leaderboardDiasCumplidos) {
+      if (unificadoMap[item.user_id]) {
+        unificadoMap[item.user_id].pildoras_cumplidas = item.dias_cumplidos_total;
+      } else {
+        unificadoMap[item.user_id] = {
+          user_id: item.user_id,
+          full_name: item.full_name,
+          mejor_racha: 0,
+          pildoras_cumplidas: item.dias_cumplidos_total
+        };
+      }
+    }
+    let leaderboardUnificado = Object.values(unificadoMap);
+    leaderboardUnificado.sort((a, b) => {
+      if (b.mejor_racha !== a.mejor_racha) return b.mejor_racha - a.mejor_racha;
+      return b.pildoras_cumplidas - a.pildoras_cumplidas;
+    });
+    leaderboardUnificado = leaderboardUnificado.map((item, index) => ({
+      position: index + 1,
+      ...item
+    }));
        console.log(`🏆 Leaderboard Racha: ${leaderboardRacha.length} usuarios`);
     console.log(`🏆 Leaderboard Días Cumplidos: ${leaderboardDiasCumplidos.length} usuarios`);
 
@@ -2319,6 +2415,7 @@ leaderboardRacha = leaderboardRacha.filter(u => u.mejor_racha > 0);
       data: {
         leaderboard_racha: leaderboardRacha,
         leaderboard_dias_cumplidos: leaderboardDiasCumplidos,
+        leaderboard_unificado: leaderboardUnificado,
         mes: mesNum,
         ano: anoNum
       }
