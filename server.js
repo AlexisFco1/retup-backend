@@ -2308,33 +2308,30 @@ app.get('/api/racha/leaderboard-dias-cumplidos', authenticateToken, async (req, 
 leaderboardRacha = leaderboardRacha.filter(u => u.mejor_racha > 0);
     leaderboardRacha.sort((a, b) => b.mejor_racha - a.mejor_racha);
 
-    leaderboardRacha = await Promise.all(leaderboardRacha.map(async (item, index) => {
-  const { data: usuario, error: errorUsuario } = await supabase
-    .from('users')
-    .select('full_name, email')
-    .eq('id', item.user_id)
-    .single();
+       leaderboardRacha = (await Promise.all(leaderboardRacha.map(async (item) => {
+      const { data: usuario, error: errorUsuario } = await supabase
+        .from('users')
+        .select('full_name, email')
+        .eq('id', item.user_id)
+        .single();
 
-  // Si el usuario no existe, usar un valor por defecto
-  if (errorUsuario || !usuario) {
-    console.warn(`⚠️ Usuario ${item.user_id} no encontrado en tabla users`);
-    return {
-      position: index + 1,
-      full_name: 'Usuario Eliminado',
-      user_id: item.user_id,
-      mejor_racha: item.mejor_racha,
-      retos_participados: item.retos_participados
-    };
-  }
+      if (errorUsuario || !usuario) {
+        console.warn(`⚠️ Usuario ${item.user_id} no encontrado en tabla users - OMITIDO del leaderboard`);
+        return null;
+      }
 
-  return {
-    position: index + 1,
-    full_name: usuario.full_name || usuario.email || 'Usuario',
-    user_id: item.user_id,
-    mejor_racha: item.mejor_racha,
-    retos_participados: item.retos_participados
-  };
-}));
+      return {
+        full_name: usuario.full_name || 'Sin nombre',
+        email: usuario.email || 'N/A',
+        user_id: item.user_id,
+        mejor_racha: item.mejor_racha || 0,
+        racha_actual: item.racha_actual || 0,
+        pildoras_cumplidas: 0
+      };
+    }))).filter(item => item !== null).map((item, index) => ({
+      ...item,
+      position: index + 1
+    }));
 
     // ===== LEADERBOARD 2: Por DÍAS CUMPLIDOS =====
     const { data: todasCompletadas, error: errorCompletadas } = await supabase
