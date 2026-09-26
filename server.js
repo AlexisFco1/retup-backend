@@ -595,9 +595,11 @@ app.post('/api/user-progress', authenticateToken, async (req, res) => {
 
 app.put('/api/user-progress/:id', authenticateToken, async (req, res) => {
   try {
-    const { current_screen, self_assesment_score, is_completed } = req.body;
+    const { current_screen, self_assesment_score, is_completed, pill_rating, pill_feedback_message } = req.body;
     const update = { current_screen, self_assesment_score, is_completed, updated_at: new Date() };
     if (is_completed) update.completed_at = new Date();
+    if (pill_rating !== undefined) update.pill_rating = pill_rating;
+    if (pill_feedback_message !== undefined) update.pill_feedback_message = pill_feedback_message;
     const { data, error } = await supabase
       .from('user_pill_progress')
       .update(update)
