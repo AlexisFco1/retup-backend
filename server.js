@@ -205,7 +205,7 @@ app.post('/api/racha/guardar-preferencia-regalo-global', authenticateToken, asyn
       .from('user_reto_gifts')
       .select('id')
       .eq('user_id', user_id)
-      .eq('reto_id', 'global')
+            .eq('reto_id', '00000000-0000-0000-0000-000000000000')
       .maybeSingle();
 
     if (existente) {
@@ -219,7 +219,7 @@ app.post('/api/racha/guardar-preferencia-regalo-global', authenticateToken, asyn
         .from('user_reto_gifts')
         .insert({
           user_id,
-          reto_id: 'global',
+                    reto_id: '00000000-0000-0000-0000-000000000000',
           gift_type: regalo_tipo,
         });
       if (error) throw error;
@@ -241,7 +241,7 @@ app.get('/api/racha/preferencia-regalo-global/:userId', authenticateToken, async
       .from('user_reto_gifts')
       .select('gift_type')
       .eq('user_id', userId)
-      .eq('reto_id', 'global')
+            .eq('reto_id', '00000000-0000-0000-0000-000000000000')
       .maybeSingle();
 
     if (error) throw error;
