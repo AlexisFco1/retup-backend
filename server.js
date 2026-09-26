@@ -2404,6 +2404,326 @@ app.get('/api/racha/test-user/:user_id/:reto_id', async (req, res) => {
     });
   }
 });
+// ===== PLANIFICACIÓN DE RETOS: HELPERS =====
+const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+// Fecha de hoy en Madrid como 'YYYY-MM-DD' (Render corre en UTC)
+function _hoyMadrid() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' });
+}
+
+function _pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+// Clave numérica para comparar meses: 2026-09 -> 202609
+function _claveMes(anio, mes) {
+  return anio * 100 + mes;
+}
+
+function _mesSiguiente(anio, mes) {
+  return mes === 12 ? { anio: anio + 1, mes: 1 } : { anio, mes: mes + 1 };
+}
+
+function _mesAnterior(anio, mes) {
+  return mes === 1 ? { anio: anio - 1, mes: 12 } : { anio, mes: mes - 1 };
+}
+
+// Primer día laboral (lunes a viernes, sin festivos) de un mes -> 'YYYY-MM-DD'
+function _primerDiaLaboral(anio, mes, festivosSet) {
+  const ultimoDia = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+  for (let d = 1; d <= ultimoDia; d++) {
+    const diaSemana = new Date(Date.UTC(anio, mes - 1, d)).getUTCDay();
+    const fechaStr = `${anio}-${_pad2(mes)}-${_pad2(d)}`;
+    if (diaSemana >= 1 && diaSemana <= 5 && !festivosSet.has(fechaStr)) {
+      return fechaStr;
+    }
+  }
+  return `${anio}-${_pad2(mes)}-01`;
+}
+
+async function _cargarFestivos(desdeAnio, hastaAnio) {
+  const { data, error } = await supabase
+    .from('dias_festivos')
+    .select('fecha')
+    .gte('fecha', `${desdeAnio}-01-01`)
+    .lte('fecha', `${hastaAnio}-12-31`);
+  if (error) throw error;
+  return new Set((data || []).map(f => f.fecha));
+}
+
+// Calcula el mes vigente y la lista de meses visibles con su estado de bloqueo
+async function _calcularCalendarioPlanificacion() {
+  const hoy = _hoyMadrid();
+  const anioHoy = parseInt(hoy.slice(0, 4), 10);
+  const mesHoy = parseInt(hoy.slice(5, 7), 10);
+
+  const festivos = await _cargarFestivos(anioHoy - 1, anioHoy + 1);
+
+  // Mes vigente = último mes cuyo primer día laboral ya llegó
+  let vigente = { anio: anioHoy, mes: mesHoy };
+  if (hoy < _primerDiaLaboral(anioHoy, mesHoy, festivos)) {
+    vigente = _mesAnterior(anioHoy, mesHoy);
+  }
+
+  // Hasta diciembre de este año; si estamos en diciembre, hasta diciembre del año siguiente
+  const anioFin = mesHoy === 12 ? anioHoy + 1 : anioHoy;
+
+  const meses = [];
+  let m = { ...vigente };
+  while (_claveMes(m.anio, m.mes) <= _claveMes(anioFin, 12)) {
+    const fechaBloqueo = _primerDiaLaboral(m.anio, m.mes, festivos);
+    meses.push({
+      anio: m.anio,
+      mes: m.mes,
+      nombre: `${MESES_ES[m.mes - 1]} ${m.anio}`,
+      fecha_bloqueo: fechaBloqueo,
+      bloqueado: hoy >= fechaBloqueo,
+    });
+    m = _mesSiguiente(m.anio, m.mes);
+  }
+
+  return { hoy, vigente, meses };
+}
+
+// Retos de la empresa del usuario
+async function _retosDeEmpresa(userId) {
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('company_id')
+    .eq('id', userId)
+    .single();
+  if (userError) throw userError;
+
+  let query = supabase.from('retos').select('*').order('title');
+  if (userData.company_id) {
+    query = query.eq('company_id', userData.company_id);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+// Devuelve un Set con los ids de retos que el usuario ya completó (todas sus píldoras)
+async function _retosCompletadosDeUsuario(userId, retoIds) {
+  if (!retoIds || retoIds.length === 0) return new Set();
+
+  const { data: pills, error: pillsError } = await supabase
+    .from('pildoras')
+    .select('id, reto_id')
+    .in('reto_id', retoIds);
+  if (pillsError) throw pillsError;
+
+  const { data: progreso, error: progError } = await supabase
+    .from('user_pill_progress')
+    .select('pill_id')
+    .eq('user_id', userId)
+    .eq('is_completed', true);
+  if (progError) throw progError;
+
+  const pildorasHechas = new Set((progreso || []).map(p => p.pill_id));
+  const conteo = {};
+  (pills || []).forEach(p => {
+    if (!conteo[p.reto_id]) conteo[p.reto_id] = { total: 0, hechas: 0 };
+    conteo[p.reto_id].total++;
+    if (pildorasHechas.has(p.id)) conteo[p.reto_id].hechas++;
+  });
+
+  return new Set(
+    Object.entries(conteo)
+      .filter(([, v]) => v.total > 0 && v.hechas >= v.total)
+      .map(([retoId]) => retoId)
+  );
+}
+// ===== PLANIFICACIÓN DE RETOS: OBTENER =====
+app.get('/api/planificacion', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log('🗓️ GET /api/planificacion - Usuario:', userId);
+
+    const { hoy, vigente, meses } = await _calcularCalendarioPlanificacion();
+    const retos = await _retosDeEmpresa(userId);
+    const completados = await _retosCompletadosDeUsuario(userId, retos.map(r => r.id));
+
+    const { data: planes, error: planesError } = await supabase
+      .from('planificacion_retos')
+      .select('anio, mes, slot, reto_id')
+      .eq('user_id', userId);
+    if (planesError) throw planesError;
+
+    // Solo nos interesan los planes desde el mes vigente en adelante
+    const primero = meses[0];
+    const ultimo = meses[meses.length - 1];
+    const planesEnRango = (planes || []).filter(p => {
+      const k = _claveMes(p.anio, p.mes);
+      return k >= _claveMes(primero.anio, primero.mes) && k <= _claveMes(ultimo.anio, ultimo.mes);
+    });
+    // Si el usuario no planificó nada para el mes vigente, se le asigna un reto al azar
+    const tienePlanVigente = planesEnRango.some(
+      p => p.anio === vigente.anio && p.mes === vigente.mes
+    );
+
+    if (!tienePlanVigente) {
+      const retosYaPlanificados = new Set(planesEnRango.map(p => p.reto_id));
+      const candidatos = retos.filter(
+        r => !completados.has(r.id) && !retosYaPlanificados.has(r.id)
+      );
+
+      if (candidatos.length > 0) {
+        const elegido = candidatos[Math.floor(Math.random() * candidatos.length)];
+
+        const { error: insertError } = await supabase
+          .from('planificacion_retos')
+          .upsert(
+            {
+              user_id: userId,
+              reto_id: elegido.id,
+              anio: vigente.anio,
+              mes: vigente.mes,
+              slot: 1,
+            },
+            { onConflict: 'user_id,anio,mes,slot', ignoreDuplicates: true }
+          );
+        if (insertError) throw insertError;
+
+        planesEnRango.push({
+          anio: vigente.anio,
+          mes: vigente.mes,
+          slot: 1,
+          reto_id: elegido.id,
+        });
+        console.log(`🎲 Reto asignado al azar para ${vigente.mes}/${vigente.anio}:`, elegido.title);
+      } else {
+        console.log('ℹ️ No hay retos disponibles para asignar al azar');
+      }
+    }
+    // Meses con sus planes. Un mes bloqueado solo se muestra si tiene retos inscritos
+    const mesesRespuesta = meses
+      .map(m => ({
+        ...m,
+        planes: planesEnRango
+          .filter(p => p.anio === m.anio && p.mes === m.mes)
+          .sort((a, b) => a.slot - b.slot)
+          .map(p => ({ slot: p.slot, reto_id: p.reto_id })),
+      }))
+      .filter(m => !m.bloqueado || m.planes.length > 0);
+
+    // Retos inscritos en el mes vigente
+    const retosDelMes = planesEnRango
+      .filter(p => p.anio === vigente.anio && p.mes === vigente.mes)
+      .sort((a, b) => a.slot - b.slot)
+      .map(p => retos.find(r => r.id === p.reto_id))
+      .filter(Boolean);
+
+    res.json({
+      success: true,
+      hoy,
+      mes_vigente: {
+        anio: vigente.anio,
+        mes: vigente.mes,
+        nombre: `${MESES_ES[vigente.mes - 1]} ${vigente.anio}`,
+      },
+      meses: mesesRespuesta,
+      retos,
+      retos_completados: [...completados],
+      retos_del_mes: retosDelMes,
+    });
+  } catch (error) {
+    console.error('❌ Error en GET /api/planificacion:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+// ===== PLANIFICACIÓN DE RETOS: GUARDAR / QUITAR =====
+// Body: { anio, mes, slot (1|2), reto_id (uuid o null para quitar) }
+app.put('/api/planificacion', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const anio = parseInt(req.body.anio, 10);
+    const mes = parseInt(req.body.mes, 10);
+    const slot = parseInt(req.body.slot, 10);
+    const retoId = req.body.reto_id || null;
+
+    console.log('🗓️ PUT /api/planificacion', { userId, anio, mes, slot, retoId });
+
+    if (!anio || !mes || ![1, 2].includes(slot)) {
+      return res.status(400).json({ success: false, error: 'Datos incompletos' });
+    }
+
+    // 1) El mes debe estar en el rango visible y no estar bloqueado
+    const { meses } = await _calcularCalendarioPlanificacion();
+    const mesInfo = meses.find(m => m.anio === anio && m.mes === mes);
+    if (!mesInfo) {
+      return res.status(400).json({ success: false, error: 'Ese mes no se puede planificar' });
+    }
+    if (mesInfo.bloqueado) {
+      return res.status(403).json({ success: false, error: 'Este mes ya está bloqueado' });
+    }
+
+    // 2) Quitar el reto del desplegable
+    if (!retoId) {
+      const { error: delError } = await supabase
+        .from('planificacion_retos')
+        .delete()
+        .eq('user_id', userId)
+        .eq('anio', anio)
+        .eq('mes', mes)
+        .eq('slot', slot);
+      if (delError) throw delError;
+      return res.json({ success: true, message: 'Reto quitado' });
+    }
+
+    // 3) El reto debe ser de la empresa del usuario
+    const retos = await _retosDeEmpresa(userId);
+    if (!retos.some(r => r.id === retoId)) {
+      return res.status(400).json({ success: false, error: 'Reto no disponible para tu empresa' });
+    }
+
+    // 4) No puede estar completado
+    const completados = await _retosCompletadosDeUsuario(userId, [retoId]);
+    if (completados.has(retoId)) {
+      return res.status(400).json({ success: false, error: 'Ya completaste este reto' });
+    }
+
+    // 5) No puede estar elegido en otro mes / desplegable (desde el mes vigente en adelante)
+    const primero = meses[0];
+    const { data: usosReto, error: usosError } = await supabase
+      .from('planificacion_retos')
+      .select('anio, mes, slot')
+      .eq('user_id', userId)
+      .eq('reto_id', retoId);
+    if (usosError) throw usosError;
+
+    const repetido = (usosReto || []).some(p =>
+      _claveMes(p.anio, p.mes) >= _claveMes(primero.anio, primero.mes) &&
+      !(p.anio === anio && p.mes === mes && p.slot === slot)
+    );
+    if (repetido) {
+      return res.status(400).json({ success: false, error: 'Ya elegiste este reto en otro mes' });
+    }
+
+    // 6) Guardar (crea o reemplaza el reto de ese desplegable)
+    const { error: upsertError } = await supabase
+      .from('planificacion_retos')
+      .upsert(
+        {
+          user_id: userId,
+          reto_id: retoId,
+          anio,
+          mes,
+          slot,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,anio,mes,slot' }
+      );
+    if (upsertError) throw upsertError;
+
+    res.json({ success: true, message: 'Planificación guardada' });
+  } catch (error) {
+    console.error('❌ Error en PUT /api/planificacion:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
