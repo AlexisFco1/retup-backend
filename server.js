@@ -3044,7 +3044,18 @@ app.get('/api/social/posts', authenticateToken, async (req, res) => {
       let pollOptions = null;
       let userVote = null;
 
-      if (post.content_type === 'poll') {
+            if (post.content_type === 'poll') {
+        // 1) PRIMERO: ¿qué opción votó el usuario actual? (null si no votó)
+        const { data: voteData } = await supabase
+          .from('social_poll_votes')
+          .select('poll_option_id')
+          .eq('post_id', post.id)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (voteData) userVote = voteData.poll_option_id;
+
+        // 2) DESPUÉS: opciones con su conteo y si el usuario la votó
         const { data: options } = await supabase
           .from('social_poll_options')
           .select('*')
@@ -3056,18 +3067,14 @@ app.get('/api/social/posts', authenticateToken, async (req, res) => {
               .from('social_poll_votes')
               .select('*', { count: 'exact', head: true })
               .eq('poll_option_id', opt.id);
-            return { ...opt, votes: count || 0 };
+            return {
+              ...opt,
+              votes: count || 0,               // nombre antiguo (se mantiene)
+              vote_count: count || 0,          // ← el que lee Flutter
+              voted_by_me: opt.id === userVote // ← el que lee Flutter
+            };
           }));
         }
-
-        const { data: voteData } = await supabase
-          .from('social_poll_votes')
-          .select('poll_option_id')
-          .eq('post_id', post.id)
-          .eq('user_id', userId)
-          .single();
-
-        if (voteData) userVote = voteData.poll_option_id;
       }
 
       const userName = userData
