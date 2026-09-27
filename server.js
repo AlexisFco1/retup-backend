@@ -2982,8 +2982,8 @@ app.get('/api/social/posts', authenticateToken, async (req, res) => {
       }
 
       const userName = userData
-        ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
-        : 'Usuario';
+  ? (`${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim() || userData.full_name || 'Usuario')
+  : 'Usuario';
 
       return {
         ...post,
@@ -3201,90 +3201,7 @@ cron.schedule('0 23 28-31 * *', async () => {
 // ENDPOINTS DE SOCIAL
 // =============================================
 
-// OBTENER TODOS LOS POSTS
-app.get('/api/social/posts', authenticateToken, async (req, res) => {
-  try {
-    const { data: posts, error } = await supabase
-      .from('social_posts')
-      .select('*')
-      .order('created_at', { ascending: false });
 
-    if (error) throw error;
-
-    // Enriquecer cada post con info del usuario, likes y encuestas
-    const enrichedPosts = await Promise.all(posts.map(async (post) => {
-      // Info del usuario
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, first_name, last_name_1, last_name_2')
-        .eq('id', post.user_id)
-        .single();
-
-      // Contar likes
-      const { count: likesCount } = await supabase
-        .from('social_likes')
-        .select('*', { count: 'exact', head: true })
-        .eq('post_id', post.id);
-
-      // Verificar si el usuario actual dio like
-      const { data: userLike } = await supabase
-        .from('social_likes')
-        .select('id')
-        .eq('post_id', post.id)
-        .eq('user_id', req.user.id)
-        .single();
-
-      let pollOptions = null;
-      let userVote = null;
-
-      if (post.content_type === 'poll') {
-        // Obtener opciones de encuesta con conteo de votos
-        const { data: options } = await supabase
-          .from('social_poll_options')
-          .select('*')
-          .eq('post_id', post.id);
-
-        if (options) {
-          pollOptions = await Promise.all(options.map(async (opt) => {
-            const { count } = await supabase
-              .from('social_poll_votes')
-              .select('*', { count: 'exact', head: true })
-              .eq('poll_option_id', opt.id);
-            return { ...opt, votes: count || 0 };
-          }));
-        }
-
-        // Verificar si el usuario ya votó
-        const { data: voteData } = await supabase
-          .from('social_poll_votes')
-          .select('poll_option_id')
-          .eq('post_id', post.id)
-          .eq('user_id', req.user.id)
-          .single();
-
-        if (voteData) userVote = voteData.poll_option_id;
-      }
-
-      const userName = userData
-        ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
-        : 'Usuario';
-
-      return {
-        ...post,
-        user_name: userName,
-        likes_count: likesCount || 0,
-        liked_by_user: !!userLike,
-        poll_options: pollOptions,
-        user_vote: userVote,
-      };
-    }));
-
-    res.json({ success: true, data: enrichedPosts });
-  } catch (error) {
-    console.error('Error obteniendo posts:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 // CREAR UN POST
 app.post('/api/social/posts', authenticateToken, async (req, res) => {
