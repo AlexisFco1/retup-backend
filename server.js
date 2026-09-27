@@ -2070,11 +2070,16 @@ app.post('/api/racha/verificar-racha', authenticateToken, async (req, res) => {
 
     // Para cada reto, verificar y resetear si es necesario
     for (const retoId of retoIds) {
+            const mesActual = new Date().getMonth() + 1;
+      const anoActual = new Date().getFullYear();
+
       const { data: stats, error: errorStats } = await supabase
         .from('user_racha_stats')
         .select('*')
         .eq('user_id', user_id)
         .eq('reto_id', retoId)
+        .eq('mes', mesActual)
+        .eq('año', anoActual)
         .single();
 
       if (errorStats && errorStats.code !== 'PGRST116') {
@@ -2097,14 +2102,16 @@ app.post('/api/racha/verificar-racha', authenticateToken, async (req, res) => {
       if (!cumplioAyer && stats.racha_actual > 0) {
         console.log(`🔌 RACHA ROTA para user ${user_id}, reto ${retoId}. Reseteando a 0`);
         
-        await supabase
+               await supabase
           .from('user_racha_stats')
           .update({
             racha_actual: 0,
             fecha_ultima_racha: yesterday
           })
           .eq('user_id', user_id)
-          .eq('reto_id', retoId);
+          .eq('reto_id', retoId)
+          .eq('mes', mesActual)
+          .eq('año', anoActual);
       }
     }
 
@@ -2152,11 +2159,13 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
     if (errorProgreso) throw errorProgreso;
 
     // Obtener racha_maxima y racha_actual de user_racha_stats
-    const { data: rachaStats, error: errorRachaStats } = await supabase
+        const { data: rachaStats, error: errorRachaStats } = await supabase
       .from('user_racha_stats')
       .select('racha_maxima, racha_actual')
       .eq('user_id', user_id)
       .eq('reto_id', reto_id)
+      .eq('mes', mesNum)
+      .eq('año', anoNum)
       .single();
 
     if (errorRachaStats && errorRachaStats.code !== 'PGRST116') {
