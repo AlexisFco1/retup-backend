@@ -2837,6 +2837,56 @@ app.put('/api/planificacion', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// ═══════════════ FAVORITOS ═══════════════
+
+// GET: Obtener favoritos de un usuario
+app.get('/api/favoritos', authenticateToken, async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    if (!user_id) {
+      return res.status(400).json({ success: false, error: 'user_id es requerido' });
+    }
+    const { data, error } = await supabase
+      .from('favoritos')
+      .select('*')
+      .eq('user_id', user_id);
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST: Agregar favorito
+app.post('/api/favoritos', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, pill_id } = req.body;
+    const { data, error } = await supabase
+      .from('favoritos')
+      .insert([{ user_id, pill_id }])
+      .select();
+    if (error) throw error;
+    res.json({ success: true, data: data[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE: Quitar favorito
+app.delete('/api/favoritos', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, pill_id } = req.query;
+    const { error } = await supabase
+      .from('favoritos')
+      .delete()
+      .eq('user_id', user_id)
+      .eq('pill_id', pill_id);
+    if (error) throw error;
+    res.json({ success: true, message: 'Favorito eliminado' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
