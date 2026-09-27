@@ -2896,6 +2896,279 @@ app.delete('/api/favoritos', authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// ===== ENDPOINTS DE SOCIAL =====
+
+// Obtener todos los posts (con info del usuario, likes, encuestas)
+app.get('/api/social/posts', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    // Obtener posts con datos del usuario
+    const { data: posts, error } = await supabase
+      .from('social_posts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    // Para cada post, obtener info del usuario, likes y encuestas
+    const enrichedPosts = await Promise.all(posts.map(async (post) => {
+      // Info del usuario
+      const { data: userData } = await supabase
+        .from('users')
+        .select('full_name, first_name')
+        .eq('id', post.user_id)
+        .single();
+
+      // Contar likes
+      const { count: likeCount } = await supabase
+        .from('social_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id);
+
+      // Verificar si yo le di like
+      const { data: myLike } = await supabase
+        .from('social_likes')
+        .select('id')
+        .eq('post_id', post.id)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      let pollOptions = null;
+      if (post.content_type === 'poll') {
+        const { data: options } = await supabase
+          .from('social_poll_options')
+          .select('*')
+          .eq('post_id', post.id);
+
+        if (options) {
+          pollOptions = await Promise.all(options.map(async (opt) => {
+            const { count: voteCount } = await supabase
+              .from('social_poll_votes')
+              .select('*', { count: 'exact', head: true })
+              .eq('poll_option_id', opt.id);
+
+            const { data: myVote } = await supabase
+              .from('social_poll_votes')
+              .select('id')
+              .eq('poll_option_id', opt.id)
+              .eq('user_id', userId)
+              .maybeSingle();
+
+            return {
+              ...opt,
+              vote_count: voteCount || 0,
+              voted_by_me: !!myVote,
+            };
+          }));
+        }
+      }
+
+      return {
+        ...post,
+        user_full_name: userData?.full_name || 'Usuario',
+        user_first_name: userData?.first_name || '',
+        like_count: likeCount || 0,
+        liked_by_me: !!myLike,
+        poll_options: pollOptions,
+      };
+    }));
+
+    res.json({ success: true, posts: enrichedPosts });
+  } catch (error) {
+    console.error('❌ Error obteniendo posts:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Crear un post
+app.post('/api/social/posts', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { content_type, text_content, media_url, poll_options } = req.body;
+
+    // Obtener company_id del usuario
+    const { data: userData } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', userId)
+      .single();
+
+    // Insertar el post
+    const { data: post, error } = await supabase
+      .from('social_posts')
+      .insert([{
+        user_id: userId,
+        company_id: userData?.company_id,
+        content_type,
+        text_content: text_content || null,
+        media_url: media_url || null,
+        is_system_post: false,
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Si es encuesta, crear las opciones
+    if (content_type === 'poll' && poll_options && poll_options.length > 0) {
+      const optionsToInsert = poll_options.map(opt => ({
+        post_id: post.id,
+        option_text: opt,
+      }));
+
+      const { error: optError } = await supabase
+        .from('social_poll_options')
+        .insert(optionsToInsert);
+
+      if (optError) throw optError;
+    }
+
+    console.log('✅ Post creado:', post.id);
+    res.status(201).json({ success: true, post });
+  } catch (error) {
+    console.error('❌ Error creando post:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Votar en encuesta
+app.post('/api/social/polls/vote', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { post_id, poll_option_id } = req.body;
+
+    // Verificar si ya votó en este post
+    const { data: existingVote } = await supabase
+      .from('social_poll_votes')
+      .select('id')
+      .eq('post_id', post_id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingVote) {
+      return res.status(400).json({ success: false, error: 'Ya has votado en esta encuesta' });
+    }
+
+    const { error } = await supabase
+      .from('social_poll_votes')
+      .insert([{
+        post_id,
+        poll_option_id,
+        user_id: userId,
+      }]);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Voto registrado' });
+  } catch (error) {
+    console.error('❌ Error votando:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Like / Unlike toggle
+app.post('/api/social/posts/:postId/like', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { postId } = req.params;
+
+    // Verificar si ya tiene like
+    const { data: existingLike } = await supabase
+      .from('social_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingLike) {
+      // Quitar like
+      await supabase
+        .from('social_likes')
+        .delete()
+        .eq('id', existingLike.id);
+
+      res.json({ success: true, liked: false });
+    } else {
+      // Dar like
+      await supabase
+        .from('social_likes')
+        .insert([{ post_id: postId, user_id: userId }]);
+
+      res.json({ success: true, liked: true });
+    }
+  } catch (error) {
+    console.error('❌ Error en like:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===== CRON: GANADOR DE RACHAS MENSUAL =====
+// Se ejecuta el último día de cada mes a las 23:00 (hora Madrid)
+cron.schedule('0 23 28-31 * *', async () => {
+  try {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+
+    // Solo ejecutar si mañana es día 1 (hoy es último día del mes)
+    if (tomorrow.getDate() !== 1) return;
+
+    console.log('🏆 Ejecutando selección de ganador de rachas del mes...');
+
+    const mes = now.getMonth() + 1;
+    const anio = now.getFullYear();
+    const mesTexto = MESES_ES[mes - 1];
+
+    // Buscar el usuario con la racha máxima del mes
+    const { data: rachaStats, error } = await supabase
+      .from('user_racha_stats')
+      .select('user_id, racha_maxima, mes, año')
+      .eq('mes', mesTexto)
+      .eq('año', String(anio))
+      .order('racha_maxima', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    if (!rachaStats || rachaStats.length === 0) {
+      console.log('⚠️ No se encontraron rachas para este mes');
+      return;
+    }
+
+    const ganador = rachaStats[0];
+
+    // Obtener nombre del ganador
+    const { data: userData } = await supabase
+      .from('users')
+      .select('full_name, first_name, company_id')
+      .eq('id', ganador.user_id)
+      .single();
+
+    const nombreGanador = userData?.full_name || userData?.first_name || 'Usuario';
+
+    // Crear el post automático del sistema
+    const { error: postError } = await supabase
+      .from('social_posts')
+      .insert([{
+        user_id: ganador.user_id,
+        company_id: userData?.company_id,
+        content_type: 'streak_winner',
+        text_content: `🏆 ¡Ganador de Rachas del mes de ${mesTexto}! 🏆\n\n🎉 Felicitamos a ${nombreGanador} por mantener la racha más alta del mes con ${ganador.racha_maxima} días consecutivos.\n\n¡Sigue así! 💪🔥`,
+        is_system_post: true,
+      }]);
+
+    if (postError) throw postError;
+
+    console.log(`🏆 Ganador del mes ${mesTexto}: ${nombreGanador} con racha de ${ganador.racha_maxima}`);
+  } catch (error) {
+    console.error('❌ Error en cron de ganador de rachas:', error);
+  }
+});
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
