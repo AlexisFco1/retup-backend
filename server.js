@@ -2922,7 +2922,7 @@ app.get('/api/social/posts', authenticateToken, async (req, res) => {
       // Info del usuario
       const { data: userData } = await supabase
         .from('users')
-        .select('id, first_name, last_name_1, last_name_2')
+        .select('id, first_name, last_name_1, last_name_2, full_name, email')
         .eq('id', post.user_id)
         .single();
 
@@ -2982,7 +2982,7 @@ app.get('/api/social/posts', authenticateToken, async (req, res) => {
       }
 
       const userName = userData
-  ? (`${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim() || userData.full_name || 'Usuario')
+  ? (`${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim() || userData.full_name || userData.email?.split('@')[0] || 'Usuario')
   : 'Usuario';
 
       return {
