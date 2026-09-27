@@ -2898,47 +2898,63 @@ app.delete('/api/favoritos', authenticateToken, async (req, res) => {
 });
 // ===== ENDPOINTS DE SOCIAL =====
 
-// Obtener todos los posts (con info del usuario, likes, encuestas)
+// OBTENER TODOS LOS POSTS (ACTUALIZADO con vistas, comentarios y pins)
 app.get('/api/social/posts', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
 
-    // Obtener posts con datos del usuario
+    // Obtener los posts que el usuario tiene anclados
+    const { data: userPins } = await supabase
+      .from('social_pins')
+      .select('post_id')
+      .eq('user_id', userId);
+
+    const pinnedPostIds = (userPins || []).map(p => p.post_id);
+
     const { data: posts, error } = await supabase
       .from('social_posts')
       .select('*')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Para cada post, obtener info del usuario, likes y encuestas
     const enrichedPosts = await Promise.all(posts.map(async (post) => {
       // Info del usuario
       const { data: userData } = await supabase
         .from('users')
-        .select('full_name, first_name')
+        .select('id, first_name, last_name_1, last_name_2')
         .eq('id', post.user_id)
         .single();
 
       // Contar likes
-      const { count: likeCount } = await supabase
+      const { count: likesCount } = await supabase
         .from('social_likes')
         .select('*', { count: 'exact', head: true })
         .eq('post_id', post.id);
 
-      // Verificar si yo le di like
-      const { data: myLike } = await supabase
+      // Verificar si el usuario actual dio like
+      const { data: userLike } = await supabase
         .from('social_likes')
         .select('id')
         .eq('post_id', post.id)
         .eq('user_id', userId)
-        .maybeSingle();
+        .single();
+
+      // Contar comentarios
+      const { count: commentsCount } = await supabase
+        .from('social_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id);
+
+      // Contar vistas
+      const { count: viewsCount } = await supabase
+        .from('social_views')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id);
 
       let pollOptions = null;
+      let userVote = null;
+
       if (post.content_type === 'poll') {
         const { data: options } = await supabase
           .from('social_poll_options')
@@ -2947,41 +2963,53 @@ app.get('/api/social/posts', authenticateToken, async (req, res) => {
 
         if (options) {
           pollOptions = await Promise.all(options.map(async (opt) => {
-            const { count: voteCount } = await supabase
+            const { count } = await supabase
               .from('social_poll_votes')
               .select('*', { count: 'exact', head: true })
               .eq('poll_option_id', opt.id);
-
-            const { data: myVote } = await supabase
-              .from('social_poll_votes')
-              .select('id')
-              .eq('poll_option_id', opt.id)
-              .eq('user_id', userId)
-              .maybeSingle();
-
-            return {
-              ...opt,
-              vote_count: voteCount || 0,
-              voted_by_me: !!myVote,
-            };
+            return { ...opt, votes: count || 0 };
           }));
         }
+
+        const { data: voteData } = await supabase
+          .from('social_poll_votes')
+          .select('poll_option_id')
+          .eq('post_id', post.id)
+          .eq('user_id', userId)
+          .single();
+
+        if (voteData) userVote = voteData.poll_option_id;
       }
+
+      const userName = userData
+        ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
+        : 'Usuario';
 
       return {
         ...post,
-        user_full_name: userData?.full_name || 'Usuario',
-        user_first_name: userData?.first_name || '',
-        like_count: likeCount || 0,
-        liked_by_me: !!myLike,
+        user_name: userName,
+        likes_count: likesCount || 0,
+        liked_by_user: !!userLike,
+        comments_count: commentsCount || 0,
+        views_count: viewsCount || 0,
+        is_pinned: pinnedPostIds.includes(post.id),
+        is_own_post: post.user_id === userId,
         poll_options: pollOptions,
+        user_vote: userVote,
       };
     }));
 
-    res.json({ success: true, posts: enrichedPosts });
+    // Ordenar: posts anclados del usuario primero, luego el resto por fecha
+    enrichedPosts.sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    res.json({ success: true, data: enrichedPosts });
   } catch (error) {
-    console.error('❌ Error obteniendo posts:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Error obteniendo posts:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -3167,6 +3195,468 @@ cron.schedule('0 23 28-31 * *', async () => {
     console.log(`🏆 Ganador del mes ${mesTexto}: ${nombreGanador} con racha de ${ganador.racha_maxima}`);
   } catch (error) {
     console.error('❌ Error en cron de ganador de rachas:', error);
+  }
+});
+// =============================================
+// ENDPOINTS DE SOCIAL
+// =============================================
+
+// OBTENER TODOS LOS POSTS
+app.get('/api/social/posts', authenticateToken, async (req, res) => {
+  try {
+    const { data: posts, error } = await supabase
+      .from('social_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Enriquecer cada post con info del usuario, likes y encuestas
+    const enrichedPosts = await Promise.all(posts.map(async (post) => {
+      // Info del usuario
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, first_name, last_name_1, last_name_2')
+        .eq('id', post.user_id)
+        .single();
+
+      // Contar likes
+      const { count: likesCount } = await supabase
+        .from('social_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id);
+
+      // Verificar si el usuario actual dio like
+      const { data: userLike } = await supabase
+        .from('social_likes')
+        .select('id')
+        .eq('post_id', post.id)
+        .eq('user_id', req.user.id)
+        .single();
+
+      let pollOptions = null;
+      let userVote = null;
+
+      if (post.content_type === 'poll') {
+        // Obtener opciones de encuesta con conteo de votos
+        const { data: options } = await supabase
+          .from('social_poll_options')
+          .select('*')
+          .eq('post_id', post.id);
+
+        if (options) {
+          pollOptions = await Promise.all(options.map(async (opt) => {
+            const { count } = await supabase
+              .from('social_poll_votes')
+              .select('*', { count: 'exact', head: true })
+              .eq('poll_option_id', opt.id);
+            return { ...opt, votes: count || 0 };
+          }));
+        }
+
+        // Verificar si el usuario ya votó
+        const { data: voteData } = await supabase
+          .from('social_poll_votes')
+          .select('poll_option_id')
+          .eq('post_id', post.id)
+          .eq('user_id', req.user.id)
+          .single();
+
+        if (voteData) userVote = voteData.poll_option_id;
+      }
+
+      const userName = userData
+        ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
+        : 'Usuario';
+
+      return {
+        ...post,
+        user_name: userName,
+        likes_count: likesCount || 0,
+        liked_by_user: !!userLike,
+        poll_options: pollOptions,
+        user_vote: userVote,
+      };
+    }));
+
+    res.json({ success: true, data: enrichedPosts });
+  } catch (error) {
+    console.error('Error obteniendo posts:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// CREAR UN POST
+app.post('/api/social/posts', authenticateToken, async (req, res) => {
+  try {
+    const { content_type, text_content, media_url, poll_options } = req.body;
+    const userId = req.user.id;
+
+    // Obtener company_id del usuario
+    const { data: userData } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', userId)
+      .single();
+
+    const { data: post, error } = await supabase
+      .from('social_posts')
+      .insert({
+        user_id: userId,
+        company_id: userData?.company_id || null,
+        content_type,
+        text_content: text_content || null,
+        media_url: media_url || null,
+        is_system_post: false,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Si es encuesta, crear las opciones
+    if (content_type === 'poll' && poll_options && poll_options.length > 0) {
+      const optionsToInsert = poll_options.map(opt => ({
+        post_id: post.id,
+        option_text: opt,
+      }));
+
+      const { error: optError } = await supabase
+        .from('social_poll_options')
+        .insert(optionsToInsert);
+
+      if (optError) throw optError;
+    }
+
+    res.json({ success: true, data: post });
+  } catch (error) {
+    console.error('Error creando post:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// VOTAR EN UNA ENCUESTA
+app.post('/api/social/polls/vote', authenticateToken, async (req, res) => {
+  try {
+    const { post_id, poll_option_id } = req.body;
+    const userId = req.user.id;
+
+    const { data, error } = await supabase
+      .from('social_poll_votes')
+      .insert({
+        post_id,
+        poll_option_id,
+        user_id: userId,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(400).json({ success: false, message: 'Ya votaste en esta encuesta' });
+      }
+      throw error;
+    }
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error votando:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// TOGGLE LIKE
+app.post('/api/social/posts/:postId/like', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+
+    // Verificar si ya existe el like
+    const { data: existingLike } = await supabase
+      .from('social_likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .single();
+
+    if (existingLike) {
+      // Quitar like
+      await supabase
+        .from('social_likes')
+        .delete()
+        .eq('id', existingLike.id);
+      res.json({ success: true, liked: false });
+    } else {
+      // Dar like
+      await supabase
+        .from('social_likes')
+        .insert({ post_id: postId, user_id: userId });
+      res.json({ success: true, liked: true });
+    }
+  } catch (error) {
+    console.error('Error en like:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+// =============================================
+// CRON: GANADOR DE RACHAS DEL MES (último día a las 23:00 Madrid)
+// =============================================
+cron.schedule('0 23 28-31 * *', async () => {
+  try {
+    const ahora = _hoyMadrid();
+    const manana = new Date(ahora);
+    manana.setDate(manana.getDate() + 1);
+
+    // Solo ejecutar si mañana es día 1 (es decir, hoy es el último día del mes)
+    if (manana.getDate() !== 1) {
+      console.log('⏭️ No es el último día del mes, saltando cron de ganador de rachas');
+      return;
+    }
+
+    const mes = ahora.getMonth() + 1;
+    const anio = ahora.getFullYear();
+    const nombreMes = MESES_ES[mes - 1];
+
+    console.log(`🏆 Ejecutando cron de ganador de rachas para ${nombreMes} ${anio}...`);
+
+    // Buscar el usuario con la mayor racha máxima del mes actual
+    const { data: rachaStats, error } = await supabase
+      .from('user_racha_stats')
+      .select('user_id, racha_maxima')
+      .order('racha_maxima', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    if (!rachaStats || rachaStats.length === 0) {
+      console.log('⚠️ No hay datos de rachas para este mes');
+      return;
+    }
+
+    const ganador = rachaStats[0];
+
+    // Obtener nombre del ganador
+    const { data: userData } = await supabase
+      .from('users')
+      .select('first_name, last_name_1')
+      .eq('id', ganador.user_id)
+      .single();
+
+    const nombreGanador = userData
+      ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
+      : 'Usuario desconocido';
+
+    // Crear el post automático del sistema
+    const { error: postError } = await supabase
+      .from('social_posts')
+      .insert({
+        user_id: ganador.user_id,
+        content_type: 'streak_winner',
+        text_content: `🏆🔥 ¡Ganador de rachas de ${nombreMes} ${anio}! 🔥🏆\n\n¡Felicidades a ${nombreGanador}! Ha logrado la racha más alta del mes con ${ganador.racha_maxima} días consecutivos.\n\n¡Sigue así, eres una inspiración para todos! 💪`,
+        is_system_post: true,
+      });
+
+    if (postError) throw postError;
+
+    console.log(`✅ Post de ganador de rachas creado: ${nombreGanador} con racha de ${ganador.racha_maxima}`);
+  } catch (error) {
+    console.error('❌ Error en cron de ganador de rachas:', error);
+  }
+});
+// =============================================
+// ENDPOINTS ADICIONALES DE SOCIAL
+// =============================================
+
+// EDITAR UN POST (solo el autor puede editar)
+app.put('/api/social/posts/:postId', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { text_content } = req.body;
+    const userId = req.user.id;
+
+    // Verificar que el post pertenece al usuario
+    const { data: post } = await supabase
+      .from('social_posts')
+      .select('user_id')
+      .eq('id', postId)
+      .single();
+
+    if (!post || post.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'No puedes editar este post' });
+    }
+
+    const { data, error } = await supabase
+      .from('social_posts')
+      .update({ text_content, updated_at: new Date().toISOString() })
+      .eq('id', postId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error editando post:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// BORRAR UN POST (solo el autor puede borrar)
+app.delete('/api/social/posts/:postId', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+
+    const { data: post } = await supabase
+      .from('social_posts')
+      .select('user_id')
+      .eq('id', postId)
+      .single();
+
+    if (!post || post.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'No puedes borrar este post' });
+    }
+
+    const { error } = await supabase
+      .from('social_posts')
+      .delete()
+      .eq('id', postId);
+
+    if (error) throw error;
+    res.json({ success: true, message: 'Post eliminado' });
+  } catch (error) {
+    console.error('Error borrando post:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// OBTENER COMENTARIOS DE UN POST
+app.get('/api/social/posts/:postId/comments', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const { data: comments, error } = await supabase
+      .from('social_comments')
+      .select('*')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    // Enriquecer con nombre del usuario
+    const enriched = await Promise.all(comments.map(async (c) => {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('first_name, last_name_1')
+        .eq('id', c.user_id)
+        .single();
+
+      return {
+        ...c,
+        user_name: userData
+          ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
+          : 'Usuario',
+      };
+    }));
+
+    res.json({ success: true, data: enriched });
+  } catch (error) {
+    console.error('Error obteniendo comentarios:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// CREAR COMENTARIO
+app.post('/api/social/posts/:postId/comments', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { comment_text } = req.body;
+    const userId = req.user.id;
+
+    const { data, error } = await supabase
+      .from('social_comments')
+      .insert({ post_id: postId, user_id: userId, comment_text })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Devolver con nombre del usuario
+    const { data: userData } = await supabase
+      .from('users')
+      .select('first_name, last_name_1')
+      .eq('id', userId)
+      .single();
+
+    res.json({
+      success: true,
+      data: {
+        ...data,
+        user_name: userData
+          ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
+          : 'Usuario',
+      },
+    });
+  } catch (error) {
+    console.error('Error creando comentario:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// REGISTRAR VISTA DE UN POST
+app.post('/api/social/posts/:postId/view', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+
+    // Insertar vista (ignora si ya existe por el UNIQUE)
+    await supabase
+      .from('social_views')
+      .upsert(
+        { post_id: postId, user_id: userId },
+        { onConflict: 'post_id,user_id', ignoreDuplicates: true }
+      );
+
+    // Contar total de vistas
+    const { count } = await supabase
+      .from('social_views')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId);
+
+    res.json({ success: true, views_count: count || 0 });
+  } catch (error) {
+    console.error('Error registrando vista:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// TOGGLE PIN (anclar/desanclar post para el usuario)
+app.post('/api/social/posts/:postId/pin', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user.id;
+
+    const { data: existingPin } = await supabase
+      .from('social_pins')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .single();
+
+    if (existingPin) {
+      await supabase
+        .from('social_pins')
+        .delete()
+        .eq('id', existingPin.id);
+      res.json({ success: true, pinned: false });
+    } else {
+      await supabase
+        .from('social_pins')
+        .insert({ post_id: postId, user_id: userId });
+      res.json({ success: true, pinned: true });
+    }
+  } catch (error) {
+    console.error('Error en pin:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 // Iniciar servidor
