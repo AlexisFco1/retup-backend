@@ -60,20 +60,39 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // SIGNUP REAL
-  Future<bool> signup(String email, String password, String name) async {
+  // SIGNUP REAL
+  Future<bool> signup({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName1,
+    String lastName2 = '',
+    int? age,
+    String? gender,
+    String? department,
+  }) async {
     try {
       _isLoading = true;
       _errorMessage = null;
       notifyListeners();
 
-      final response = await _authService.signup(email, password, name);
+      final response = await _authService.signup(
+        email: email,
+        password: password,
+        firstName: firstName,
+        lastName1: lastName1,
+        lastName2: lastName2,
+        age: age,
+        gender: gender,
+        department: department,
+      );
 
       if (response['success'] == true) {
         _isAuthenticated = true;
         _token = response['token'];
         _userId = response['userId']?.toString();
         _userEmail = email;
-        _userName = name;
+        _userName = [firstName, lastName1].join(' ');
 
         // 🆕 REGISTRAR LOGIN EN RACHA para todos los retos
         await _registrarLoginEnRachas();

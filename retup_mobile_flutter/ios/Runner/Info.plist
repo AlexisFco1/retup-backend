@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+<string>RetUp necesita acceso a la cámara para tomar fotos</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>RetUp necesita acceso a tus fotos para compartirlas</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>RetUp necesita acceso al micrófono para grabar audio</string>
 </dict>
 </plist>

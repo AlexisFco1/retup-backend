@@ -180,7 +180,25 @@ class _RachasScreenState extends State<RachasScreen> {
 
                   // ===== 1) REGALO GLOBAL =====
                   _buildSeccionRegaloGlobal(rachaProvider, authProvider),
-                  const SizedBox(height: 32),
+
+                  // ── Separador 1 ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 24),
+                    child: Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            const Color(0xFF6366F1).withOpacity(0.2),
+                            const Color(0xFF8B5CF6).withOpacity(0.2),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
 
                   // ===== 2) PROGRESO POR RETO =====
                   _buildSectionHeader(
@@ -198,7 +216,25 @@ class _RachasScreenState extends State<RachasScreen> {
                       rachaProvider: rachaProvider,
                     );
                   }).toList(),
-                  const SizedBox(height: 18),
+
+                  // ── Separador 2 ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 24),
+                    child: Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            const Color(0xFF6366F1).withOpacity(0.2),
+                            const Color(0xFF8B5CF6).withOpacity(0.2),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
 
                   // ===== 3) RANKING =====
                   _buildSectionHeader(
@@ -1261,39 +1297,85 @@ class _RachasScreenState extends State<RachasScreen> {
 
   Widget _buildMedalla(dynamic position) {
     final int pos = position is int ? position : 0;
-    final esPodio = pos >= 1 && pos <= 3;
 
-    return Container(
-      width: 34,
-      height: 34,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        gradient: esPodio
-            ? LinearGradient(
-                colors: _coloresMedalla(pos),
+    // 🏆 1er lugar: trofeo dorado con el número 1
+    if (pos == 1) {
+      return SizedBox(
+        width: 34,
+        height: 34,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: _coloresMedalla(1),
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-              )
-            : null,
-        color: esPodio ? null : AppColors.primaryColor.withOpacity(0.1),
-        shape: BoxShape.circle,
-        boxShadow: esPodio
-            ? [
-                BoxShadow(
-                  color: _coloresMedalla(pos)[1].withOpacity(0.4),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+              ).createShader(bounds),
+              child: const Icon(
+                Icons.emoji_events_rounded,
+                size: 34,
+                color: Colors.white,
+              ),
+            ),
+            const Align(
+              alignment: Alignment(0, -0.35),
+              child: Text(
+                '1',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                  shadows: [
+                    Shadow(color: Color(0xFFB45309), blurRadius: 2),
+                  ],
                 ),
-              ]
-            : null,
-      ),
-      child: Text(
-        position.toString(),
-        style: TextStyle(
-          color: esPodio ? Colors.white : AppColors.primaryColor,
-          fontWeight: FontWeight.w900,
-          fontSize: 14,
+              ),
+            ),
+          ],
         ),
+      );
+    }
+
+    // 🎗️ 2º plata, 3º bronce, resto lila claro: listón con el número
+    final bool esPodio = pos == 2 || pos == 3;
+
+    Widget liston = Icon(
+      Icons.bookmark_rounded,
+      size: 34,
+      color: esPodio ? Colors.white : AppColors.primaryColor.withOpacity(0.18),
+    );
+
+    if (esPodio) {
+      liston = ShaderMask(
+        shaderCallback: (bounds) => LinearGradient(
+          colors: _coloresMedalla(pos),
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(bounds),
+        child: liston,
+      );
+    }
+
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          liston,
+          Align(
+            alignment: const Alignment(0, -0.3),
+            child: Text(
+              position.toString(),
+              style: TextStyle(
+                color: esPodio ? Colors.white : AppColors.primaryColor,
+                fontWeight: FontWeight.w900,
+                fontSize: pos >= 10 ? 10.5 : 12,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

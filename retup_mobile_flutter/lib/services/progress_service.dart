@@ -85,4 +85,21 @@ class ProgressService {
     }
     return false;
   }
+
+  Future<List<PillProgress>> getAllPillProgressForUser(String userId) async {
+    try {
+      final response = await _apiService.get('/user-progress?user_id=$userId');
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['data'] is List) {
+          return (jsonResponse['data'] as List)
+              .map((item) => PillProgress.fromJson(item))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('Error getting all pill progress: $e');
+    }
+    return [];
+  }
 }

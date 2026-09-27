@@ -20,11 +20,12 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late FeedbackService _feedbackService;
   int _currentNavIndex = 4;
-  double _feedbackScore = 0.0;
+  double? _feedbackScore;
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, double> _asistenciaScores = {};
-  Map<String, double> _feedbackScoresPerReto = {};
+  Map<String, double?> _feedbackScoresPerReto = {};
+  Set<String> _retosExpandidos = {};
 
   // ===== Colores (mismos que las otras pantallas) =====
   static const Color _fondo = Color(0xFFF6F7FB);
@@ -96,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _feedbackScoresPerReto[retoLocal.reto.id] = feedbackScore;
         } catch (e) {
           print('Error loading feedback for reto ${retoLocal.reto.id}: $e');
-          _feedbackScoresPerReto[retoLocal.reto.id] = 0.0;
+          _feedbackScoresPerReto[retoLocal.reto.id] = null;
         }
       }
 
@@ -228,7 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return (bolitasVerdes / divisor) * 100;
   }
 
-  double _calcularNotaPromedio({
+  double? _calcularNotaPromedio({
     required String retoId,
     required PracticaloProvider practicaloProvider,
   }) {
@@ -244,7 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }).toList();
 
     if (practicasValidas.isEmpty) {
-      return 0.0;
+      return null; // Sin datos para calcular
     }
 
     final totalEstrellas = practicasValidas.fold<int>(
@@ -293,27 +294,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       final retosConDatos = <Map<String, dynamic>>[];
                       for (int i = 0; i < retos.length; i++) {
                         final retoLocal = retos[i];
-                        final double feedback =
-                            _feedbackScoresPerReto[retoLocal.reto.id] ?? 0.0;
+                        final double? feedbackRaw =
+                            _feedbackScoresPerReto[retoLocal.reto.id];
                         final double asistencia =
                             _calcularCalificacionAsistencia(
                           retoId: retoLocal.reto.id,
                           rachaProvider: rachaProvider,
                         );
-                        final double practica = _calcularNotaPromedio(
-                              retoId: retoLocal.reto.id,
-                              practicaloProvider: practicaloProvider,
-                            ) *
-                            20;
+                        final double? practicaRaw = _calcularNotaPromedio(
+                          retoId: retoLocal.reto.id,
+                          practicaloProvider: practicaloProvider,
+                        );
+                        // Convertir práctica a escala 0-100 solo si hay datos
+                        final double? practica =
+                            practicaRaw != null ? practicaRaw * 20 : null;
 
-                        if (feedback > 0 || asistencia > 0 || practica > 0) {
+                        // Mostrar el reto si tiene al menos un dato en cualquier categoría
+                        final bool tieneAlgunDato = feedbackRaw != null ||
+                            asistencia > 0 ||
+                            practica != null;
+
+                        if (tieneAlgunDato) {
+                          // Para el promedio general, solo promediar las categorías que tienen datos
+                          double sumaGenerales = 0;
+                          int cantidadConDatos = 0;
+                          if (feedbackRaw != null) {
+                            sumaGenerales += feedbackRaw;
+                            cantidadConDatos++;
+                          }
+                          if (asistencia > 0) {
+                            sumaGenerales += asistencia;
+                            cantidadConDatos++;
+                          }
+                          if (practica != null) {
+                            sumaGenerales += practica;
+                            cantidadConDatos++;
+                          }
+                          final double general = cantidadConDatos > 0
+                              ? sumaGenerales / cantidadConDatos
+                              : 0;
+
                           retosConDatos.add({
                             'index': i,
                             'retoLocal': retoLocal,
-                            'feedback': feedback,
-                            'asistencia': asistencia,
-                            'practica': practica,
-                            'general': (feedback + asistencia + practica) / 3,
+                            'feedback':
+                                feedbackRaw, // double? — null = sin datos
+                            'asistencia':
+                                asistencia, // double — 0.0 = sin datos (ya existente)
+                            'practica': practica, // double? — null = sin datos
+                            'general': general,
                           });
                         }
                       }
@@ -352,14 +381,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 final int index = item['index'] as int;
 
                                 return _buildRetoCard(
+                                  retoId: retoLocal.reto.id,
                                   colores: _paleta[index % _paleta.length],
                                   emoji: retoLocal.emoji,
                                   titulo:
                                       retoLocal.reto.title ?? 'Reto sin nombre',
+                                  categoria: retoLocal.reto.category,
                                   general: item['general'] as double,
-                                  feedback: item['feedback'] as double,
+                                  feedback: item['feedback'] as double?,
                                   asistencia: item['asistencia'] as double,
-                                  practica: item['practica'] as double,
+                                  practica: item['practica'] as double?,
                                 );
                               }).toList(),
                             const SizedBox(height: 8),
@@ -626,17 +657,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ===================================================================
   // TARJETA POR RETO
   // ===================================================================
-
   Widget _buildRetoCard({
+    required String retoId,
     required List<Color> colores,
     required String emoji,
     required String titulo,
+    String? categoria,
     required double general,
-    required double feedback,
+    required double? feedback,
     required double asistencia,
-    required double practica,
+    required double? practica,
   }) {
     final colorGeneral = _getFeedbackColor(general);
+    final bool expandido = _retosExpandidos.contains(retoId);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -655,7 +688,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabecera con degradado
+          // ===== CABECERA (siempre visible) =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -695,58 +728,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        titulo,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            titulo,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          if (categoria != null && categoria.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              categoria,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Calificación general con anillo
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 88,
-                  height: 88,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CircularProgressIndicator(
-                        value: (general / 100).clamp(0.0, 1.0),
-                        strokeWidth: 9,
-                        backgroundColor: const Color(0xFFEEF0F5),
-                        valueColor: AlwaysStoppedAnimation(colorGeneral),
-                      ),
-                      Center(
+                    // Porcentaje general (solo cuando está colapsado)
+                    if (!expandido) ...[
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.22),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: RichText(
                           text: TextSpan(
                             children: [
                               TextSpan(
                                 text: general.toStringAsFixed(0),
                                 style: const TextStyle(
-                                  fontSize: 24,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w900,
-                                  color: _texto,
+                                  color: Colors.white,
                                 ),
                               ),
                               const TextSpan(
                                 text: '%',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: _textoSuave,
+                                  color: Colors.white70,
                                 ),
                               ),
                             ],
@@ -754,84 +791,175 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Calificación general',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: _texto,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Promedio de feedback, asistencia y práctica',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _textoSuave,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _chip(
-                        _getFeedbackDescription(general),
-                        fondo: colorGeneral.withOpacity(0.12),
-                        colorTexto: colorGeneral,
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          // 3 indicadores
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildScoreTile(
-                    titulo: 'Feedback',
-                    valor: feedback.toStringAsFixed(0),
-                    mostrarPorcentaje: true,
-                    progreso: feedback / 100,
-                    icono: Icons.forum_rounded,
-                    color: _azul,
+          // ===== BOTÓN VER DETALLES / OCULTAR =====
+          InkWell(
+            onTap: () {
+              setState(() {
+                if (expandido) {
+                  _retosExpandidos.remove(retoId);
+                } else {
+                  _retosExpandidos.add(retoId);
+                }
+              });
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    expandido ? 'Ocultar detalles' : 'Ver detalles',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: colores[0],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildScoreTile(
-                    titulo: 'Asistencia',
-                    valor:
-                        asistencia > 0 ? asistencia.toStringAsFixed(0) : '--',
-                    mostrarPorcentaje: asistencia > 0,
-                    progreso: asistencia / 100,
-                    icono: Icons.event_available_rounded,
-                    color: _verde,
+                  const SizedBox(width: 4),
+                  Icon(
+                    expandido
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: colores[0],
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildScoreTile(
-                    titulo: 'Práctica',
-                    valor: practica.toStringAsFixed(0),
-                    mostrarPorcentaje: true,
-                    progreso: practica / 100,
-                    icono: Icons.star_rounded,
-                    color: _ambar,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
+
+          // ===== DASHBOARD DESPLEGABLE =====
+          if (expandido) ...[
+            // Calificación general con anillo
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 88,
+                    height: 88,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CircularProgressIndicator(
+                          value: (general / 100).clamp(0.0, 1.0),
+                          strokeWidth: 9,
+                          backgroundColor: const Color(0xFFEEF0F5),
+                          valueColor: AlwaysStoppedAnimation(colorGeneral),
+                        ),
+                        Center(
+                          child: RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: general.toStringAsFixed(0),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    color: _texto,
+                                  ),
+                                ),
+                                const TextSpan(
+                                  text: '%',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: _textoSuave,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Calificación general',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: _texto,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Promedio de feedback, asistencia y práctica',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _textoSuave,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _chip(
+                          _getFeedbackDescription(general),
+                          fondo: colorGeneral.withOpacity(0.12),
+                          colorTexto: colorGeneral,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 3 indicadores
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildScoreTile(
+                      titulo: 'Feedback',
+                      valor:
+                          feedback != null ? feedback.toStringAsFixed(0) : '—',
+                      mostrarPorcentaje: feedback != null,
+                      progreso: feedback != null ? feedback / 100 : 0,
+                      icono: Icons.forum_rounded,
+                      color: _azul,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildScoreTile(
+                      titulo: 'Asistencia',
+                      valor:
+                          asistencia > 0 ? asistencia.toStringAsFixed(0) : '—',
+                      mostrarPorcentaje: asistencia > 0,
+                      progreso: asistencia / 100,
+                      icono: Icons.event_available_rounded,
+                      color: _verde,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildScoreTile(
+                      titulo: 'Práctica',
+                      valor:
+                          practica != null ? practica.toStringAsFixed(0) : '—',
+                      mostrarPorcentaje: practica != null,
+                      progreso: practica != null ? practica / 100 : 0,
+                      icono: Icons.star_rounded,
+                      color: _ambar,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

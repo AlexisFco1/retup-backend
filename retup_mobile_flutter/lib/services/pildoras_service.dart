@@ -40,7 +40,8 @@ class PillorasService {
       final response = await _apiService.get('/pildoras/$id');
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        return Pildora.fromJson(jsonResponse);
+        final data = jsonResponse['data'] ?? jsonResponse;
+        return Pildora.fromJson(data);
       }
     } catch (e) {
       print('Error getting pildora: $e');

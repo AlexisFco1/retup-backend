@@ -50,12 +50,17 @@ class AuthService {
     }
   }
 
-  // SIGNUP - ACTUALIZADO CON FULL_NAME
-  Future<Map<String, dynamic>> signup(
-    String email,
-    String password,
-    String fullName,
-  ) async {
+  // SIGNUP - CON CAMPOS NUEVOS
+  Future<Map<String, dynamic>> signup({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName1,
+    String lastName2 = '',
+    int? age,
+    String? gender,
+    String? department,
+  }) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/auth/register'),
@@ -63,7 +68,12 @@ class AuthService {
         body: jsonEncode({
           'email': email,
           'password': password,
-          'full_name': fullName,
+          'first_name': firstName,
+          'last_name_1': lastName1,
+          'last_name_2': lastName2,
+          'age': age,
+          'gender': gender,
+          'department': department,
         }),
       );
 
@@ -88,7 +98,8 @@ class AuthService {
         final errorData = jsonDecode(response.body);
         return {
           'success': false,
-          'message': errorData['message'] ?? 'Error en registro',
+          'message':
+              errorData['message'] ?? errorData['error'] ?? 'Error en registro',
         };
       }
     } catch (e) {

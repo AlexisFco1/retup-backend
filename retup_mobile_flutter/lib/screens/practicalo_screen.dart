@@ -260,7 +260,27 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                               ),
                               const SizedBox(height: 14),
                               _buildMensajes(),
-                              const SizedBox(height: 20),
+
+                              // ── Separador 1 ──
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 32, vertical: 24),
+                                child: Container(
+                                  height: 1,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.transparent,
+                                        const Color(0xFF6366F1)
+                                            .withOpacity(0.2),
+                                        const Color(0xFF8B5CF6)
+                                            .withOpacity(0.2),
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ],
 
                             // ===== 2) PRÁCTICA RECIBIDA =====
@@ -301,7 +321,25 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                                   ),
                                 ),
                               ),
-                            const SizedBox(height: 20),
+
+                            // ── Separador 2 ──
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 32, vertical: 24),
+                              child: Container(
+                                height: 1,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.transparent,
+                                      const Color(0xFF6366F1).withOpacity(0.2),
+                                      const Color(0xFF8B5CF6).withOpacity(0.2),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
 
                             // ===== 3) PRÁCTICA ENVIADA =====
                             _buildSectionHeader(

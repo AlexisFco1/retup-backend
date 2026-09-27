@@ -99,9 +99,54 @@ class FeedbackService {
     }
   }
 
+  /// Obtiene lo que el usuario YA envió en una píldora:
+  /// - votos (secciones 3 y 7) desde anonymous_nominations
+  /// - retos (sección 8) desde practicalo
+  /// Devuelve null si hubo error (la pantalla sigue funcionando igual).
+  Future<Map<String, List<dynamic>>?> getMisEnviosPildora({
+    required String token,
+    required String pillId,
+  }) async {
+    try {
+      print('📋 Consultando mis envíos en la píldora: $pillId');
+
+      final url = Uri.parse('$_baseUrl/nominations/mis-envios/$pillId');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      print('📥 Status mis-envios: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        final votos = (jsonResponse['votos'] as List?) ?? [];
+        final retos = (jsonResponse['retos'] as List?) ?? [];
+
+        print(
+            '✅ Votos previos: ${votos.length} | Retos previos: ${retos.length}');
+
+        return {
+          'votos': votos,
+          'retos': retos,
+        };
+      } else {
+        print('❌ Error mis-envios: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Error consultando mis envíos: $e');
+      return null;
+    }
+  }
+
   /// Calcula la puntuación de feedback para un usuario
   /// Consulta el backend para obtener el score basado en votos anónimos
-  Future<double> calculateUserFeedbackScore(
+  Future<double?> calculateUserFeedbackScore(
     String userId,
     String token, {
     String? retoId,
@@ -163,6 +208,10 @@ class FeedbackService {
         print('   Total de votos: $totalVotes');
         print('═══════════════════════════════════════════════════════════\n');
 
+        // Si no hay votantes, devolver null (sin datos) en vez de 0.0
+        if (totalVoters == 0) {
+          return null;
+        }
         return feedbackScore;
       } else {
         print('\n❌ [ERROR HTTP] El servidor retornó un error');
@@ -175,11 +224,11 @@ class FeedbackService {
     } on TimeoutException catch (e) {
       print('\n❌ [ERROR TIMEOUT] $e');
       print('═══════════════════════════════════════════════════════════\n');
-      return 0.0;
+      return null;
     } catch (e) {
       print('\n❌ [ERROR] $e');
       print('═══════════════════════════════════════════════════════════\n');
-      return 0.0;
+      return null;
     }
   }
 

@@ -6,10 +6,16 @@ import '../providers/reto_provider.dart';
 import '../providers/racha_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/planificacion_provider.dart';
+import '../providers/pildora_provider.dart';
 import '../models/planificacion_model.dart';
 import '../models/reto_model.dart';
 import '../models/pildora_model.dart';
 import '../services/pildoras_service.dart';
+import '../services/favoritos_service.dart';
+import '../services/progress_service.dart';
+import '../models/pill_progress_model.dart';
+import 'pildora_detail_screen.dart';
+import '../services/progress_service.dart';
 import '../utils/colors.dart';
 import 'package:retup_mobile_flutter/screens/pildoras_list_screen.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
@@ -48,14 +54,20 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<String, List<Pildora>> _pildorasCache = {};
   final Set<String> _cargandoPildoras = {};
   String? _retoInfoId;
-
+  // Progreso de píldoras por reto (retoId -> cantidad completada)
+  final Map<String, int> _pildorasCompletadasPorReto = {};
+  // Sección "Mis Favoritos"
+  List<Pildora> _pildorasFavoritas = [];
+  bool _cargandoFavoritos = true;
   @override
   void initState() {
     super.initState();
     _loadRetosYRegistrarLogin();
     _loadNotificationCount();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PlanificacionProvider>().cargar();
+    _cargarFavoritos();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<PlanificacionProvider>().cargar();
+      _cargarProgresoPildoras();
     });
   }
 
@@ -112,6 +124,75 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       print('❌ Error en _registrarLoginEnRachas: $e');
+    }
+  }
+
+  Future<void> _cargarProgresoPildoras() async {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final planProvider = context.read<PlanificacionProvider>();
+      final userId = authProvider.userId;
+
+      if (userId == null) return;
+
+      final data = planProvider.data;
+      if (data == null) return;
+
+      final progressService = ProgressService();
+      final todosProgresos =
+          await progressService.getAllPillProgressForUser(userId);
+      final completadasIds = todosProgresos
+          .where((p) => p.isCompleted)
+          .map((p) => p.pillId)
+          .toSet();
+
+      for (final reto in data.retosDelMes) {
+        final pildoras = await _pildorasService.getByRetoId(reto.id);
+        int completadas = 0;
+        for (final pildora in pildoras) {
+          if (completadasIds.contains(pildora.id)) {
+            completadas++;
+          }
+        }
+        _pildorasCompletadasPorReto[reto.id] = completadas;
+      }
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      print('❌ Error cargando progreso de píldoras: $e');
+    }
+  }
+
+  Future<void> _cargarFavoritos() async {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final userId = authProvider.userId;
+      if (userId == null) return;
+
+      final favoritosService = FavoritosService();
+      final favIds = await favoritosService.getFavoritos(userId);
+      if (favIds.isEmpty) {
+        if (mounted) setState(() => _cargandoFavoritos = false);
+        return;
+      }
+
+      final List<Pildora> favoritas = [];
+      for (final pillId in favIds) {
+        final pildora = await _pildorasService.getById(pillId);
+        if (pildora != null) {
+          favoritas.add(pildora);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _pildorasFavoritas = favoritas;
+          _cargandoFavoritos = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error cargando favoritos: $e');
+      if (mounted) setState(() => _cargandoFavoritos = false);
     }
   }
 
@@ -192,7 +273,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildHeaderRetosDelMes(data),
                     const SizedBox(height: 16),
                     _buildRetosDelMes(data),
-                    const SizedBox(height: 32),
+
+                    // ── Separador 1 ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    const Color(0xFF6366F1).withOpacity(0.2),
+                                    const Color(0xFF8B5CF6).withOpacity(0.2),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                     // 2) RETOS PLANIFICADOS
                     _buildSectionHeader(
@@ -203,7 +308,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 14),
                     _buildPlanificacion(plan, data),
-                    const SizedBox(height: 28),
+
+                    // ── Separador 2 ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    const Color(0xFF6366F1).withOpacity(0.2),
+                                    const Color(0xFF8B5CF6).withOpacity(0.2),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                     // 3) INFORMACIÓN DE LOS RETOS
                     _buildSectionHeader(
@@ -213,6 +342,40 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 14),
                     _buildInfoRetos(data),
+
+                    // ── Separador 3 ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    const Color(0xFF6366F1).withOpacity(0.2),
+                                    const Color(0xFF8B5CF6).withOpacity(0.2),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // 4) MIS PÍLDORAS FAVORITAS
+                    _buildSectionHeader(
+                      '❤️',
+                      'Mis Píldoras Favoritas',
+                      'Tus píldoras guardadas para repasar',
+                    ),
+                    const SizedBox(height: 14),
+                    _buildFavoritos(data),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -441,9 +604,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text('🎯', style: TextStyle(fontSize: 20)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Retos del Mes Inscritos',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: _texto,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${data.mesVigenteNombre} · $resumen',
+                  style: const TextStyle(fontSize: 12.5, color: _textoSuave),
+                ),
+              ],
+            ),
+          ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -453,28 +646,14 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
-              '⭐ TU FOCO DE ESTE MES',
+              '⭐ Tu foco',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: Colors.white,
-                letterSpacing: 0.8,
+                letterSpacing: 0.5,
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Retos del Mes Inscritos',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: _texto,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${data.mesVigenteNombre} · $resumen',
-            style: const TextStyle(fontSize: 13, color: _textoSuave),
           ),
         ],
       ),
@@ -501,7 +680,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 .clamp(260.0, 440.0);
 
         return SizedBox(
-          height: 250,
+          height: 290,
           child: _horizontal(
             ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -669,7 +848,61 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-
+                      // Barra de progreso de píldoras
+                      Builder(
+                        builder: (_) {
+                          final total = reto.totalPills ?? 20;
+                          final completadas =
+                              _pildorasCompletadasPorReto[reto.id] ?? 0;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    '$completadas/$total píldoras',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (completadas == total)
+                                    const Text(
+                                      '🎉 ¡Completado!',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: List.generate(total, (i) {
+                                  final estaCompleta = i < completadas;
+                                  return Expanded(
+                                    child: Container(
+                                      height: 4,
+                                      margin: EdgeInsets.only(
+                                          right: i < total - 1 ? 2 : 0),
+                                      decoration: BoxDecoration(
+                                        color: estaCompleta
+                                            ? Colors.white
+                                            : Colors.white.withOpacity(0.25),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                          );
+                        },
+                      ),
                       // Botón principal
                       Container(
                         height: 52,
@@ -1495,6 +1728,146 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ===================================================================
+  // 4) MIS PÍLDORAS FAVORITAS
+  // ===================================================================
+
+  Widget _buildFavoritos(PlanificacionData data) {
+    if (_cargandoFavoritos) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (_pildorasFavoritas.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _buildEstadoVacio(
+          '💜',
+          'Aún no tienes favoritas',
+          'Completa píldoras y márcalas con ❤️ para verlas aquí.',
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 140,
+      child: _horizontal(
+        ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: _pildorasFavoritas.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, i) {
+            final pildora = _pildorasFavoritas[i];
+            final retoIndex =
+                data.retos.indexWhere((r) => r.id == pildora.retoId);
+            final colores =
+                _paleta[(retoIndex < 0 ? 0 : retoIndex) % _paleta.length];
+            final retoTitle =
+                retoIndex >= 0 ? data.retos[retoIndex].title : 'Reto';
+
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PildoraDetailScreen(
+                      pildora: pildora,
+                      retoTitle: retoTitle,
+                      retoId: pildora.retoId,
+                      isReadOnly: true,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                width: 150,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: colores[0].withOpacity(0.2)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colores[0].withOpacity(0.12),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: colores),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${pildora.pillNumber ?? (i + 1)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        const Icon(
+                          Icons.favorite,
+                          size: 16,
+                          color: Colors.red,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Text(
+                        pildora.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _texto,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      retoTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: colores[0],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

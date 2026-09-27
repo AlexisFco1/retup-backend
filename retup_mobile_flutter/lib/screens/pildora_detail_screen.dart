@@ -11,20 +11,22 @@ import '../models/user_model.dart';
 import '../services/user_service.dart';
 import '../services/feedback_service.dart';
 import '../services/notification_service.dart';
+import '../services/progress_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
 
 class PildoraDetailScreen extends StatefulWidget {
   final Pildora pildora;
   final String retoTitle;
-
-  final String retoId; //
+  final String retoId;
+  final bool isReadOnly;
 
   const PildoraDetailScreen({
     Key? key,
     required this.pildora,
     required this.retoTitle,
-    required this.retoId, //
+    required this.retoId,
+    this.isReadOnly = false,
   }) : super(key: key);
 
   @override
@@ -54,6 +56,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   final SeccionesService _seccionesService = SeccionesService();
   final FeedbackService _feedbackService = FeedbackService();
   final NotificationService _notificationService = NotificationService();
+  final ProgressService _progressService = ProgressService();
   final ScrollController _scrollController = ScrollController();
   List<Seccion> _secciones = [];
   int _seccionActual = 0;
@@ -63,18 +66,45 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   List<User> _usuarios = [];
   bool _isLoadingUsuarios = false;
   User? _usuarioSeleccionado;
+  // Selección múltiple guardada POR SECCIÓN (3 y 7 no se mezclan)
+  final Map<int, List<User>> _seleccionPorSeccion = {};
+  // Usuarios ya votados POR SECCIÓN (para no duplicar inserts)
+  final Map<int, Set<String>> _votadosPorSeccion = {};
+
+  int get _numeroSeccionActual =>
+      _secciones.isEmpty ? 0 : _secciones[_seccionActual].screenNumber;
+
+  List<User> get _usuariosSeleccionados =>
+      _seleccionPorSeccion[_numeroSeccionActual] ?? [];
+
+  set _usuariosSeleccionados(List<User> lista) =>
+      _seleccionPorSeccion[_numeroSeccionActual] = lista;
+
+  Set<String> get _votadosSeccionActual =>
+      _votadosPorSeccion.putIfAbsent(_numeroSeccionActual, () => <String>{});
+  static const int _maxVotos = 10;
+  int _selectorResetKey = 0; // Fuerza a refrescar el selector múltiple
   int _currentNavIndex =
       -1; // -1 indica que no estamos en una pantalla principal
   bool _isVoting = false;
   bool _votoEnviadoSeccion3 = false;
   bool _votoEnviadoSeccion7 = false;
   bool _retoEnviadoSeccion8 = false;
+  // Compañeros a los que YA se envió el reto en la sección 8 (para no duplicar)
+  final Set<String> _retadosSeccion8 = {};
+  int? _selfAssessmentScore;
+  bool _scoreGuardado = false;
+  late bool _isReadOnly;
 
   @override
   void initState() {
     super.initState();
+    _isReadOnly = widget.isReadOnly;
     _cargarSecciones();
-    _cargarUsuarios();
+    // Primero usuarios y DESPUÉS mis envíos: para pre-seleccionar
+    // a los compañeros votados hace falta tener la lista de usuarios
+    _cargarUsuarios().then((_) => _cargarMisEnvios());
+    _cargarSelfAssessmentScore();
   }
 
   @override
@@ -135,8 +165,17 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
 
       print('✅ Usuarios recibidos: ${usuarios.length}');
 
+      // Excluir al usuario con sesión activa (no puede votar por sí mismo)
+      final miUserId = context.read<AuthProvider>().userId;
+      final usuariosFiltrados = usuarios
+          .where((u) => u.id.toString() != miUserId?.toString())
+          .toList();
+
+      print('🙈 Usuarios sin incluirme: ${usuariosFiltrados.length}');
+
+      if (!mounted) return;
       setState(() {
-        _usuarios = usuarios;
+        _usuarios = usuariosFiltrados;
         _isLoadingUsuarios = false;
       });
     } catch (e) {
@@ -145,6 +184,327 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         _isLoadingUsuarios = false;
       });
     }
+  }
+
+  /// Recupera lo que el usuario YA envió en esta píldora (votos 3 y 7, reto 8)
+  /// para no volver a pedirlo al regresar a la píldora.
+  Future<void> _cargarMisEnvios() async {
+    if (_isReadOnly) return; // En modo lectura no se vota, no hace falta
+
+    try {
+      final token = context.read<AuthProvider>().token;
+      if (token == null) return;
+
+      final envios = await _feedbackService.getMisEnviosPildora(
+        token: token,
+        pillId: widget.pildora.id,
+      );
+
+      if (envios == null || !mounted) return;
+
+      final votos = envios['votos'] ?? [];
+      final retos = envios['retos'] ?? [];
+
+      // Agrupar los ids votados por sección: {3: {id1, id2}, 7: {id3}}
+      final Map<int, Set<String>> idsPorSeccion = {};
+      for (final voto in votos) {
+        final seccion = (voto['section_number'] as num?)?.toInt();
+        final votadoId = voto['nominated_user_id']?.toString();
+        if (seccion == null || votadoId == null) continue;
+        idsPorSeccion.putIfAbsent(seccion, () => <String>{}).add(votadoId);
+      }
+
+      setState(() {
+        idsPorSeccion.forEach((seccion, ids) {
+          // Marcar como ya votados (evita reenviarlos)
+          _votadosPorSeccion[seccion] = ids;
+          // Mostrarlos seleccionados en el selector de esa sección
+          _seleccionPorSeccion[seccion] =
+              _usuarios.where((u) => ids.contains(u.id.toString())).toList();
+        });
+
+        if ((idsPorSeccion[3] ?? {}).isNotEmpty) _votoEnviadoSeccion3 = true;
+        if ((idsPorSeccion[7] ?? {}).isNotEmpty) _votoEnviadoSeccion7 = true;
+        // Sección 8: recordar a quién ya se retó y mostrarlo en el selector
+        for (final reto in retos) {
+          final retadoId = reto['recipient_user_id']?.toString();
+          if (retadoId != null) _retadosSeccion8.add(retadoId);
+        }
+        if (_retadosSeccion8.isNotEmpty) {
+          _retoEnviadoSeccion8 = true;
+          final retados = _usuarios
+              .where((u) => _retadosSeccion8.contains(u.id.toString()))
+              .toList();
+          _usuarioSeleccionado = retados.isNotEmpty ? retados.first : null;
+        }
+
+        _selectorResetKey++; // Refresca el selector múltiple con la selección recuperada
+      });
+
+      print('✅ Envíos recuperados → S3: ${_votoEnviadoSeccion3}, '
+          'S7: ${_votoEnviadoSeccion7}, S8: ${_retoEnviadoSeccion8}');
+    } catch (e) {
+      print('❌ Error recuperando envíos previos: $e');
+    }
+  }
+
+  Future<void> _cargarSelfAssessmentScore() async {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final userId = authProvider.userId;
+      if (userId == null) return;
+
+      final pillProgress =
+          await _progressService.getPillProgress(userId, widget.pildora.id);
+      if (pillProgress != null && pillProgress.selfAssessmentScore != null) {
+        setState(() {
+          _selfAssessmentScore = pillProgress.selfAssessmentScore;
+          _scoreGuardado = true;
+        });
+      }
+    } catch (e) {
+      print('Error cargando self assessment score: $e');
+    }
+  }
+
+  Future<void> _guardarSelfAssessmentScore(int score) async {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final userId = authProvider.userId;
+      if (userId == null) return;
+
+      final pillProgress =
+          await _progressService.getPillProgress(userId, widget.pildora.id);
+      if (pillProgress == null) return;
+
+      final success = await _progressService.updateProgress(
+        pillProgress.id,
+        {'self_assesment_score': score},
+      );
+
+      if (success && mounted) {
+        setState(() {
+          _scoreGuardado = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('Autopercepción guardada'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error guardando self assessment score: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Error al guardar la autopercepción'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _construirSelectorAutopercepcion(List<Color> colores) {
+    final bool soloLectura = _isReadOnly;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.psychology_rounded,
+                color: colores[0],
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Tu autopercepción',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: colores[0],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '¿Cómo te evalúas en esta habilidad?',
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) {
+              final int valor = index + 1;
+              final bool seleccionado = _selfAssessmentScore != null &&
+                  _selfAssessmentScore! >= valor;
+
+              return GestureDetector(
+                onTap: soloLectura
+                    ? null
+                    : () {
+                        setState(() {
+                          _selfAssessmentScore = valor;
+                          _scoreGuardado = false;
+                        });
+                      },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    gradient: seleccionado
+                        ? LinearGradient(
+                            colors: colores,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: seleccionado ? null : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: seleccionado
+                          ? colores[0].withOpacity(0.3)
+                          : const Color(0xFFE5E7EB),
+                      width: 1.5,
+                    ),
+                    boxShadow: seleccionado
+                        ? [
+                            BoxShadow(
+                              color: colores[0].withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$valor',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: seleccionado
+                            ? Colors.white
+                            : const Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          if (_selfAssessmentScore != null) ...[
+            const SizedBox(height: 14),
+            Text(
+              _selfAssessmentScore == 1
+                  ? 'Necesito mejorar mucho'
+                  : _selfAssessmentScore == 2
+                      ? 'Tengo oportunidades de mejora'
+                      : _selfAssessmentScore == 3
+                          ? 'Estoy en un nivel aceptable'
+                          : _selfAssessmentScore == 4
+                              ? 'Tengo buen dominio'
+                              : 'Dominio excelente',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colores[0],
+              ),
+            ),
+          ],
+          if (!soloLectura &&
+              _selfAssessmentScore != null &&
+              !_scoreGuardado) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () =>
+                    _guardarSelfAssessmentScore(_selfAssessmentScore!),
+                icon: const Icon(Icons.save_rounded, size: 18),
+                label: const Text(
+                  'Guardar autopercepción',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colores[0],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ],
+          if (soloLectura && _selfAssessmentScore != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(10),
+                border:
+                    Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    'Guardado',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   void _subirAlInicio() {
@@ -158,12 +518,16 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   }
 
   void _irASiguiente() {
-    // Validar que el voto fue enviado en la sección 3 o 7
-    if ((_secciones[_seccionActual].screenNumber == 3 && !_votoEnviadoSeccion3) ||
-        (_secciones[_seccionActual].screenNumber == 7 &&
-            !_votoEnviadoSeccion7) ||
-        (_secciones[_seccionActual].screenNumber == 8 &&
-            !_retoEnviadoSeccion8)) {
+    // Validar que el voto fue enviado en la sección 3 o 7 (solo si NO es modo lectura)
+    if (!_isReadOnly &&
+        ((_secciones[_seccionActual].screenNumber == 3 &&
+                !_votoEnviadoSeccion3) ||
+            (_secciones[_seccionActual].screenNumber == 7 &&
+                !_votoEnviadoSeccion7) ||
+            (_secciones[_seccionActual].screenNumber == 8 &&
+                !_retoEnviadoSeccion8) ||
+            (_secciones[_seccionActual].screenNumber == 5 &&
+                !_scoreGuardado))) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -177,7 +541,9 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
           content: Text(
             _secciones[_seccionActual].screenNumber == 8
                 ? 'Debes enviar el reto antes de continuar.'
-                : 'Debes enviar tu voto antes de continuar.',
+                : _secciones[_seccionActual].screenNumber == 5
+                    ? 'Debes guardar tu autopercepción antes de continuar.'
+                    : 'Debes enviar tu voto antes de continuar.',
             style: const TextStyle(color: _textoSuave),
           ),
           actions: [
@@ -370,6 +736,101 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     );
   }
 
+  void _mostrarAnimacionXP() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, anim1, anim2) => const SizedBox(),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: anim1,
+          child: ScaleTransition(
+            scale: CurvedAnimation(
+              parent: anim1,
+              curve: Curves.elasticOut,
+            ),
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00C853).withOpacity(0.3),
+                        blurRadius: 30,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFD600), Color(0xFFFFA000)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFFD600).withOpacity(0.4),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.star_rounded,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        '+5',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFFFA000),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '¡Has ganado 5 pts de Asistencia!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF37474F),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.pop(context); // Cierra la animación
+        Navigator.pushReplacementNamed(context, '/'); // Va al Home
+      }
+    });
+  }
+
   Future<void> _completarPildora() async {
     // Mostrar diálogo de calificación ANTES de completar
     final resultado = await _mostrarDialogoCalificacion();
@@ -462,8 +923,16 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                       icono: Icons.check_rounded,
                       colores: _verde,
                       onPressed: () {
-                        Navigator.pop(context); // Cierra el diálogo
-                        Navigator.pushReplacementNamed(context, '/'); // Home
+                        Navigator.pop(
+                            context); // Cierra el diálogo de Felicidades
+                        final now = DateTime.now();
+                        final esEntresemana = now.weekday >= DateTime.monday &&
+                            now.weekday <= DateTime.friday;
+                        if (esEntresemana) {
+                          _mostrarAnimacionXP();
+                        } else {
+                          Navigator.pushReplacementNamed(context, '/');
+                        }
                       },
                     ),
                   ),
@@ -487,59 +956,102 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   }
 
   Future<void> _registrarVoto(String voteType) async {
-    if (_usuarioSeleccionado == null) {
-      _mostrarSnack('Por favor selecciona un usuario');
+    if (_usuariosSeleccionados.isEmpty) {
+      _mostrarSnack('Por favor selecciona al menos un usuario');
       return;
     }
 
-    try {
-      setState(() => _isVoting = true);
+    final votados = _votadosSeccionActual;
 
-      // Obtener el token del AuthProvider
-      final authProvider = context.read<AuthProvider>();
-      final token = authProvider.token;
+    // Solo votar por los que AÚN no tienen voto en esta sección
+    final pendientes =
+        _usuariosSeleccionados.where((u) => !votados.contains(u.id)).toList();
 
-      if (token == null) {
-        _mostrarSnack('Error: No hay sesión activa', esError: true);
-        return;
-      }
+    if (pendientes.isEmpty) {
+      _mostrarSnack('Ya enviaste tu voto por estos compañeros');
+      return;
+    }
 
-      // Obtener el user ID actual (respondent)
-      final respondentUserId = authProvider.userId;
-
-      if (respondentUserId == null) {
-        _mostrarSnack('Error: No hay usuario activo', esError: true);
-        return;
-      }
-
-      final nominationId = await _feedbackService.registerFeedbackVote(
-        token: token,
-        respondentUserId: respondentUserId,
-        nominatedUserId: _usuarioSeleccionado!.id,
-        retoId: widget.retoId,
-        pillId: widget.pildora.id,
-        sectionNumber: _secciones[_seccionActual].screenNumber,
-        voteType: voteType,
+    if (votados.length + pendientes.length > _maxVotos) {
+      _mostrarSnack(
+        'Solo puedes votar por $_maxVotos compañeros en esta sección (ya votaste por ${votados.length})',
+        esError: true,
       );
+      return;
+    }
 
-      _mostrarSnack('¡Voto registrado correctamente!', esExito: true);
-      // Marcar voto como enviado y resetear dropdown
+    final authProvider = context.read<AuthProvider>();
+    final token = authProvider.token;
+    final respondentUserId = authProvider.userId;
+
+    if (token == null || respondentUserId == null) {
+      _mostrarSnack('Error: No hay sesión activa', esError: true);
+      return;
+    }
+
+    setState(() => _isVoting = true);
+
+    final List<MapEntry<User, String>> exitosos = [];
+    final List<User> fallidos = [];
+
+    try {
+      // Un insert por cada usuario pendiente
+      for (final usuario in pendientes) {
+        try {
+          final nominationId = await _feedbackService.registerFeedbackVote(
+            token: token,
+            respondentUserId: respondentUserId,
+            nominatedUserId: usuario.id,
+            retoId: widget.retoId,
+            pillId: widget.pildora.id,
+            sectionNumber: _numeroSeccionActual,
+            voteType: voteType,
+          );
+          exitosos.add(MapEntry(usuario, nominationId.toString()));
+          votados.add(usuario.id); // marcar como ya votado
+        } catch (e) {
+          print('❌ Error votando por ${usuario.fullName}: $e');
+          fallidos.add(usuario);
+        }
+      }
+
+      if (!mounted) return;
+
+      if (exitosos.isEmpty) {
+        _mostrarSnack('No se pudo registrar ningún voto. Intenta de nuevo.',
+            esError: true);
+        return;
+      }
+
+      if (fallidos.isEmpty) {
+        _mostrarSnack(
+          exitosos.length == 1
+              ? '¡Voto registrado correctamente!'
+              : '¡${exitosos.length} votos registrados correctamente!',
+          esExito: true,
+        );
+      } else {
+        _mostrarSnack(
+          'Se registraron ${exitosos.length} votos. Fallaron ${fallidos.length}, pulsa "Enviar voto" para reintentar.',
+          esError: true,
+        );
+      }
+
+      // La selección NO se borra: se mantiene tal cual
       setState(() {
         if (voteType == 'positive') {
           _votoEnviadoSeccion3 = true;
         } else if (voteType == 'negative') {
           _votoEnviadoSeccion7 = true;
         }
-        _usuarioSeleccionado = null;
       });
-      // Mostrar diálogo SOLO para votos positivos (sección 3)
+
+      // Pop-up OPCIONAL de mensaje anónimo (solo sección 3)
       if (mounted && voteType == 'positive') {
-        _mostrarDialogoMensajeAnonimo(nominationId, token, respondentUserId);
+        _mostrarDialogoMensajeAnonimo(exitosos, token, respondentUserId);
       }
-    } catch (e) {
-      _mostrarSnack('Error: $e', esError: true);
     } finally {
-      setState(() => _isVoting = false);
+      if (mounted) setState(() => _isVoting = false);
     }
   }
 
@@ -624,127 +1136,248 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   }
 
   void _mostrarDialogoMensajeAnonimo(
-    String nominationId,
+    List<MapEntry<User, String>> nominaciones,
     String token,
     String respondentUserId,
   ) {
     final mensaje = 'Valoro tu habilidad de ${widget.pildora.titulo}';
 
+    // Guardamos los nominationId marcados. Si solo votó por uno, viene marcado.
+    final Set<String> elegidos =
+        nominaciones.length == 1 ? {nominaciones.first.value} : <String>{};
+
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(colors: _heroColores),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _heroColores[0].withOpacity(0.35),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.mark_email_unread_rounded,
-                  color: Colors.white,
-                  size: 34,
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Mensaje anónimo',
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                  color: _texto,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: _heroColores[0].withOpacity(0.07),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: _heroColores[0].withOpacity(0.18),
-                  ),
-                ),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final todosMarcados = elegidos.length == nominaciones.length;
+
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'TU MENSAJE SERÁ',
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(colors: _heroColores),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _heroColores[0].withOpacity(0.35),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.mark_email_unread_rounded,
+                        color: Colors.white,
+                        size: 34,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Mensaje anónimo',
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                        color: _heroColores[0],
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                        color: _texto,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _heroColores[0].withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: _heroColores[0].withOpacity(0.18),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TU MENSAJE SERÁ',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: _heroColores[0],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '“$mensaje”',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w600,
+                              color: _texto,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ===== ¿A quién se lo envías? =====
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '¿A quién de los seleccionados quisieras enviarle este mensaje?',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: _texto,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      '“$mensaje”',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w600,
-                        color: _texto,
-                        height: 1.4,
+
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _fondo,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Column(
+                        children: [
+                          // Opción "Seleccionar todos" (solo si hay más de 1)
+                          if (nominaciones.length > 1) ...[
+                            _filaCheck(
+                              texto: 'Seleccionar todos',
+                              marcado: todosMarcados,
+                              negrita: true,
+                              onTap: () {
+                                setDialogState(() {
+                                  if (todosMarcados) {
+                                    elegidos.clear();
+                                  } else {
+                                    elegidos.addAll(
+                                        nominaciones.map((n) => n.value));
+                                  }
+                                });
+                              },
+                            ),
+                            const Divider(
+                              height: 1,
+                              color: Color(0xFFE5E7EB),
+                            ),
+                          ],
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 220),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                children: nominaciones.map((n) {
+                                  final marcado = elegidos.contains(n.value);
+                                  return _filaCheck(
+                                    texto: n.key.fullName,
+                                    marcado: marcado,
+                                    onTap: () {
+                                      setDialogState(() {
+                                        marcado
+                                            ? elegidos.remove(n.value)
+                                            : elegidos.add(n.value);
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: _botonGradiente(
+                        texto: 'Enviar voto con mensaje anónimo',
+                        icono: Icons.send_rounded,
+                        colores: _verde,
+                        onPressed: elegidos.isEmpty
+                            ? null
+                            : () async {
+                                final seleccion = nominaciones
+                                    .where((n) => elegidos.contains(n.value))
+                                    .toList();
+                                Navigator.pop(dialogContext);
+                                await _enviarMensajesAnonimos(
+                                  seleccion,
+                                  mensaje,
+                                  token,
+                                  respondentUserId,
+                                );
+                              },
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text(
+                        'Enviar voto sin mensaje anónimo',
+                        style: TextStyle(
+                          color: _textoSuave,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
-                '¿Deseas enviar este mensaje de forma anónima?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: _textoSuave),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Fila con casilla para el pop-up de mensaje anónimo
+  Widget _filaCheck({
+    required String texto,
+    required bool marcado,
+    required VoidCallback onTap,
+    bool negrita = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Row(
+          children: [
+            Checkbox(
+              value: marcado,
+              onChanged: (_) => onTap(),
+              activeColor: _heroColores[0],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(5),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: _botonGradiente(
-                  texto: 'Enviar mensaje',
-                  icono: Icons.send_rounded,
-                  colores: _verde,
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await _enviarMensajeAnonimo(
-                      nominationId,
-                      mensaje,
-                      token,
-                      respondentUserId,
-                      _usuarioSeleccionado!.id,
-                    );
-                  },
+              side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
+            ),
+            Expanded(
+              child: Text(
+                texto,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  color: negrita ? _heroColores[0] : _texto,
+                  fontWeight: negrita ? FontWeight.w800 : FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 6),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'No enviar',
-                  style: TextStyle(
-                    color: _textoSuave,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -788,6 +1421,61 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     }
   }
 
+  Future<void> _enviarMensajesAnonimos(
+    List<MapEntry<User, String>> nominaciones,
+    String mensaje,
+    String token,
+    String respondentUserId,
+  ) async {
+    setState(() => _isVoting = true);
+    int enviados = 0;
+
+    try {
+      for (final nominacion in nominaciones) {
+        try {
+          // Guarda el mensaje en la nominación de ESE usuario
+          await _feedbackService.updateNominationWithMessage(
+            token: token,
+            nominationId: nominacion.value,
+            message: mensaje,
+          );
+          // Notificación solo para ESE usuario
+          await _notificationService.createNotification(
+            recipientUserId: nominacion.key.id,
+            senderUserId: respondentUserId,
+            type: 'anonymous_message',
+            message: mensaje,
+            token: token,
+            retoId: widget.retoId,
+            pillId: widget.pildora.id,
+          );
+          enviados++;
+        } catch (e) {
+          print('❌ Error enviando mensaje a ${nominacion.key.fullName}: $e');
+        }
+      }
+
+      if (!mounted) return;
+
+      if (enviados == nominaciones.length) {
+        _mostrarSnack(
+          enviados == 1
+              ? '¡Mensaje anónimo enviado!'
+              : '¡$enviados mensajes anónimos enviados!',
+          esExito: true,
+        );
+      } else if (enviados == 0) {
+        _mostrarSnack('No se pudo enviar el mensaje', esError: true);
+      } else {
+        _mostrarSnack(
+          'Se enviaron $enviados de ${nominaciones.length} mensajes',
+          esError: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isVoting = false);
+    }
+  }
   // ═══════════════════════════════════════════════════════════
   //  HELPERS VISUALES
   // ═══════════════════════════════════════════════════════════
@@ -1392,12 +2080,16 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Selecciona un usuario de la empresa',
+                      esReto
+                          ? 'Selecciona un usuario de la empresa'
+                          : seccion.screenNumber == 3
+                              ? 'Selecciona a los mejores'
+                              : 'Selecciona compañeros de la empresa',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -1427,87 +2119,45 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                       'No hay usuarios disponibles',
                       style: TextStyle(color: Color(0xFFEF4444)),
                     )
-                  : DropdownSearch<User>(
-                      items: _usuarios,
-                      itemAsString: (user) => user.fullName,
-                      onChanged: (User? value) {
-                        setState(() {
-                          _usuarioSeleccionado = value;
-                        });
-                      },
-                      selectedItem: _usuarioSeleccionado,
-                      popupProps: PopupProps.menu(
-                        showSearchBox: true,
-                        searchFieldProps: TextFieldProps(
-                          cursorColor: colorAcento[0],
-                          decoration: InputDecoration(
-                            hintText: 'Buscar usuario por nombre...',
-                            hintStyle: const TextStyle(
-                              color: _textoSuave,
-                              fontSize: 14,
+                  : esReto
+                      // ===== SECCIÓN 8: selección de UN usuario =====
+                      ? DropdownSearch<User>(
+                          items: _usuarios,
+                          itemAsString: (user) => user.fullName,
+                          onChanged: (User? value) {
+                            setState(() {
+                              _usuarioSeleccionado = value;
+                            });
+                          },
+                          selectedItem: _usuarioSeleccionado,
+                          popupProps: PopupProps.menu(
+                            showSearchBox: true,
+                            searchFieldProps: TextFieldProps(
+                              cursorColor: colorAcento[0],
+                              decoration: _decoracionBuscador(),
                             ),
-                            prefixIcon: const Icon(
-                              Icons.search_rounded,
-                              color: _textoSuave,
-                              size: 20,
-                            ),
-                            filled: true,
-                            fillColor: _fondo,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
+                            fit: FlexFit.loose,
+                            constraints: const BoxConstraints(maxHeight: 300),
+                            menuProps: MenuProps(
+                              borderRadius: BorderRadius.circular(16),
+                              elevation: 6,
                             ),
                           ),
-                        ),
-                        fit: FlexFit.loose,
-                        constraints: const BoxConstraints(maxHeight: 300),
-                        menuProps: MenuProps(
-                          borderRadius: BorderRadius.circular(16),
-                          elevation: 6,
-                        ),
-                      ),
-                      dropdownDecoratorProps: DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          hintText: 'Selecciona un usuario',
-                          prefixIcon: Icon(
-                            Icons.person_rounded,
-                            color: colorAcento[0],
-                          ),
-                          filled: true,
-                          fillColor: _fondo,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                              color: Color(0xFFE5E7EB),
+                          dropdownDecoratorProps: DropDownDecoratorProps(
+                            dropdownSearchDecoration: _decoracionSelector(
+                              colorAcento,
+                              'Selecciona un usuario',
                             ),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: colorAcento[0],
-                              width: 1.5,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
-                      ),
-                    ),
+                        )
+                      // ===== SECCIONES 3 y 7: selección MÚLTIPLE =====
+                      : _construirSelectorMultiple(colorAcento),
           const SizedBox(height: 18),
 
-          // Botón "Enviar voto" (SOLO en secciones 3 y 7)
+          // Botón "Enviar voto" (SOLO en secciones 3 y 7, NO en modo lectura)
           if ((seccion.screenNumber == 3 || seccion.screenNumber == 7) &&
-              seccion.screenNumber != 8)
+              seccion.screenNumber != 8 &&
+              !_isReadOnly)
             SizedBox(
               width: double.infinity,
               child: _botonGradiente(
@@ -1527,8 +2177,8 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
               ),
             ),
 
-          // Botón "Enviar Reto" (SOLO en sección 8)
-          if (esReto)
+          // Botón "Enviar Reto" (SOLO en sección 8, NO en modo lectura)
+          if (esReto && !_isReadOnly)
             SizedBox(
               width: double.infinity,
               child: _botonGradiente(
@@ -1545,6 +2195,179 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
             ),
         ],
       ),
+    );
+  }
+
+  // ── Selector múltiple (secciones 3 y 7) ──
+  Widget _construirSelectorMultiple(List<Color> colorAcento) {
+    final total = _usuariosSeleccionados.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownSearch<User>.multiSelection(
+          key: ValueKey('multi_$_selectorResetKey'),
+          items: _usuarios,
+          itemAsString: (user) => user.fullName,
+          compareFn: (a, b) => a.id == b.id,
+          selectedItems: _usuariosSeleccionados,
+          onChanged: (List<User> seleccion) {
+            if (seleccion.length > _maxVotos) {
+              _mostrarSnack(
+                'Puedes seleccionar máximo $_maxVotos usuarios. Se tomaron los primeros $_maxVotos.',
+                esError: true,
+              );
+              setState(() {
+                _usuariosSeleccionados = seleccion.take(_maxVotos).toList();
+                _selectorResetKey++;
+              });
+              return;
+            }
+            setState(() => _usuariosSeleccionados = seleccion);
+          },
+          dropdownBuilder: (context, seleccion) => Text(
+            seleccion.isEmpty
+                ? (_numeroSeccionActual == 3
+                    ? 'Selecciona a los mejores'
+                    : 'Selecciona a tus compañeros')
+                : '${seleccion.length} usuario(s) seleccionado(s)',
+            style: TextStyle(
+              fontSize: 15,
+              color: seleccion.isEmpty ? _textoSuave : _texto,
+              fontWeight: seleccion.isEmpty ? FontWeight.w400 : FontWeight.w700,
+            ),
+          ),
+          popupProps: PopupPropsMultiSelection.menu(
+            showSearchBox: true,
+            searchFieldProps: TextFieldProps(
+              cursorColor: colorAcento[0],
+              decoration: _decoracionBuscador(),
+            ),
+            fit: FlexFit.loose,
+            constraints: const BoxConstraints(maxHeight: 360),
+            menuProps: MenuProps(
+              borderRadius: BorderRadius.circular(16),
+              elevation: 6,
+            ),
+          ),
+          dropdownDecoratorProps: DropDownDecoratorProps(
+            dropdownSearchDecoration: _decoracionSelector(
+              colorAcento,
+              'Selecciona usuarios',
+              icono: Icons.group_add_rounded,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Contador
+        Row(
+          children: [
+            Icon(Icons.how_to_vote_rounded, size: 16, color: colorAcento[0]),
+            const SizedBox(width: 6),
+            Text(
+              total == 1 ? '1 seleccionado' : '$total seleccionados',
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: _textoSuave,
+              ),
+            ),
+          ],
+        ),
+
+        // Chips de los seleccionados (con opción de quitar)
+        if (total > 0) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _usuariosSeleccionados.map((user) {
+              final yaVotado = _votadosSeccionActual.contains(user.id);
+              return Chip(
+                avatar: yaVotado
+                    ? Icon(
+                        Icons.check_circle_rounded,
+                        size: 16,
+                        color: colorAcento[0],
+                      )
+                    : null,
+                label: Text(
+                  user.fullName,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: colorAcento[0],
+                  ),
+                ),
+                backgroundColor: colorAcento[0].withOpacity(0.1),
+                side: BorderSide(color: colorAcento[0].withOpacity(0.25)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                deleteIcon: Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: colorAcento[0],
+                ),
+                onDeleted: () {
+                  setState(() {
+                    _usuariosSeleccionados = _usuariosSeleccionados
+                        .where((u) => u.id != user.id)
+                        .toList();
+                    _selectorResetKey++;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  InputDecoration _decoracionBuscador() {
+    return InputDecoration(
+      hintText: 'Buscar usuario por nombre...',
+      hintStyle: const TextStyle(color: _textoSuave, fontSize: 14),
+      prefixIcon: const Icon(
+        Icons.search_rounded,
+        color: _textoSuave,
+        size: 20,
+      ),
+      filled: true,
+      fillColor: _fondo,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+
+  InputDecoration _decoracionSelector(
+    List<Color> colorAcento,
+    String hint, {
+    IconData icono = Icons.person_rounded,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: Icon(icono, color: colorAcento[0]),
+      filled: true,
+      fillColor: _fondo,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: colorAcento[0], width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 
@@ -1601,13 +2424,20 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
           Expanded(
             flex: 3,
             child: esUltima
-                ? _botonGradiente(
-                    texto: 'Completar píldora',
-                    icono: Icons.check_circle_rounded,
-                    colores: _verde,
-                    cargando: _isLoading,
-                    onPressed: _isLoading ? null : _completarPildora,
-                  )
+                ? (_isReadOnly
+                    ? _botonGradiente(
+                        texto: 'Volver al listado',
+                        icono: Icons.arrow_back_rounded,
+                        colores: _heroColores,
+                        onPressed: () => Navigator.pop(context),
+                      )
+                    : _botonGradiente(
+                        texto: 'Completar píldora',
+                        icono: Icons.check_circle_rounded,
+                        colores: _verde,
+                        cargando: _isLoading,
+                        onPressed: _isLoading ? null : _completarPildora,
+                      ))
                 : _botonGradiente(
                     texto: 'Siguiente',
                     icono: Icons.arrow_forward_rounded,
@@ -1768,12 +2598,23 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                                     _secciones[_seccionActual].sourceNote!,
                                   ),
                                 ],
-                                // Selector de usuario (SOLO en secciones 3, 7 y 8)
-                                if (_secciones[_seccionActual].screenNumber == 3 ||
-                                    _secciones[_seccionActual].screenNumber ==
-                                        7 ||
-                                    _secciones[_seccionActual].screenNumber ==
-                                        8) ...[
+                                // Selector de autopercepción (SOLO en sección 5)
+                                if (_secciones[_seccionActual].screenNumber ==
+                                    5) ...[
+                                  const SizedBox(height: 18),
+                                  _construirSelectorAutopercepcion(
+                                      _coloresSeccion),
+                                ],
+                                // Selector de usuario (SOLO en secciones 3, 7 y 8, NO en modo lectura)
+                                if (!_isReadOnly &&
+                                    (_secciones[_seccionActual].screenNumber ==
+                                            3 ||
+                                        _secciones[_seccionActual]
+                                                .screenNumber ==
+                                            7 ||
+                                        _secciones[_seccionActual]
+                                                .screenNumber ==
+                                            8)) ...[
                                   const SizedBox(height: 18),
                                   _construirSelectorUsuario(
                                     _secciones[_seccionActual],
@@ -1802,6 +2643,12 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   Future<void> _enviarReto() async {
     if (_usuarioSeleccionado == null) {
       _mostrarSnack('Por favor selecciona un usuario');
+      return;
+    }
+
+    // Si ya se le envió el reto a este compañero, no se vuelve a enviar
+    if (_retadosSeccion8.contains(_usuarioSeleccionado!.id.toString())) {
+      _mostrarSnack('Ya enviaste el reto a ${_usuarioSeleccionado!.fullName}');
       return;
     }
 
@@ -1834,7 +2681,8 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         _mostrarSnack('¡Reto enviado correctamente!', esExito: true);
         setState(() {
           _retoEnviadoSeccion8 = true;
-          _usuarioSeleccionado = null;
+          _retadosSeccion8.add(_usuarioSeleccionado!.id.toString());
+          // La selección NO se borra: se ve a quién se retó (igual que en 3 y 7)
         });
       } else if (mounted) {
         _mostrarSnack('Error al enviar el reto', esError: true);

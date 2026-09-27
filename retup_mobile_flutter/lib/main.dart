@@ -9,6 +9,7 @@ import 'providers/racha_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/practicalo_provider.dart';
 import 'providers/planificacion_provider.dart';
+import 'providers/social_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
@@ -48,6 +49,7 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => PracticaloProvider()),
         ChangeNotifierProvider(create: (_) => PlanificacionProvider()),
+        ChangeNotifierProvider(create: (_) => SocialProvider()),
       ],
       child: MaterialApp(
         title: 'RetUp',
