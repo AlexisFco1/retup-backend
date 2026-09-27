@@ -292,4 +292,66 @@ class RachaService {
       throw e;
     }
   }
+
+  // ===== LEADERBOARD UNIFICADO =====
+  List<dynamic> obtenerLeaderboardUnificadoDesdeData(
+      Map<String, dynamic> data) {
+    if (data['leaderboard_unificado'] != null) {
+      return data['leaderboard_unificado'] as List<dynamic>;
+    }
+    return [];
+  }
+
+  // ===== GUARDAR PREFERENCIA DE REGALO GLOBAL =====
+  Future<Map<String, dynamic>> guardarPreferenciaRegaloGlobal(
+    String userId,
+    String regaloTipo,
+    String token,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/racha/guardar-preferencia-regalo-global'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+          'regalo_tipo': regaloTipo,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception(
+          'Error al guardar preferencia global: ${response.statusCode}');
+    } catch (e) {
+      print('❌ Error en guardarPreferenciaRegaloGlobal: $e');
+      throw e;
+    }
+  }
+
+  // ===== OBTENER PREFERENCIA DE REGALO GLOBAL =====
+  Future<String?> obtenerPreferenciaRegaloGlobal(
+    String userId,
+    String token,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/racha/preferencia-regalo-global/$userId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        return jsonResponse['data'];
+      }
+      throw Exception(
+          'Error al obtener preferencia global: ${response.statusCode}');
+    } catch (e) {
+      print('❌ Error en obtenerPreferenciaRegaloGlobal: $e');
+      throw e;
+    }
+  }
 }

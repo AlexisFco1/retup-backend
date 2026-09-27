@@ -51,14 +51,23 @@ class ProgressService {
     return false;
   }
 
-  Future<bool> completePill(String progressId) async {
+  Future<bool> completePill(String progressId,
+      {int? pillRating, String? pillFeedbackMessage}) async {
     try {
+      final data = <String, dynamic>{
+        'is_completed': true,
+        'current_screen': 9,
+      };
+      if (pillRating != null) {
+        data['pill_rating'] = pillRating;
+      }
+      if (pillFeedbackMessage != null && pillFeedbackMessage.isNotEmpty) {
+        data['pill_feedback_message'] = pillFeedbackMessage;
+      }
+
       final response = await _apiService.put(
         '/user-progress/$progressId',
-        data: {
-          'is_completed': true,
-          'current_screen': 9,
-        },
+        data: data,
       );
       return response.statusCode == 200;
     } catch (e) {

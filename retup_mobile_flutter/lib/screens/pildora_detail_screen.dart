@@ -32,9 +32,29 @@ class PildoraDetailScreen extends StatefulWidget {
 }
 
 class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
+  // ═══════════════ PALETA (misma que home_screen) ═══════════════
+  static const Color _fondo = Color(0xFFF6F7FB);
+  static const Color _texto = Color(0xFF1F2937);
+  static const Color _textoSuave = Color(0xFF6B7280);
+  static const List<Color> _heroColores = [
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+  ];
+  static const List<Color> _verde = [Color(0xFF10B981), Color(0xFF059669)];
+  static const List<Color> _ambar = [Color(0xFFF59E0B), Color(0xFFD97706)];
+  static const List<List<Color>> _gradientes = [
+    [Color(0xFF6366F1), Color(0xFF4F46E5)], // Índigo
+    [Color(0xFF8B5CF6), Color(0xFF7C3AED)], // Violeta
+    [Color(0xFF14B8A6), Color(0xFF0D9488)], // Turquesa
+    [Color(0xFFF59E0B), Color(0xFFD97706)], // Ámbar
+    [Color(0xFFEC4899), Color(0xFFDB2777)], // Rosa
+    [Color(0xFF3B82F6), Color(0xFF2563EB)], // Azul
+  ];
+
   final SeccionesService _seccionesService = SeccionesService();
   final FeedbackService _feedbackService = FeedbackService();
   final NotificationService _notificationService = NotificationService();
+  final ScrollController _scrollController = ScrollController();
   List<Seccion> _secciones = [];
   int _seccionActual = 0;
   bool _isLoading = false;
@@ -46,12 +66,21 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   int _currentNavIndex =
       -1; // -1 indica que no estamos en una pantalla principal
   bool _isVoting = false;
+  bool _votoEnviadoSeccion3 = false;
+  bool _votoEnviadoSeccion7 = false;
+  bool _retoEnviadoSeccion8 = false;
 
   @override
   void initState() {
     super.initState();
     _cargarSecciones();
     _cargarUsuarios();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _cargarSecciones() async {
@@ -109,9 +138,6 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       setState(() {
         _usuarios = usuarios;
         _isLoadingUsuarios = false;
-        if (_usuarios.isNotEmpty) {
-          _usuarioSeleccionado = _usuarios[0];
-        }
       });
     } catch (e) {
       print('❌ ERROR al cargar usuarios: $e');
@@ -121,11 +147,55 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     }
   }
 
+  void _subirAlInicio() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   void _irASiguiente() {
+    // Validar que el voto fue enviado en la sección 3 o 7
+    if ((_secciones[_seccionActual].screenNumber == 3 && !_votoEnviadoSeccion3) ||
+        (_secciones[_seccionActual].screenNumber == 7 &&
+            !_votoEnviadoSeccion7) ||
+        (_secciones[_seccionActual].screenNumber == 8 &&
+            !_retoEnviadoSeccion8)) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Acción requerida',
+            style: TextStyle(fontWeight: FontWeight.w800, color: _texto),
+          ),
+          content: Text(
+            _secciones[_seccionActual].screenNumber == 8
+                ? 'Debes enviar el reto antes de continuar.'
+                : 'Debes enviar tu voto antes de continuar.',
+            style: const TextStyle(color: _textoSuave),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Aceptar'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     if (_seccionActual < _secciones.length - 1) {
       setState(() {
         _seccionActual++;
       });
+      _subirAlInicio();
     }
   }
 
@@ -134,6 +204,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       setState(() {
         _seccionActual--;
       });
+      _subirAlInicio();
     }
   }
 
@@ -157,7 +228,156 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     }
   }
 
+  Future<Map<String, dynamic>?> _mostrarDialogoCalificacion() async {
+    int _estrellas = 0;
+    final TextEditingController _mensajeController = TextEditingController();
+
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(colors: _heroColores),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _heroColores[0].withOpacity(0.35),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.star_rounded,
+                    color: Colors.white,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  '¿Cómo calificas esta píldora?',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: _texto,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Tu opinión nos ayuda a mejorar',
+                  style: TextStyle(fontSize: 14, color: _textoSuave),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    return GestureDetector(
+                      onTap: () {
+                        setDialogState(() {
+                          _estrellas = index + 1;
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Icon(
+                          index < _estrellas
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          color: index < _estrellas
+                              ? const Color(0xFFF59E0B)
+                              : const Color(0xFFD1D5DB),
+                          size: 40,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _mensajeController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'Escribe un comentario (opcional)',
+                    hintStyle: const TextStyle(
+                      color: _textoSuave,
+                      fontSize: 14,
+                    ),
+                    filled: true,
+                    fillColor: _fondo,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: _heroColores[0],
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.all(14),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: _botonGradiente(
+                    texto: 'Enviar y completar',
+                    icono: Icons.check_circle_rounded,
+                    colores: _verde,
+                    onPressed: _estrellas == 0
+                        ? null
+                        : () {
+                            Navigator.pop(context, {
+                              'estrellas': _estrellas,
+                              'mensaje': _mensajeController.text.trim(),
+                            });
+                          },
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      color: _textoSuave,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _completarPildora() async {
+    // Mostrar diálogo de calificación ANTES de completar
+    final resultado = await _mostrarDialogoCalificacion();
+    if (resultado == null) return; // El usuario canceló
+
+    final int estrellas = resultado['estrellas'];
+    final String mensaje = resultado['mensaje'];
+
     setState(() => _isLoading = true);
 
     try {
@@ -172,7 +392,10 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
 
       // 1. Completar la píldora normalmente
       final pildoraProvider = context.read<PildoraProvider>();
-      final success = await pildoraProvider.completarPildora();
+      final success = await pildoraProvider.completarPildora(
+        pillRating: estrellas,
+        pillFeedbackMessage: mensaje.isNotEmpty ? mensaje : null,
+      );
 
       if (success && mounted) {
         // 2. Registrar la píldora completada en Rachas (CON TOKEN)
@@ -182,20 +405,71 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
 
         showDialog(
           context: context,
-          barrierDismissible: false, // ← Agregar esta línea
-          builder: (context) => AlertDialog(
-            title: const Text('¡Felicidades!'),
-            content: const Text(
-                '¡Has completado la píldora!\nContinúa así para subir en el ranking'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Cierra el diálogo
-                  Navigator.pushReplacementNamed(context, '/'); // Va a home
-                },
-                child: const Text('Aceptar'),
+          barrierDismissible: false,
+          builder: (context) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(colors: _verde),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _verde[0].withOpacity(0.4),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.celebration_rounded,
+                      color: Colors.white,
+                      size: 42,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    '¡Felicidades!',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: _texto,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '¡Has completado la píldora!\nContinúa así para subir en el ranking',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: _textoSuave,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _botonGradiente(
+                      texto: 'Aceptar',
+                      icono: Icons.check_rounded,
+                      colores: _verde,
+                      onPressed: () {
+                        Navigator.pop(context); // Cierra el diálogo
+                        Navigator.pushReplacementNamed(context, '/'); // Home
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       } else if (mounted) {
@@ -214,9 +488,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
 
   Future<void> _registrarVoto(String voteType) async {
     if (_usuarioSeleccionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor selecciona un usuario')),
-      );
+      _mostrarSnack('Por favor selecciona un usuario');
       return;
     }
 
@@ -228,9 +500,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       final token = authProvider.token;
 
       if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: No hay sesión activa')),
-        );
+        _mostrarSnack('Error: No hay sesión activa', esError: true);
         return;
       }
 
@@ -238,9 +508,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       final respondentUserId = authProvider.userId;
 
       if (respondentUserId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: No hay usuario activo')),
-        );
+        _mostrarSnack('Error: No hay usuario activo', esError: true);
         return;
       }
 
@@ -254,32 +522,75 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         voteType: voteType,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ ¡Voto registrado correctamente!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
+      _mostrarSnack('¡Voto registrado correctamente!', esExito: true);
+      // Marcar voto como enviado y resetear dropdown
+      setState(() {
+        if (voteType == 'positive') {
+          _votoEnviadoSeccion3 = true;
+        } else if (voteType == 'negative') {
+          _votoEnviadoSeccion7 = true;
+        }
+        _usuarioSeleccionado = null;
+      });
       // Mostrar diálogo SOLO para votos positivos (sección 3)
       if (mounted && voteType == 'positive') {
         _mostrarDialogoMensajeAnonimo(nominationId, token, respondentUserId);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
-      );
+      _mostrarSnack('Error: $e', esError: true);
     } finally {
       setState(() => _isVoting = false);
     }
+  }
+
+  void _mostrarSnack(String mensaje,
+      {bool esExito = false, bool esError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              esExito
+                  ? Icons.check_circle_rounded
+                  : esError
+                      ? Icons.error_rounded
+                      : Icons.info_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                mensaje,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: esExito
+            ? _verde[0]
+            : esError
+                ? const Color(0xFFEF4444)
+                : _texto,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
   }
 
   void _showErrorDialog(String title, String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w800, color: _texto),
+        ),
+        content: Text(message, style: const TextStyle(color: _textoSuave)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -294,8 +605,14 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w800, color: _texto),
+        ),
+        content: Text(message, style: const TextStyle(color: _textoSuave)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -315,70 +632,120 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('📨 Mensaje Anónimo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tu mensaje será:',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[200]!),
-              ),
-              child: Text(
-                mensaje,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontStyle: FontStyle.italic,
-                  color: Colors.black87,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(colors: _heroColores),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _heroColores[0].withOpacity(0.35),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.mark_email_unread_rounded,
+                  color: Colors.white,
+                  size: 34,
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '¿Deseas enviar este mensaje de forma anónima?',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.black87,
+              const SizedBox(height: 18),
+              const Text(
+                'Mensaje anónimo',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  color: _texto,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _heroColores[0].withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: _heroColores[0].withOpacity(0.18),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TU MENSAJE SERÁ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: _heroColores[0],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '“$mensaje”',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w600,
+                        color: _texto,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                '¿Deseas enviar este mensaje de forma anónima?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: _textoSuave),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: _botonGradiente(
+                  texto: 'Enviar mensaje',
+                  icono: Icons.send_rounded,
+                  colores: _verde,
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await _enviarMensajeAnonimo(
+                      nominationId,
+                      mensaje,
+                      token,
+                      respondentUserId,
+                      _usuarioSeleccionado!.id,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'No enviar',
+                  style: TextStyle(
+                    color: _textoSuave,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('No enviar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _enviarMensajeAnonimo(
-                nominationId,
-                mensaje,
-                token,
-                respondentUserId,
-                _usuarioSeleccionado!.id, // ← AGREGAR ESTA LÍNEA
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Enviar mensaje'),
-          ),
-        ],
       ),
     );
   }
@@ -388,7 +755,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     String mensaje,
     String token,
     String respondentUserId,
-    String destinatarioUserId, // ← AGREGAR ESTE PARÁMETRO
+    String destinatarioUserId,
   ) async {
     try {
       setState(() => _isVoting = true);
@@ -410,550 +777,1031 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ ¡Mensaje anónimo enviado!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _mostrarSnack('¡Mensaje anónimo enviado!', esExito: true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error al enviar mensaje: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _mostrarSnack('Error al enviar mensaje: $e', esError: true);
       }
     } finally {
       setState(() => _isVoting = false);
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  //  HELPERS VISUALES
+  // ═══════════════════════════════════════════════════════════
+
+  List<Color> get _coloresSeccion =>
+      _gradientes[_seccionActual % _gradientes.length];
+
+  _TemaSeccion _temaSeccion(Seccion s) {
+    final nombre = s.screenName.toLowerCase();
+    if (s.screenType == 'anonymous_question' ||
+        nombre.contains('anónim') ||
+        nombre.contains('anonim')) {
+      return const _TemaSeccion(Icons.how_to_vote_rounded, 'PREGUNTA ANÓNIMA');
+    }
+    if (nombre.contains('bienvenid')) {
+      return const _TemaSeccion(Icons.waving_hand_rounded, 'BIENVENIDA');
+    }
+    if (nombre.contains('reto') || nombre.contains('desaf')) {
+      return const _TemaSeccion(Icons.emoji_events_rounded, 'RETO');
+    }
+    if (nombre.contains('pregunta') ||
+        nombre.contains('quiz') ||
+        nombre.contains('test')) {
+      return const _TemaSeccion(Icons.quiz_rounded, 'PONTE A PRUEBA');
+    }
+    if (nombre.contains('tip') ||
+        nombre.contains('consejo') ||
+        nombre.contains('clave')) {
+      return const _TemaSeccion(Icons.tips_and_updates_rounded, 'TIP CLAVE');
+    }
+    if (nombre.contains('ejemplo') || nombre.contains('caso')) {
+      return const _TemaSeccion(Icons.work_outline_rounded, 'EJEMPLO REAL');
+    }
+    if (nombre.contains('resumen') || nombre.contains('cierre')) {
+      return const _TemaSeccion(Icons.flag_rounded, 'CIERRE');
+    }
+    return const _TemaSeccion(Icons.auto_stories_rounded, 'APRENDE');
+  }
+
+  Widget _circuloDecorativo(double tamano, double opacidad) {
+    return Container(
+      width: tamano,
+      height: tamano,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withOpacity(opacidad),
+      ),
+    );
+  }
+
+  Widget _botonGradiente({
+    required String texto,
+    required IconData icono,
+    required List<Color> colores,
+    required VoidCallback? onPressed,
+    bool cargando = false,
+    bool iconoAlFinal = false,
+  }) {
+    final activo = onPressed != null && !cargando;
+    final iconoWidget = Icon(icono, color: Colors.white, size: 20);
+    final textoWidget = Flexible(
+      child: Text(
+        texto,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+
+    return Opacity(
+      opacity: (onPressed == null && !cargando) ? 0.5 : 1,
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: colores,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: colores[0].withOpacity(0.35),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: activo ? onPressed : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: cargando
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: iconoAlFinal
+                            ? [
+                                textoWidget,
+                                const SizedBox(width: 8),
+                                iconoWidget
+                              ]
+                            : [
+                                iconoWidget,
+                                const SizedBox(width: 8),
+                                textoWidget
+                              ],
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── HERO: título de la píldora + progreso por segmentos ──
+  Widget _construirHero() {
+    final total = _secciones.length;
+    final porcentaje = ((_seccionActual + 1) / total * 100).round();
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: _heroColores,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: _heroColores[0].withOpacity(0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: Stack(
+          children: [
+            Positioned(
+                top: -45, right: -35, child: _circuloDecorativo(150, 0.12)),
+            Positioned(
+                bottom: -55, left: -25, child: _circuloDecorativo(120, 0.08)),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.22),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bolt_rounded, color: Colors.white, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          'PÍLDORA DE APRENDIZAJE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.22),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Icon(
+                          Icons.lightbulb_rounded,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          widget.pildora.titulo ?? 'Sin título',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 23,
+                            fontWeight: FontWeight.w900,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Text(
+                        'Sección ${_seccionActual + 1} de $total',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '$porcentaje% completado',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.85),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: List.generate(total, (i) {
+                      return Expanded(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          height: 7,
+                          margin:
+                              EdgeInsets.only(right: i == total - 1 ? 0 : 4),
+                          decoration: BoxDecoration(
+                            color: i <= _seccionActual
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Contenido: separa líneas y resalta las frases entre comillas ──
+  bool _esCita(String linea) =>
+      linea.startsWith('"') || linea.startsWith('“') || linea.startsWith('«');
+
+  Widget _construirTextoContenido(String contenido, List<Color> colores) {
+    final lineas = contenido
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < lineas.length; i++) ...[
+          if (i > 0) const SizedBox(height: 14),
+          if (_esCita(lineas[i]))
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colores[0].withOpacity(0.10),
+                    colores[1].withOpacity(0.04),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border(
+                  left: BorderSide(color: colores[0], width: 4),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.format_quote_rounded,
+                    color: colores[0].withOpacity(0.6),
+                    size: 30,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    lineas[i],
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w700,
+                      color: _texto,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (i == 0 && lineas.length > 1 && lineas[i].length <= 45)
+            Text(
+              lineas[i],
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: colores[1],
+                height: 1.4,
+              ),
+            )
+          else
+            Text(
+              lineas[i],
+              style: const TextStyle(
+                fontSize: 16,
+                color: Color(0xFF374151),
+                height: 1.65,
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  // ── Tarjeta principal de la sección ──
+  Widget _construirTarjetaSeccion(Seccion seccion, List<Color> colores) {
+    final tema = _temaSeccion(seccion);
+    final esAnonima = seccion.screenType == 'anonymous_question';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabecera de la tarjeta
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: colores,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colores[0].withOpacity(0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(tema.icono, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tema.etiqueta,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.9,
+                          color: colores[0],
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        seccion.screenName,
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          color: _texto,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            color: const Color(0xFFF1F2F6),
+          ),
+          // Cuerpo de la tarjeta
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: esAnonima
+                ? _construirContenidoAnonimo(seccion, colores)
+                : _construirTextoContenido(seccion.screenContent, colores),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _construirContenidoAnonimo(Seccion seccion, List<Color> colores) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _construirTextoContenido(seccion.screenContent, colores),
+        const SizedBox(height: 18),
+        const Text(
+          'Selecciona un usuario:',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: _texto,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _isLoadingUsuarios
+            ? Center(
+                child: CircularProgressIndicator(
+                  color: colores[0],
+                  strokeWidth: 2.5,
+                ),
+              )
+            : _usuarios.isEmpty
+                ? const Text(
+                    'No hay usuarios disponibles',
+                    style: TextStyle(color: Color(0xFFEF4444)),
+                  )
+                : Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: _fondo,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: DropdownButton<User>(
+                      value: _usuarioSeleccionado,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      borderRadius: BorderRadius.circular(16),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: _textoSuave,
+                      ),
+                      items: _usuarios.map((user) {
+                        return DropdownMenuItem<User>(
+                          value: user,
+                          child: Text(
+                            user.fullName,
+                            style: const TextStyle(
+                              color: _texto,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (User? newValue) {
+                        setState(() {
+                          _usuarioSeleccionado = newValue;
+                        });
+                      },
+                    ),
+                  ),
+      ],
+    );
+  }
+
+  // ── Nota / fuente ──
+  Widget _construirNota(String nota) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: _ambar),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.lightbulb_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'PARA SABER MÁS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: Color(0xFFB45309),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  nota,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF92400E),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Selector de usuario + botón de voto / reto (secciones 3, 7 y 8) ──
+  Widget _construirSelectorUsuario(Seccion seccion, List<Color> colores) {
+    final esReto = seccion.screenNumber == 8;
+    final colorAcento = esReto ? _ambar : colores;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: colorAcento[0].withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  esReto ? Icons.sports_score_rounded : Icons.groups_rounded,
+                  color: colorAcento[0],
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Selecciona un usuario de la empresa',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: _texto,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Busca a tu compañero por su nombre',
+                      style: TextStyle(fontSize: 12, color: _textoSuave),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _isLoadingUsuarios
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: colorAcento[0],
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : _usuarios.isEmpty
+                  ? const Text(
+                      'No hay usuarios disponibles',
+                      style: TextStyle(color: Color(0xFFEF4444)),
+                    )
+                  : DropdownSearch<User>(
+                      items: _usuarios,
+                      itemAsString: (user) => user.fullName,
+                      onChanged: (User? value) {
+                        setState(() {
+                          _usuarioSeleccionado = value;
+                        });
+                      },
+                      selectedItem: _usuarioSeleccionado,
+                      popupProps: PopupProps.menu(
+                        showSearchBox: true,
+                        searchFieldProps: TextFieldProps(
+                          cursorColor: colorAcento[0],
+                          decoration: InputDecoration(
+                            hintText: 'Buscar usuario por nombre...',
+                            hintStyle: const TextStyle(
+                              color: _textoSuave,
+                              fontSize: 14,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              color: _textoSuave,
+                              size: 20,
+                            ),
+                            filled: true,
+                            fillColor: _fondo,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                          ),
+                        ),
+                        fit: FlexFit.loose,
+                        constraints: const BoxConstraints(maxHeight: 300),
+                        menuProps: MenuProps(
+                          borderRadius: BorderRadius.circular(16),
+                          elevation: 6,
+                        ),
+                      ),
+                      dropdownDecoratorProps: DropDownDecoratorProps(
+                        dropdownSearchDecoration: InputDecoration(
+                          hintText: 'Selecciona un usuario',
+                          prefixIcon: Icon(
+                            Icons.person_rounded,
+                            color: colorAcento[0],
+                          ),
+                          filled: true,
+                          fillColor: _fondo,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE5E7EB),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: colorAcento[0],
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+          const SizedBox(height: 18),
+
+          // Botón "Enviar voto" (SOLO en secciones 3 y 7)
+          if ((seccion.screenNumber == 3 || seccion.screenNumber == 7) &&
+              seccion.screenNumber != 8)
+            SizedBox(
+              width: double.infinity,
+              child: _botonGradiente(
+                texto: 'Enviar voto',
+                icono: Icons.how_to_vote_rounded,
+                colores: _verde,
+                cargando: _isVoting,
+                onPressed: _isVoting
+                    ? null
+                    : () {
+                        final voteType =
+                            _secciones[_seccionActual].screenNumber == 3
+                                ? 'positive'
+                                : 'negative';
+                        _registrarVoto(voteType);
+                      },
+              ),
+            ),
+
+          // Botón "Enviar Reto" (SOLO en sección 8)
+          if (esReto)
+            SizedBox(
+              width: double.infinity,
+              child: _botonGradiente(
+                texto: 'Enviar Reto',
+                icono: Icons.sports_score_rounded,
+                colores: _ambar,
+                cargando: _isVoting,
+                onPressed: _isVoting
+                    ? null
+                    : () {
+                        _enviarReto();
+                      },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Barra fija inferior: Anterior / Siguiente / Completar ──
+  Widget _construirBarraNavegacion() {
+    final esUltima = _seccionActual == _secciones.length - 1;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: SizedBox(
+              height: 54,
+              child: OutlinedButton(
+                onPressed: _seccionActual > 0 ? _irAlAnterior : null,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _texto,
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_back_rounded, size: 20),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Anterior',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: esUltima
+                ? _botonGradiente(
+                    texto: 'Completar píldora',
+                    icono: Icons.check_circle_rounded,
+                    colores: _verde,
+                    cargando: _isLoading,
+                    onPressed: _isLoading ? null : _completarPildora,
+                  )
+                : _botonGradiente(
+                    texto: 'Siguiente',
+                    icono: Icons.arrow_forward_rounded,
+                    colores: _heroColores,
+                    iconoAlFinal: true,
+                    onPressed: _irASiguiente,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _estadoMensaje(IconData icono, String mensaje, Color color) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icono, size: 40, color: color),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              mensaje,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _textoSuave,
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  BUILD
+  // ═══════════════════════════════════════════════════════════
+
   @override
   Widget build(BuildContext context) {
+    final hayContenido =
+        !_isLoadingSecciones && _errorMessage == null && _secciones.isNotEmpty;
+
     return Scaffold(
+      backgroundColor: _fondo,
       appBar: AppBar(
-        title: Text(widget.retoTitle),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: _fondo,
+        foregroundColor: _texto,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 0,
+        title: Text(
+          widget.retoTitle,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: _texto,
+          ),
+        ),
+        leading: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Material(
+            color: Colors.white,
+            shape: const CircleBorder(),
+            elevation: 1,
+            shadowColor: Colors.black26,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
         ),
       ),
       body: _isLoadingSecciones
           ? const Center(
-              child: CircularProgressIndicator(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    color: Color(0xFF6366F1),
+                    strokeWidth: 3,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Preparando tu píldora...',
+                    style: TextStyle(color: _textoSuave, fontSize: 14),
+                  ),
+                ],
+              ),
             )
           : _errorMessage != null
-              ? Center(
-                  child: Text(_errorMessage!),
+              ? _estadoMensaje(
+                  Icons.error_outline_rounded,
+                  _errorMessage!,
+                  const Color(0xFFEF4444),
                 )
               : _secciones.isEmpty
-                  ? const Center(
-                      child: Text('No hay secciones disponibles'),
+                  ? _estadoMensaje(
+                      Icons.inbox_rounded,
+                      'No hay secciones disponibles',
+                      _textoSuave,
                     )
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Header con el título de la píldora
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[50],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.blue,
-                                width: 2,
+                          _construirHero(),
+                          const SizedBox(height: 22),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            layoutBuilder: (actual, anteriores) => Stack(
+                              alignment: Alignment.topCenter,
+                              children: [
+                                ...anteriores,
+                                if (actual != null) actual,
+                              ],
+                            ),
+                            transitionBuilder: (child, animacion) =>
+                                FadeTransition(
+                              opacity: animacion,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.06, 0),
+                                  end: Offset.zero,
+                                ).animate(animacion),
+                                child: child,
                               ),
                             ),
                             child: Column(
+                              key: ValueKey<int>(_seccionActual),
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Píldora de Aprendizaje',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.blue[400],
-                                    fontWeight: FontWeight.w600,
+                                _construirTarjetaSeccion(
+                                  _secciones[_seccionActual],
+                                  _coloresSeccion,
+                                ),
+                                if (_secciones[_seccionActual].sourceNote !=
+                                        null &&
+                                    _secciones[_seccionActual]
+                                        .sourceNote!
+                                        .isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  _construirNota(
+                                    _secciones[_seccionActual].sourceNote!,
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  widget.pildora.titulo ?? 'Sin título',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Indicador de progreso - Sección actual
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Sección ${_seccionActual + 1} de ${_secciones.length}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: (_seccionActual + 1) /
-                                          _secciones.length,
-                                      minHeight: 6,
-                                    ),
-                                  ),
-                                )
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Contenido de la sección actual
-                          if (_secciones.isNotEmpty) ...[
-                            Text(
-                              _secciones[_seccionActual].screenName,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // ✨ Mostrar dropdown si es pregunta anónima, sino contenido normal
-                            if (_secciones[_seccionActual].screenType ==
-                                'anonymous_question') ...[
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.purple[50],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.purple[200]!,
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _secciones[_seccionActual].screenContent,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.black87,
-                                        height: 1.8,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      'Selecciona un usuario:',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _isLoadingUsuarios
-                                        ? const Center(
-                                            child: CircularProgressIndicator())
-                                        : _usuarios.isEmpty
-                                            ? const Text(
-                                                'No hay usuarios disponibles',
-                                                style: TextStyle(
-                                                    color: Colors.red),
-                                              )
-                                            : DropdownButton<User>(
-                                                value: _usuarioSeleccionado,
-                                                isExpanded: true,
-                                                items: _usuarios.map((user) {
-                                                  return DropdownMenuItem<User>(
-                                                    value: user,
-                                                    child: Text(user.fullName),
-                                                  );
-                                                }).toList(),
-                                                onChanged: (User? newValue) {
-                                                  setState(() {
-                                                    _usuarioSeleccionado =
-                                                        newValue;
-                                                  });
-                                                },
-                                              ),
-                                  ],
-                                ),
-                              ),
-                            ] else ...[
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.blue[200]!,
-                                  ),
-                                ),
-                                child: Text(
-                                  _secciones[_seccionActual].screenContent,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                    height: 1.8,
-                                  ),
-                                ),
-                              ),
-                            ],
-
-                            if (_secciones[_seccionActual].sourceNote != null &&
-                                _secciones[_seccionActual]
-                                    .sourceNote!
-                                    .isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber[50],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.amber[200]!,
-                                  ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(
-                                      Icons.info,
-                                      color: Colors.amber[700],
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        _secciones[_seccionActual].sourceNote!,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.amber[900],
-                                          height: 1.6,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 32),
-                          ],
-
-                          // 🔍 Dropdown con buscador para seleccionar usuario (SOLO en secciones 3, 7 y 8)
-                          if (_secciones.isNotEmpty &&
-                              (_secciones[_seccionActual].screenNumber == 3 ||
-                                  _secciones[_seccionActual].screenNumber ==
-                                      7 ||
-                                  _secciones[_seccionActual].screenNumber ==
-                                      8)) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              'Selecciona un usuario de la empresa:',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            _isLoadingUsuarios
-                                ? const Center(
-                                    child: CircularProgressIndicator())
-                                : _usuarios.isEmpty
-                                    ? const Text(
-                                        'No hay usuarios disponibles',
-                                        style: TextStyle(color: Colors.red),
-                                      )
-                                    : DropdownSearch<User>(
-                                        items: _usuarios,
-                                        itemAsString: (user) => user.fullName,
-                                        onChanged: (User? value) {
-                                          setState(() {
-                                            _usuarioSeleccionado = value;
-                                          });
-                                        },
-                                        selectedItem: _usuarioSeleccionado,
-                                        popupProps: PopupProps.menu(
-                                          showSearchBox: true,
-                                          searchFieldProps: TextFieldProps(
-                                            cursorColor: Colors.blue,
-                                            decoration: InputDecoration(
-                                              hintText:
-                                                  'Buscar usuario por nombre...',
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 8,
-                                              ),
-                                            ),
-                                          ),
-                                          fit: FlexFit.loose,
-                                          constraints: BoxConstraints(
-                                            maxHeight: 300,
-                                          ),
-                                        ),
-                                        dropdownDecoratorProps:
-                                            DropDownDecoratorProps(
-                                          dropdownSearchDecoration:
-                                              InputDecoration(
-                                            labelText: 'Usuario',
-                                            hintText: 'Selecciona un usuario',
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 12,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                            const SizedBox(height: 24),
-
-                            // 🗳️ Botón "Enviar voto" (SOLO en secciones 3, 7 y 8)
-                            if ((_secciones[_seccionActual].screenNumber == 3 ||
+                                ],
+                                // Selector de usuario (SOLO en secciones 3, 7 y 8)
+                                if (_secciones[_seccionActual].screenNumber == 3 ||
                                     _secciones[_seccionActual].screenNumber ==
-                                        7) &&
-                                _secciones[_seccionActual].screenNumber !=
-                                    8) ...[
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: _isVoting
-                                      ? null
-                                      : () {
-                                          final voteType =
-                                              _secciones[_seccionActual]
-                                                          .screenNumber ==
-                                                      3
-                                                  ? 'positive'
-                                                  : 'negative';
-                                          _registrarVoto(voteType);
-                                        },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
+                                        7 ||
+                                    _secciones[_seccionActual].screenNumber ==
+                                        8) ...[
+                                  const SizedBox(height: 18),
+                                  _construirSelectorUsuario(
+                                    _secciones[_seccionActual],
+                                    _coloresSeccion,
                                   ),
-                                  child: _isVoting
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
-                                          ),
-                                        )
-                                      : const Text(
-                                          'Enviar voto',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-                            // 🎯 Botón "Enviar Reto" (SOLO en sección 8)
-                            if (_secciones[_seccionActual].screenNumber ==
-                                8) ...[
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: _isVoting
-                                      ? null
-                                      : () {
-                                          _enviarReto();
-                                        },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: _isVoting
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
-                                          ),
-                                        )
-                                      : const Text(
-                                          'Enviar Reto',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-                          ],
-
-                          // Botones de navegación
-                          if (_secciones.isNotEmpty &&
-                              _seccionActual < _secciones.length - 1) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                ElevatedButton.icon(
-                                  onPressed:
-                                      _seccionActual > 0 ? _irAlAnterior : null,
-                                  icon: const Icon(Icons.arrow_back),
-                                  label: const Text('Anterior'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey[300],
-                                    foregroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                                ElevatedButton.icon(
-                                  onPressed: _irASiguiente,
-                                  icon: const Icon(Icons.arrow_forward),
-                                  label: const Text('Siguiente'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
+                                ],
                               ],
                             ),
-                          ] else if (_secciones.isNotEmpty &&
-                              _seccionActual == _secciones.length - 1) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                ElevatedButton.icon(
-                                  onPressed: _irAlAnterior,
-                                  icon: const Icon(Icons.arrow_back),
-                                  label: const Text('Anterior'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey[300],
-                                    foregroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-
-                          // Botón de completar píldora (solo en la última sección)
-                          if (_secciones.isNotEmpty &&
-                              _seccionActual == _secciones.length - 1) ...[
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed:
-                                    _isLoading ? null : _completarPildora,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                            Colors.white,
-                                          ),
-                                        ),
-                                      )
-                                    : const Text(
-                                        '✓ Completar píldora',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                          ],
-
-                          const SizedBox(height: 16),
+                          ),
                         ],
                       ),
                     ),
-      bottomNavigationBar: CustomBottomNavigationBar(
-        currentIndex: _currentNavIndex,
-        onTap: _onNavTap,
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hayContenido) _construirBarraNavegacion(),
+          CustomBottomNavigationBar(
+            currentIndex: _currentNavIndex,
+            onTap: _onNavTap,
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _enviarReto() async {
     if (_usuarioSeleccionado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor selecciona un usuario')),
-      );
+      _mostrarSnack('Por favor selecciona un usuario');
       return;
     }
 
@@ -965,9 +1813,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       final userId = authProvider.userId;
 
       if (token == null || userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: No hay sesión activa')),
-        );
+        _mostrarSnack('Error: No hay sesión activa', esError: true);
         return;
       }
 
@@ -985,28 +1831,27 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       );
 
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ ¡Reto enviado correctamente!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _mostrarSnack('¡Reto enviado correctamente!', esExito: true);
+        setState(() {
+          _retoEnviadoSeccion8 = true;
+          _usuarioSeleccionado = null;
+        });
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ Error al enviar el reto'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _mostrarSnack('Error al enviar el reto', esError: true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error: $e')),
-        );
+        _mostrarSnack('Error: $e', esError: true);
       }
     } finally {
       setState(() => _isVoting = false);
     }
   }
+}
+
+// Clase auxiliar para el ícono y la etiqueta de cada sección
+class _TemaSeccion {
+  final IconData icono;
+  final String etiqueta;
+  const _TemaSeccion(this.icono, this.etiqueta);
 }

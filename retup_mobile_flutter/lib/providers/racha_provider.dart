@@ -14,7 +14,7 @@ class RachaProvider extends ChangeNotifier {
   Map<String, List<Map<String, dynamic>>> progresoDiarioPorReto = {};
   // Estado para preferencias de regalo por reto
   Map<String, String?> preferenciaRegaloPorReto = {};
-
+  String? preferenciaRegaloGlobal;
   bool isLoading = false;
   String? errorMessage;
 
@@ -184,6 +184,13 @@ class RachaProvider extends ChangeNotifier {
     }
     return [];
   }
+
+  List<dynamic> obtenerLeaderboardUnificado() {
+    if (leaderboard['leaderboard_unificado'] != null) {
+      return leaderboard['leaderboard_unificado'] as List<dynamic>;
+    }
+    return [];
+  }
   // ===== PROGRESO DIARIO =====
 
   Future<void> cargarProgresoDiario(
@@ -268,5 +275,49 @@ class RachaProvider extends ChangeNotifier {
   // ===== OBTENER PREFERENCIA GUARDADA =====
   String? obtenerPreferenciaRegalo(String retoId) {
     return preferenciaRegaloPorReto[retoId];
+  }
+
+  // ===== GUARDAR PREFERENCIA DE REGALO GLOBAL =====
+  Future<void> guardarPreferenciaRegaloGlobal(
+    String userId,
+    String regaloTipo,
+    String token,
+  ) async {
+    try {
+      await _rachaService.guardarPreferenciaRegaloGlobal(
+        userId,
+        regaloTipo,
+        token,
+      );
+
+      preferenciaRegaloGlobal = regaloTipo;
+      notifyListeners();
+
+      print('✅ Preferencia global guardada: $regaloTipo');
+    } catch (e) {
+      print('❌ Error en guardarPreferenciaRegaloGlobal: $e');
+      errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
+  // ===== CARGAR PREFERENCIA DE REGALO GLOBAL =====
+  Future<void> cargarPreferenciaRegaloGlobal(
+    String userId,
+    String token,
+  ) async {
+    try {
+      final regalo = await _rachaService.obtenerPreferenciaRegaloGlobal(
+        userId,
+        token,
+      );
+
+      preferenciaRegaloGlobal = regalo;
+      notifyListeners();
+
+      print('✅ Preferencia global cargada: $regalo');
+    } catch (e) {
+      print('⚠️ Error cargando preferencia global: $e');
+    }
   }
 }

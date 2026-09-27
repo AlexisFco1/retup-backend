@@ -1,3 +1,5 @@
+// profile_screen.dart - REDISEÑO VISUAL (misma armonía que home, rachas y practícalo)
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -5,6 +7,7 @@ import '../services/feedback_service.dart';
 import '../providers/reto_provider.dart';
 import '../providers/racha_provider.dart';
 import '../providers/practicalo_provider.dart';
+import '../utils/colors.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -20,9 +23,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   double _feedbackScore = 0.0;
   bool _isLoading = true;
   String? _errorMessage;
-  Map<String, double> _asistenciaScores = {}; // Nueva variable
-  Map<String, double> _feedbackScoresPerReto =
-      {}; // Nueva variable para feedback por reto
+  Map<String, double> _asistenciaScores = {};
+  Map<String, double> _feedbackScoresPerReto = {};
+
+  // ===== Colores (mismos que las otras pantallas) =====
+  static const Color _fondo = Color(0xFFF6F7FB);
+  static const Color _texto = Color(0xFF1F2937);
+  static const Color _textoSuave = Color(0xFF6B7280);
+
+  static const List<Color> _gradientePrincipal = [
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+  ];
+  static const List<List<Color>> _paleta = [
+    [Color(0xFF6366F1), Color(0xFF4F46E5)], // Índigo
+    [Color(0xFF8B5CF6), Color(0xFF7C3AED)], // Violeta
+    [Color(0xFF14B8A6), Color(0xFF0D9488)], // Turquesa
+    [Color(0xFFF59E0B), Color(0xFFD97706)], // Ámbar
+    [Color(0xFFEC4899), Color(0xFFDB2777)], // Rosa
+    [Color(0xFF3B82F6), Color(0xFF2563EB)], // Azul
+  ];
+  static const Color _azul = Color(0xFF3B82F6);
+  static const Color _verde = Color(0xFF10B981);
+  static const Color _ambar = Color(0xFFF59E0B);
+  static const Color _rojo = Color(0xFFEF4444);
 
   @override
   void initState() {
@@ -53,16 +77,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      // Cargar feedback general
       final score =
           await _feedbackService.calculateUserFeedbackScore(userId, token);
 
-      // Cargar retos del usuario
       await retoProvider.cargarRetosDelUsuario(userId);
       final practicaloProvider = context.read<PracticaloProvider>();
       await practicaloProvider.cargarEnviadas(token: token, userId: userId);
 
-      // Cargar feedback score POR RETO (NUEVO)
       _feedbackScoresPerReto.clear();
       for (var retoLocal in retoProvider.retos) {
         try {
@@ -70,7 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               await _feedbackService.calculateUserFeedbackScore(
             userId,
             token,
-            retoId: retoLocal.reto.id, // NUEVO: pasar retoId
+            retoId: retoLocal.reto.id,
           );
           _feedbackScoresPerReto[retoLocal.reto.id] = feedbackScore;
         } catch (e) {
@@ -79,7 +100,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
 
-      // Cargar progreso diario para cada reto
       for (var retoLocal in retoProvider.retos) {
         await rachaProvider.cargarProgresoDiario(
           userId,
@@ -138,10 +158,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Color _getFeedbackColor(double score) {
-    if (score >= 75) return Colors.green;
-    if (score >= 50) return Colors.blue;
-    if (score >= 25) return Colors.orange;
-    return Colors.red;
+    if (score >= 75) return _verde;
+    if (score >= 50) return _azul;
+    if (score >= 25) return _ambar;
+    return _rojo;
   }
 
   double _calcularCalificacionAsistencia({
@@ -154,7 +174,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return 0.0;
     }
 
-    // Calcular dias laborables teoricos del mes (L-V)
     final hoy = DateTime.now();
     final mes = hoy.month;
     final ano = hoy.year;
@@ -241,526 +260,654 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final authProvider = context.read<AuthProvider>();
 
     return Scaffold(
+      backgroundColor: _fondo,
       appBar: AppBar(
         title: const Text('Perfil'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
         centerTitle: true,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.primaryColor.withOpacity(0.85),
+                AppColors.primaryColor.withOpacity(0.75),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null
+                ? _buildError(_errorMessage!)
+                : Consumer3<RetoProvider, RachaProvider, PracticaloProvider>(
+                    builder: (context, retoProvider, rachaProvider,
+                        practicaloProvider, _) {
+                      final retos = retoProvider.retos;
+
+                      // Calcular las 3 calificaciones y quedarnos solo
+                      // con los retos que tengan algún dato
+                      final retosConDatos = <Map<String, dynamic>>[];
+                      for (int i = 0; i < retos.length; i++) {
+                        final retoLocal = retos[i];
+                        final double feedback =
+                            _feedbackScoresPerReto[retoLocal.reto.id] ?? 0.0;
+                        final double asistencia =
+                            _calcularCalificacionAsistencia(
+                          retoId: retoLocal.reto.id,
+                          rachaProvider: rachaProvider,
+                        );
+                        final double practica = _calcularNotaPromedio(
+                              retoId: retoLocal.reto.id,
+                              practicaloProvider: practicaloProvider,
+                            ) *
+                            20;
+
+                        if (feedback > 0 || asistencia > 0 || practica > 0) {
+                          retosConDatos.add({
+                            'index': i,
+                            'retoLocal': retoLocal,
+                            'feedback': feedback,
+                            'asistencia': asistencia,
+                            'practica': practica,
+                            'general': (feedback + asistencia + practica) / 3,
+                          });
+                        }
+                      }
+
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ===== TARJETA DE USUARIO =====
+                            _buildTarjetaUsuario(
+                                authProvider, retosConDatos.length),
+                            const SizedBox(height: 28),
+
+                            // ===== CALIFICACIONES POR RETO =====
+                            _buildSectionHeader(
+                              '📊',
+                              'Calificaciones por reto',
+                              'Feedback, asistencia y práctica de cada reto',
+                            ),
+                            const SizedBox(height: 14),
+
+                            if (retosConDatos.isEmpty)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: _buildEstadoVacio(
+                                  '🌱',
+                                  'Aún no tienes calificaciones',
+                                  'Cuando completes píldoras, recibas feedback o practiques con un compañero, verás aquí tu desempeño.',
+                                ),
+                              )
+                            else
+                              ...retosConDatos.map((item) {
+                                final retoLocal = item['retoLocal'];
+                                final int index = item['index'] as int;
+
+                                return _buildRetoCard(
+                                  colores: _paleta[index % _paleta.length],
+                                  emoji: retoLocal.emoji,
+                                  titulo:
+                                      retoLocal.reto.title ?? 'Reto sin nombre',
+                                  general: item['general'] as double,
+                                  feedback: item['feedback'] as double,
+                                  asistencia: item['asistencia'] as double,
+                                  practica: item['practica'] as double,
+                                );
+                              }).toList(),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+      ),
+      bottomNavigationBar: CustomBottomNavigationBar(
+        currentIndex: _currentNavIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+
+  // ===================================================================
+  // HELPERS GENERALES
+  // ===================================================================
+
+  Widget _buildSectionHeader(String emoji, String titulo, String subtitulo) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(emoji, style: const TextStyle(fontSize: 20)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: _texto,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitulo,
+                  style: const TextStyle(fontSize: 12.5, color: _textoSuave),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String texto, {Color? fondo, Color? colorTexto}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: fondo ?? AppColors.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: colorTexto ?? AppColors.primaryColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEstadoVacio(String emoji, String titulo, String texto) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primaryColor.withOpacity(0.12)),
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 30)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _texto,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  texto,
+                  style: const TextStyle(
+                      fontSize: 13, color: _textoSuave, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError(String mensaje) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+            const SizedBox(height: 12),
+            Text(mensaje, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadData,
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===================================================================
+  // TARJETA DE USUARIO
+  // ===================================================================
+
+  Widget _buildTarjetaUsuario(AuthProvider authProvider, int totalRetos) {
+    final nombre = authProvider.userName ?? 'Usuario';
+    final inicial =
+        nombre.trim().isNotEmpty ? nombre.trim()[0].toUpperCase() : 'U';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        gradient: const LinearGradient(
+          colors: _gradientePrincipal,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withOpacity(0.4),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned(
+            right: -40,
+            top: -40,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            left: -30,
+            bottom: -50,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.07),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 76,
+                  height: 76,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.25),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      inicial,
+                      style: TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.error_outline,
-                          size: 64, color: Colors.red[300]),
-                      const SizedBox(height: 16),
-                      Text(_errorMessage!,
-                          textAlign: TextAlign.center,
-                          style:
-                              const TextStyle(color: Colors.red, fontSize: 16)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                          onPressed: _loadData,
-                          child: const Text('Reintentar')),
+                      Text(
+                        nombre,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        authProvider.userEmail ?? 'email@example.com',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _chip(
+                        '🎯 $totalRetos ${totalRetos == 1 ? 'reto' : 'retos'}',
+                        fondo: Colors.white.withOpacity(0.22),
+                        colorTexto: Colors.white,
+                      ),
                     ],
                   ),
-                )
-              : Consumer3<RetoProvider, RachaProvider, PracticaloProvider>(
-                  builder: (context, retoProvider, rachaProvider,
-                      practicaloProvider, _) {
-                    final retos = retoProvider.retos;
-
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Tarjeta de usuario (MANTENER IGUAL)
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                  colors: [Colors.blue[50]!, Colors.blue[100]!],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                  color: Colors.blue[200]!, width: 1),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: const BoxDecoration(
-                                      color: Colors.blue,
-                                      shape: BoxShape.circle),
-                                  child: Center(
-                                    child: Text(
-                                      (authProvider.userName ?? 'U')
-                                          .characters
-                                          .first
-                                          .toUpperCase(),
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 36,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(authProvider.userName ?? 'Usuario',
-                                          style: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black)),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                          authProvider.userEmail ??
-                                              'email@example.com',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[600])),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-
-                          // Calificaciones por Reto
-                          if (retos.isNotEmpty)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Calificaciones por Reto',
-                                    style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[600],
-                                        letterSpacing: 1.2)),
-                                const SizedBox(height: 16),
-                                ...retos.map((retoLocal) {
-                                  final asistencia =
-                                      _calcularCalificacionAsistencia(
-                                    retoId: retoLocal.reto.id,
-                                    rachaProvider: rachaProvider,
-                                  );
-                                  final notaPromedio = _calcularNotaPromedio(
-                                    retoId: retoLocal.reto.id,
-                                    practicaloProvider: practicaloProvider,
-                                  );
-                                  final calificacionGeneral =
-                                      ((_feedbackScoresPerReto[
-                                                      retoLocal.reto.id] ??
-                                                  0.0) +
-                                              asistencia +
-                                              (notaPromedio * 20)) /
-                                          3;
-
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Container general que envuelve todo
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                              color: Colors.grey[300]!,
-                                              width: 1),
-                                          boxShadow: [
-                                            BoxShadow(
-                                                color: Colors.grey
-                                                    .withOpacity(0.1),
-                                                spreadRadius: 1,
-                                                blurRadius: 3)
-                                          ],
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            // Nombre del reto DENTRO del container
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  bottom: 16.0),
-                                              child: Row(
-                                                children: [
-                                                  Text(retoLocal.emoji,
-                                                      style: const TextStyle(
-                                                          fontSize: 20)),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    retoLocal.reto.title ??
-                                                        'Reto sin nombre',
-                                                    style: const TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: Colors.black),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-
-                                            // Calificación General ARRIBA en forma horizontal
-                                            Container(
-                                              width: double.infinity,
-                                              padding: const EdgeInsets.all(12),
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey[50],
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                border: Border.all(
-                                                    color: Colors.grey[300]!,
-                                                    width: 1),
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  Text('Calificación General',
-                                                      style: TextStyle(
-                                                          fontSize: 11,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Colors
-                                                              .grey[700])),
-                                                  RichText(
-                                                    text: TextSpan(
-                                                      children: [
-                                                        TextSpan(
-                                                            text: calificacionGeneral
-                                                                .toStringAsFixed(
-                                                                    0),
-                                                            style: const TextStyle(
-                                                                fontSize: 32,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                color: Colors
-                                                                    .black)),
-                                                        TextSpan(
-                                                            text: '%',
-                                                            style: TextStyle(
-                                                                fontSize: 16,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color:
-                                                                    Colors.grey[
-                                                                        600])),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-
-                                            const SizedBox(height: 16),
-
-                                            // Las 3 cajas pequeñas en una fila
-                                            Row(
-                                              children: [
-                                                // Tarjeta Feedback
-                                                Expanded(
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                      border: Border.all(
-                                                          color: Colors.blue
-                                                              .withOpacity(0.3),
-                                                          width: 1),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                            color: Colors.grey
-                                                                .withOpacity(
-                                                                    0.1),
-                                                            spreadRadius: 1,
-                                                            blurRadius: 2)
-                                                      ],
-                                                    ),
-                                                    child: Column(
-                                                      children: [
-                                                        Text('Feedback',
-                                                            style: TextStyle(
-                                                                fontSize: 10,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color:
-                                                                    Colors.grey[
-                                                                        700])),
-                                                        const SizedBox(
-                                                            height: 6),
-                                                        RichText(
-                                                          text: TextSpan(
-                                                            children: [
-                                                              TextSpan(
-                                                                  text: (_feedbackScoresPerReto[retoLocal
-                                                                              .reto
-                                                                              .id] ??
-                                                                          0.0)
-                                                                      .toStringAsFixed(
-                                                                          0),
-                                                                  style: const TextStyle(
-                                                                      fontSize:
-                                                                          28,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .bold,
-                                                                      color: Colors
-                                                                          .blue)),
-                                                              TextSpan(
-                                                                  text: '%',
-                                                                  style: TextStyle(
-                                                                      fontSize:
-                                                                          12,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w600,
-                                                                      color: Colors
-                                                                              .blue[
-                                                                          400])),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                            height: 6),
-                                                        ClipRRect(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(4),
-                                                          child:
-                                                              LinearProgressIndicator(
-                                                            value: (_feedbackScoresPerReto[
-                                                                        retoLocal
-                                                                            .reto
-                                                                            .id] ??
-                                                                    0.0) /
-                                                                100,
-                                                            minHeight: 4,
-                                                            backgroundColor:
-                                                                Colors
-                                                                    .grey[200],
-                                                            valueColor:
-                                                                AlwaysStoppedAnimation(
-                                                              _getFeedbackColor(
-                                                                  _feedbackScoresPerReto[retoLocal
-                                                                          .reto
-                                                                          .id] ??
-                                                                      0.0),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                // Tarjeta Asistencia
-                                                Expanded(
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                      border: Border.all(
-                                                          color: Colors.green
-                                                              .withOpacity(0.3),
-                                                          width: 1),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                            color: Colors.grey
-                                                                .withOpacity(
-                                                                    0.1),
-                                                            spreadRadius: 1,
-                                                            blurRadius: 2)
-                                                      ],
-                                                    ),
-                                                    child: Column(
-                                                      children: [
-                                                        Text('Asistencia',
-                                                            style: TextStyle(
-                                                                fontSize: 10,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color:
-                                                                    Colors.grey[
-                                                                        700])),
-                                                        const SizedBox(
-                                                            height: 6),
-                                                        RichText(
-                                                          text: TextSpan(
-                                                            children: [
-                                                              TextSpan(
-                                                                  text: asistencia >
-                                                                          0
-                                                                      ? asistencia
-                                                                          .toStringAsFixed(
-                                                                              0)
-                                                                      : '--',
-                                                                  style: const TextStyle(
-                                                                      fontSize:
-                                                                          28,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .bold,
-                                                                      color: Colors
-                                                                          .green)),
-                                                              if (asistencia >
-                                                                  0)
-                                                                TextSpan(
-                                                                    text: '%',
-                                                                    style: TextStyle(
-                                                                        fontSize:
-                                                                            12,
-                                                                        fontWeight:
-                                                                            FontWeight
-                                                                                .w600,
-                                                                        color: Colors
-                                                                            .green[400])),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                            height: 6),
-                                                        if (asistencia > 0)
-                                                          ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        4),
-                                                            child:
-                                                                LinearProgressIndicator(
-                                                              value:
-                                                                  asistencia /
-                                                                      100,
-                                                              minHeight: 4,
-                                                              backgroundColor:
-                                                                  Colors.grey[
-                                                                      200],
-                                                              valueColor:
-                                                                  AlwaysStoppedAnimation(
-                                                                Colors.green,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                // Tarjeta Práctica
-                                                Expanded(
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                      border: Border.all(
-                                                          color: Colors.amber
-                                                              .withOpacity(0.3),
-                                                          width: 1),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                            color: Colors.grey
-                                                                .withOpacity(
-                                                                    0.1),
-                                                            spreadRadius: 1,
-                                                            blurRadius: 2)
-                                                      ],
-                                                    ),
-                                                    child: Column(
-                                                      children: [
-                                                        Text('Práctica',
-                                                            style: TextStyle(
-                                                                fontSize: 10,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color:
-                                                                    Colors.grey[
-                                                                        700])),
-                                                        const SizedBox(
-                                                            height: 6),
-                                                        RichText(
-                                                          text: TextSpan(
-                                                            children: [
-                                                              TextSpan(
-                                                                  text: (notaPromedio *
-                                                                          20)
-                                                                      .toStringAsFixed(
-                                                                          0),
-                                                                  style: const TextStyle(
-                                                                      fontSize:
-                                                                          28,
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .bold,
-                                                                      color: Colors
-                                                                          .amber)),
-                                                              TextSpan(
-                                                                  text: '%',
-                                                                  style: TextStyle(
-                                                                      fontSize:
-                                                                          12,
-                                                                      color: Colors
-                                                                              .amber[
-                                                                          400])),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      const SizedBox(height: 16),
-                                    ],
-                                  );
-                                }).toList(),
-                              ],
-                            ),
-                        ],
-                      ),
-                    );
-                  },
                 ),
-      bottomNavigationBar: CustomBottomNavigationBar(
-          currentIndex: _currentNavIndex, onTap: _onNavTap),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===================================================================
+  // TARJETA POR RETO
+  // ===================================================================
+
+  Widget _buildRetoCard({
+    required List<Color> colores,
+    required String emoji,
+    required String titulo,
+    required double general,
+    required double feedback,
+    required double asistencia,
+    required double practica,
+  }) {
+    final colorGeneral = _getFeedbackColor(general);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabecera con degradado
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: colores,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  right: -30,
+                  top: -40,
+                  child: Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        titulo,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Calificación general con anillo
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 88,
+                  height: 88,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CircularProgressIndicator(
+                        value: (general / 100).clamp(0.0, 1.0),
+                        strokeWidth: 9,
+                        backgroundColor: const Color(0xFFEEF0F5),
+                        valueColor: AlwaysStoppedAnimation(colorGeneral),
+                      ),
+                      Center(
+                        child: RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: general.toStringAsFixed(0),
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  color: _texto,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: '%',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _textoSuave,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Calificación general',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: _texto,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Promedio de feedback, asistencia y práctica',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _textoSuave,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _chip(
+                        _getFeedbackDescription(general),
+                        fondo: colorGeneral.withOpacity(0.12),
+                        colorTexto: colorGeneral,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 3 indicadores
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildScoreTile(
+                    titulo: 'Feedback',
+                    valor: feedback.toStringAsFixed(0),
+                    mostrarPorcentaje: true,
+                    progreso: feedback / 100,
+                    icono: Icons.forum_rounded,
+                    color: _azul,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildScoreTile(
+                    titulo: 'Asistencia',
+                    valor:
+                        asistencia > 0 ? asistencia.toStringAsFixed(0) : '--',
+                    mostrarPorcentaje: asistencia > 0,
+                    progreso: asistencia / 100,
+                    icono: Icons.event_available_rounded,
+                    color: _verde,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildScoreTile(
+                    titulo: 'Práctica',
+                    valor: practica.toStringAsFixed(0),
+                    mostrarPorcentaje: true,
+                    progreso: practica / 100,
+                    icono: Icons.star_rounded,
+                    color: _ambar,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScoreTile({
+    required String titulo,
+    required String valor,
+    required bool mostrarPorcentaje,
+    required double progreso,
+    required IconData icono,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.18)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icono, color: color, size: 18),
+          ),
+          const SizedBox(height: 8),
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: valor,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
+                ),
+                if (mostrarPorcentaje)
+                  TextSpan(
+                    text: '%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: color.withOpacity(0.7),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            titulo,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: _textoSuave,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progreso.clamp(0.0, 1.0),
+              minHeight: 5,
+              backgroundColor: color.withOpacity(0.12),
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -96,7 +96,8 @@ class PildoraProvider extends ChangeNotifier {
   }
 
   // Completar píldora
-  Future<bool> completarPildora() async {
+  Future<bool> completarPildora(
+      {int? pillRating, String? pillFeedbackMessage}) async {
     if (_progressoActual == null) {
       _errorMessage = 'No hay progreso registrado';
       return false;
@@ -108,7 +109,11 @@ class PildoraProvider extends ChangeNotifier {
       notifyListeners();
 
       // Guardar en backend
-      final success = await _progressService.completePill(_progressoActual!.id);
+      final success = await _progressService.completePill(
+        _progressoActual!.id,
+        pillRating: pillRating,
+        pillFeedbackMessage: pillFeedbackMessage,
+      );
 
       if (success) {
         _progressoActual = PillProgress(

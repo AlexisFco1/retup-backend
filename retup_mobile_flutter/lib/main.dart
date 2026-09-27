@@ -8,6 +8,7 @@ import 'providers/pildora_provider.dart';
 import 'providers/racha_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/practicalo_provider.dart';
+import 'providers/planificacion_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
@@ -46,6 +47,7 @@ class MyApp extends StatelessWidget {
           create: (context) => NotificationProvider(),
         ),
         ChangeNotifierProvider(create: (_) => PracticaloProvider()),
+        ChangeNotifierProvider(create: (_) => PlanificacionProvider()),
       ],
       child: MaterialApp(
         title: 'RetUp',
