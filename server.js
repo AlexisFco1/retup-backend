@@ -26,7 +26,8 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     console.log('DEBUG REGISTER - req.body:', req.body);
     console.log('DEBUG REGISTER - Headers:', req.headers);
-    const { email, password, full_name, company_id, role } = req.body;
+        const { email, password, first_name, last_name_1, last_name_2, age, gender, department, company_id, role } = req.body;
+    const full_name = [first_name, last_name_1, last_name_2].filter(Boolean).join(' ');
 
     console.log('PASO 1 - Intentando signUp en Supabase...');
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -43,11 +44,17 @@ app.post('/api/auth/register', async (req, res) => {
     console.log('PASO 3 - Intentando insertar usuario en tabla users...');
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .insert([{
+            .insert([{
         id: authData.user.id,
         company_id,
         email,
         full_name,
+        first_name,
+        last_name_1,
+        last_name_2,
+        age,
+        gender,
+        department,
         role,
         is_active: true,
       }])
@@ -339,10 +346,20 @@ app.post('/api/users', authenticateToken, authorizeRole(['super_admin', 'company
 
 app.put('/api/users/:id', authenticateToken, async (req, res) => {
   try {
-    const { full_name, role, is_active } = req.body;
+        const { full_name, first_name, last_name_1, last_name_2, age, gender, department, role, is_active } = req.body;
+    const updateData = { updated_at: new Date() };
+    if (full_name !== undefined) updateData.full_name = full_name;
+    if (first_name !== undefined) updateData.first_name = first_name;
+    if (last_name_1 !== undefined) updateData.last_name_1 = last_name_1;
+    if (last_name_2 !== undefined) updateData.last_name_2 = last_name_2;
+    if (age !== undefined) updateData.age = age;
+    if (gender !== undefined) updateData.gender = gender;
+    if (department !== undefined) updateData.department = department;
+    if (role !== undefined) updateData.role = role;
+    if (is_active !== undefined) updateData.is_active = is_active;
     const { data, error } = await supabase
       .from('users')
-      .update({ full_name, role, is_active, updated_at: new Date() })
+      .update(updateData)
       .eq('id', req.params.id)
       .select();
     if (error) throw error;
