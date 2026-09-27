@@ -3552,14 +3552,17 @@ app.get('/api/social/posts/:postId/comments', authenticateToken, async (req, res
     const enriched = await Promise.all(comments.map(async (c) => {
       const { data: userData } = await supabase
         .from('users')
-        .select('first_name, last_name_1')
+               .select('first_name, last_name_1, full_name, email')
         .eq('id', c.user_id)
         .single();
 
       return {
         ...c,
         user_name: userData
-          ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
+          ? (`${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim() ||
+             userData.full_name ||
+             userData.email?.split('@')[0] ||
+             'Usuario')
           : 'Usuario',
       };
     }));
@@ -3589,7 +3592,7 @@ app.post('/api/social/posts/:postId/comments', authenticateToken, async (req, re
     // Devolver con nombre del usuario
     const { data: userData } = await supabase
       .from('users')
-      .select('first_name, last_name_1')
+           .select('first_name, last_name_1, full_name, email')
       .eq('id', userId)
       .single();
 
@@ -3598,7 +3601,10 @@ app.post('/api/social/posts/:postId/comments', authenticateToken, async (req, re
       data: {
         ...data,
         user_name: userData
-          ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
+          ? (`${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim() ||
+             userData.full_name ||
+             userData.email?.split('@')[0] ||
+             'Usuario')
           : 'Usuario',
       },
     });
