@@ -752,16 +752,41 @@ app.post('/api/nominations', authenticateToken, async (req, res) => {
       }])
       .select();
 
-    if (error) {
+       if (error) {
+      // 23505 = violación de la regla "no duplicados" (uq_nomination_voto_unico).
+      // Significa que este voto YA existía: devolvemos el existente como éxito.
+      if (error.code === '23505') {
+        console.log('ℹ️ Voto duplicado detectado, se devuelve el existente');
+
+        const { data: existente, error: errorExistente } = await supabase
+          .from('anonymous_nominations')
+          .select('*')
+          .eq('respondent_user_id', respondent_user_id)
+          .eq('nominated_user_id', nominated_user_id)
+          .eq('pill_id', pill_id)
+          .eq('section_number', section_number)
+          .single();
+
+        if (errorExistente) throw errorExistente;
+
+        return res.status(200).json({
+          success: true,
+          data: existente,
+          nominationId: existente.id,
+          alreadyExisted: true
+        });
+      }
+
       console.error('❌ Error en insert:', error);
       throw error;
     }
 
     console.log('✅ Voto registrado exitosamente');
-        res.status(201).json({ 
+    res.status(201).json({ 
       success: true, 
       data: data[0],
-      nominationId: data[0].id  // ← NUEVO: agregar esta línea
+      nominationId: data[0].id,
+      alreadyExisted: false
     });
   } catch (error) {
     console.error('❌ Error en POST /nominations:', error.message);
