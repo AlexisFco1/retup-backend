@@ -793,7 +793,48 @@ app.post('/api/nominations', authenticateToken, async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
+// ===== MIS ENVÍOS EN UNA PÍLDORA (votos secciones 3 y 7 + retos sección 8) =====
+// Permite que la app recuerde lo que el usuario ya envió al volver a la píldora
+app.get('/api/nominations/mis-envios/:pillId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;         // Usuario autenticado (el que votó / retó)
+    const pillId = req.params.pillId;
 
+    console.log('📋 GET /api/nominations/mis-envios/:pillId');
+    console.log('   User:', userId);
+    console.log('   Píldora:', pillId);
+
+    // 1) Votos que YA hizo este usuario en esta píldora (secciones 3 y 7)
+    const { data: votos, error: errorVotos } = await supabase
+      .from('anonymous_nominations')
+      .select('id, nominated_user_id, section_number, vote_type, message')
+      .eq('respondent_user_id', userId)
+      .eq('pill_id', pillId);
+
+    if (errorVotos) throw errorVotos;
+
+    // 2) Retos que YA envió este usuario en esta píldora (sección 8)
+    const { data: retos, error: errorRetos } = await supabase
+      .from('practicalo')
+      .select('id, recipient_user_id, status')
+      .eq('sender_user_id', userId)
+      .eq('pill_id', pillId)
+      .eq('section_number', 8);
+
+    if (errorRetos) throw errorRetos;
+
+    console.log(`✅ Votos encontrados: ${votos.length} | Retos encontrados: ${retos.length}`);
+
+    res.json({
+      success: true,
+      votos: votos || [],
+      retos: retos || []
+    });
+  } catch (error) {
+    console.error('❌ Error en GET /nominations/mis-envios:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 app.get('/api/nominations/:userId/feedback-score', authenticateToken, async (req, res) => {
   try {
     console.log('📊 GET /api/nominations/:userId/feedback-score');
@@ -1115,7 +1156,30 @@ app.post('/api/practicalo', authenticateToken, async (req, res) => {
       }])
       .select();
 
-    if (practicaloError) {
+       if (practicaloError) {
+      // 23505 = violación de la regla "no duplicados" (uq_practicalo_reto_unico_s8).
+      // Este reto YA se había enviado: devolvemos el existente y NO creamos otra notificación.
+      if (practicaloError.code === '23505') {
+        console.log('ℹ️ Reto duplicado detectado, se devuelve el existente');
+
+        const { data: existente, error: errorExistente } = await supabase
+          .from('practicalo')
+          .select('*')
+          .eq('sender_user_id', sender_user_id)
+          .eq('recipient_user_id', recipient_user_id)
+          .eq('pill_id', pill_id)
+          .eq('section_number', 8)
+          .single();
+
+        if (errorExistente) throw errorExistente;
+
+        return res.status(200).json({
+          success: true,
+          data: existente,
+          alreadyExisted: true
+        });
+      }
+
       console.error('❌ Error creando practicalo:', practicaloError);
       throw practicaloError;
     }
