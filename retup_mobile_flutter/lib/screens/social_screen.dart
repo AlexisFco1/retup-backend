@@ -1,4 +1,4 @@
-// social_screen.dart - REDISEÑO VISUAL (misma armonía que home, rachas y practícalo)
+// social_screen.dart - IDENTIDAD DE MARCA RETUP (armonía página web)
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -23,29 +23,36 @@ class SocialScreen extends StatefulWidget {
 class _SocialScreenState extends State<SocialScreen> {
   int _currentNavIndex = 1;
 
-  // ===== Colores (mismos que home, rachas y practícalo) =====
-  static const Color _fondo = Color(0xFFF6F7FB);
-  static const Color _texto = Color(0xFF1F2937);
+  // ===== Colores de marca RetUp (Paleta "Vínculo") =====
+  static const Color _indigo = Color(0xFF2E2A72); // Predomina
+  static const Color _turquesa = Color(0xFF12B5A6); // Botones y acentos
+  static const Color _turquesaOscuro = Color(0xFF0B8A7E);
+  static const Color _morado = Color(0xFF7209B7); // Compromiso / destacados
+  static const Color _tinta = Color(0xFF0E0F17); // Texto
+
+  static const Color _fondo = Color(0xFFF5F5F2); // Blanco roto como la web
+  static const Color _texto = _tinta;
   static const Color _textoSuave = Color(0xFF6B7280);
   static const Color _linea = Color(0xFFF1F2F6);
 
+  // Degradado de botones principales (turquesa, como "Solicita una demo")
   static const List<Color> _gradientePrincipal = [
-    Color(0xFF6366F1),
-    Color(0xFF8B5CF6),
+    _turquesa,
+    _turquesaOscuro,
   ];
 
+  // Paleta de avatares (misma que inicio y píldoras)
   static const List<List<Color>> _paleta = [
-    [Color(0xFF6366F1), Color(0xFF4F46E5)], // Índigo
-    [Color(0xFF8B5CF6), Color(0xFF7C3AED)], // Violeta
-    [Color(0xFF14B8A6), Color(0xFF0D9488)], // Turquesa
-    [Color(0xFFEC4899), Color(0xFFDB2777)], // Rosa
-    [Color(0xFF3B82F6), Color(0xFF2563EB)], // Azul
+    [Color(0xFF2E2A72), Color(0xFF443E9E)], // Índigo
+    [Color(0xFF12B5A6), Color(0xFF0B8A7E)], // Turquesa
+    [Color(0xFF7209B7), Color(0xFF5B0893)], // Morado
+    [Color(0xFF2E2A72), Color(0xFF7209B7)], // Índigo → Morado
+    [Color(0xFF12B5A6), Color(0xFF2E2A72)], // Turquesa → Índigo
+    [Color(0xFF7209B7), Color(0xFF2E2A72)], // Morado → Índigo
   ];
 
-  static const List<Color> _ambar = [Color(0xFFF59E0B), Color(0xFFD97706)];
-  static const Color _verde = Color(0xFF10B981);
-  static const Color _azul = Color(0xFF3B82F6);
-  static const Color _rojo = Color(0xFFEF4444);
+  // Destacados y publicaciones del sistema: morado de marca (en lugar de dorado)
+  static const List<Color> _destacado = [_morado, _indigo];
 
   // Posts cuya vista ya se registró en esta sesión (evita llamadas repetidas)
   final Set<String> _vistasRegistradas = {};
@@ -88,27 +95,65 @@ class _SocialScreenState extends State<SocialScreen> {
     return Scaffold(
       backgroundColor: _fondo,
       appBar: AppBar(
-        title: const Text('Social'),
-        centerTitle: true,
+        backgroundColor: _indigo,
+        foregroundColor: Colors.white,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primaryColor.withOpacity(0.85),
-                AppColors.primaryColor.withOpacity(0.75),
-              ],
+        toolbarHeight: 64,
+        centerTitle: false,
+        titleSpacing: 12,
+        automaticallyImplyLeading: false,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Solo la R del logo, fundida con el índigo (igual que en Inicio)
+            SizedBox(
+              width: 42,
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: 0.66,
+                  child: Image.asset(
+                    'assets/images/logo_retup_oscuro.jpg',
+                    width: 42,
+                    fit: BoxFit.fitWidth,
+                    color: _indigo,
+                    colorBlendMode: BlendMode.screen,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Text(
+                        'R',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: _turquesa,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            const Text(
+              'Social',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
       body: SafeArea(
         child: Consumer2<SocialProvider, AuthProvider>(
           builder: (context, social, auth, _) {
             if (social.isLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(color: _turquesa),
+              );
             }
 
             if (social.errorMessage != null && social.posts.isEmpty) {
@@ -165,6 +210,7 @@ class _SocialScreenState extends State<SocialScreen> {
             ];
 
             return RefreshIndicator(
+              color: _turquesa,
               onRefresh: () => social.refreshPosts(auth.token!),
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -231,7 +277,7 @@ class _SocialScreenState extends State<SocialScreen> {
       border: borde,
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.06),
+          color: _indigo.withOpacity(0.07),
           blurRadius: 12,
           offset: const Offset(0, 4),
         ),
@@ -248,8 +294,8 @@ class _SocialScreenState extends State<SocialScreen> {
           gradient: LinearGradient(
             colors: [
               Colors.transparent,
-              const Color(0xFF6366F1).withOpacity(0.2),
-              const Color(0xFF8B5CF6).withOpacity(0.2),
+              _indigo.withOpacity(0.2),
+              _turquesa.withOpacity(0.35),
               Colors.transparent,
             ],
           ),
@@ -267,7 +313,7 @@ class _SocialScreenState extends State<SocialScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: _gradientePrincipal),
+              color: _turquesa,
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
@@ -286,13 +332,25 @@ class _SocialScreenState extends State<SocialScreen> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,
-              color: _texto,
+              color: _indigo,
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
-            'Comparte logros, ideas y aprendizajes con tus compañeros',
-            style: TextStyle(fontSize: 13, color: _textoSuave),
+          RichText(
+            text: const TextSpan(
+              style: TextStyle(fontSize: 13, color: _textoSuave),
+              children: [
+                TextSpan(
+                    text: 'Comparte logros, ideas y aprendizajes con tus '),
+                TextSpan(
+                  text: 'compañeros',
+                  style: TextStyle(
+                    color: _turquesa,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -308,7 +366,7 @@ class _SocialScreenState extends State<SocialScreen> {
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppColors.primaryColor.withOpacity(0.1),
+            color: _indigo.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(emoji, style: const TextStyle(fontSize: 20)),
@@ -323,7 +381,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: _texto,
+                  color: _indigo,
                 ),
               ),
               const SizedBox(height: 2),
@@ -349,7 +407,7 @@ class _SocialScreenState extends State<SocialScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: fondo ?? AppColors.primaryColor.withOpacity(0.1),
+        color: fondo ?? _indigo.withOpacity(0.08),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -357,7 +415,7 @@ class _SocialScreenState extends State<SocialScreen> {
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
-          color: colorTexto ?? AppColors.primaryColor,
+          color: colorTexto ?? _indigo,
         ),
       ),
     );
@@ -396,7 +454,7 @@ class _SocialScreenState extends State<SocialScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primaryColor.withOpacity(0.12)),
+        border: Border.all(color: _indigo.withOpacity(0.12)),
       ),
       child: Row(
         children: [
@@ -411,7 +469,7 @@ class _SocialScreenState extends State<SocialScreen> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -440,6 +498,13 @@ class _SocialScreenState extends State<SocialScreen> {
             Text(mensaje, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _turquesa,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: _cargarPosts,
               child: const Text('Reintentar'),
             ),
@@ -449,7 +514,7 @@ class _SocialScreenState extends State<SocialScreen> {
     );
   }
 
-  /// Botón con degradado (mismo estilo que practícalo)
+  /// Botón principal turquesa (como los botones de la web)
   Widget _botonGradiente({
     required String texto,
     required VoidCallback onTap,
@@ -464,7 +529,7 @@ class _SocialScreenState extends State<SocialScreen> {
         child: Ink(
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: colores),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
                 color: colores[0].withOpacity(0.3),
@@ -474,7 +539,7 @@ class _SocialScreenState extends State<SocialScreen> {
             ],
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             onTap: onTap,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -507,16 +572,16 @@ class _SocialScreenState extends State<SocialScreen> {
       fillColor: _fondo,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AppColors.primaryColor.withOpacity(0.12)),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: _indigo.withOpacity(0.12)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AppColors.primaryColor.withOpacity(0.12)),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: _indigo.withOpacity(0.12)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.primaryColor, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _turquesa, width: 1.8),
       ),
     );
   }
@@ -557,7 +622,10 @@ class _SocialScreenState extends State<SocialScreen> {
         children: [
           Row(
             children: [
-              _avatar(nombre.isNotEmpty ? nombre : 'Tú', _gradientePrincipal),
+              _avatar(nombre.isNotEmpty ? nombre : 'Tú', const [
+                _indigo,
+                Color(0xFF443E9E),
+              ]),
               const SizedBox(width: 12),
               Expanded(
                 child: Material(
@@ -571,8 +639,7 @@ class _SocialScreenState extends State<SocialScreen> {
                           horizontal: 16, vertical: 13),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                            color: AppColors.primaryColor.withOpacity(0.12)),
+                        border: Border.all(color: _indigo.withOpacity(0.12)),
                       ),
                       child: Row(
                         children: [
@@ -587,9 +654,8 @@ class _SocialScreenState extends State<SocialScreen> {
                                   color: _textoSuave, fontSize: 14),
                             ),
                           ),
-                          Icon(Icons.edit_rounded,
-                              size: 18,
-                              color: AppColors.primaryColor.withOpacity(0.7)),
+                          const Icon(Icons.edit_rounded,
+                              size: 18, color: _turquesa),
                         ],
                       ),
                     ),
@@ -605,19 +671,19 @@ class _SocialScreenState extends State<SocialScreen> {
             children: [
               Expanded(
                 child: _buildActionButton(Icons.photo_library_rounded, 'Foto',
-                    _verde, () => _pickImage(ImageSource.gallery)),
+                    _turquesa, () => _pickImage(ImageSource.gallery)),
               ),
               Expanded(
                 child: _buildActionButton(Icons.camera_alt_rounded, 'Cámara',
-                    _azul, () => _pickImage(ImageSource.camera)),
+                    _indigo, () => _pickImage(ImageSource.camera)),
               ),
               Expanded(
                 child: _buildActionButton(Icons.poll_rounded, 'Encuesta',
-                    _ambar[0], () => _showPollDialog(context)),
+                    _morado, () => _showPollDialog(context)),
               ),
               Expanded(
-                child: _buildActionButton(Icons.mic_rounded, 'Audio', _rojo,
-                    () => _showAudioRecorder(context)),
+                child: _buildActionButton(Icons.mic_rounded, 'Audio',
+                    _turquesaOscuro, () => _showAudioRecorder(context)),
               ),
             ],
           ),
@@ -637,7 +703,7 @@ class _SocialScreenState extends State<SocialScreen> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(icon, color: color, size: 22),
@@ -647,7 +713,7 @@ class _SocialScreenState extends State<SocialScreen> {
             label,
             style: const TextStyle(
               fontSize: 11.5,
-              color: _textoSuave,
+              color: _indigo,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -668,9 +734,9 @@ class _SocialScreenState extends State<SocialScreen> {
 
     Border? borde;
     if (post.isPinned) {
-      borde = Border.all(color: _ambar[0].withOpacity(0.45), width: 1.5);
+      borde = Border.all(color: _morado.withOpacity(0.4), width: 1.5);
     } else if (isSystem) {
-      borde = Border.all(color: _ambar[0].withOpacity(0.25));
+      borde = Border.all(color: _morado.withOpacity(0.2));
     }
 
     return Container(
@@ -679,7 +745,7 @@ class _SocialScreenState extends State<SocialScreen> {
         borde: borde,
         gradiente: isSystem
             ? const LinearGradient(
-                colors: [Color(0xFFFFFBEB), Colors.white],
+                colors: [Color(0xFFF4ECFB), Colors.white],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
@@ -726,7 +792,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: _ambar,
+                    colors: _destacado,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -747,7 +813,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 style: const TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w800,
-                  color: _texto,
+                  color: _indigo,
                 ),
               ),
               const SizedBox(height: 2),
@@ -760,12 +826,12 @@ class _SocialScreenState extends State<SocialScreen> {
         ),
         if (isSystem)
           _chip('Sistema',
-              fondo: _ambar[0].withOpacity(0.15), colorTexto: _ambar[1]),
+              fondo: _morado.withOpacity(0.12), colorTexto: _morado),
         if (post.isPinned)
           Padding(
             padding: const EdgeInsets.only(left: 6),
             child: _chip('📌 Anclado',
-                fondo: _ambar[0].withOpacity(0.15), colorTexto: _ambar[1]),
+                fondo: _morado.withOpacity(0.12), colorTexto: _morado),
           ),
         if (!isSystem)
           PopupMenuButton<String>(
@@ -793,8 +859,7 @@ class _SocialScreenState extends State<SocialScreen> {
                   value: 'edit',
                   child: Row(
                     children: const [
-                      Icon(Icons.edit_outlined,
-                          size: 18, color: AppColors.primaryColor),
+                      Icon(Icons.edit_outlined, size: 18, color: _indigo),
                       SizedBox(width: 8),
                       Text('Editar'),
                     ],
@@ -819,7 +884,7 @@ class _SocialScreenState extends State<SocialScreen> {
                     Icon(
                       post.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
                       size: 18,
-                      color: _ambar[0],
+                      color: _morado,
                     ),
                     const SizedBox(width: 8),
                     Text(post.isPinned ? 'Desanclar' : 'Anclar'),
@@ -848,9 +913,9 @@ class _SocialScreenState extends State<SocialScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _ambar[0].withOpacity(0.08),
+            color: _morado.withOpacity(0.06),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _ambar[0].withOpacity(0.2)),
+            border: Border.all(color: _morado.withOpacity(0.18)),
           ),
           child: Text(
             post.textContent ?? '',
@@ -889,7 +954,9 @@ class _SocialScreenState extends State<SocialScreen> {
                     return Container(
                       height: 200,
                       color: _fondo,
-                      child: const Center(child: CircularProgressIndicator()),
+                      child: const Center(
+                        child: CircularProgressIndicator(color: _turquesa),
+                      ),
                     );
                   },
                   errorBuilder: (_, __, ___) => Container(
@@ -944,14 +1011,15 @@ class _SocialScreenState extends State<SocialScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _chip('📊 Encuesta'),
+        _chip('📊 Encuesta',
+            fondo: _turquesa.withOpacity(0.12), colorTexto: _turquesaOscuro),
         const SizedBox(height: 10),
         Text(
           post.textContent ?? '',
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w800,
-            color: _texto,
+            color: _indigo,
             height: 1.35,
           ),
         ),
@@ -970,9 +1038,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: option.votedByMe
-                      ? AppColors.primaryColor
-                      : const Color(0xFFE5E7EB),
+                  color: option.votedByMe ? _turquesa : const Color(0xFFE5E7EB),
                   width: option.votedByMe ? 1.8 : 1.2,
                 ),
               ),
@@ -989,8 +1055,8 @@ class _SocialScreenState extends State<SocialScreen> {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  AppColors.primaryColor.withOpacity(0.18),
-                                  const Color(0xFF8B5CF6).withOpacity(0.10),
+                                  _turquesa.withOpacity(0.2),
+                                  _morado.withOpacity(0.12),
                                 ],
                               ),
                             ),
@@ -1004,12 +1070,11 @@ class _SocialScreenState extends State<SocialScreen> {
                         children: [
                           if (option.votedByMe) ...[
                             const Icon(Icons.check_circle_rounded,
-                                size: 18, color: AppColors.primaryColor),
+                                size: 18, color: _turquesa),
                             const SizedBox(width: 8),
                           ] else if (!hasVoted) ...[
                             Icon(Icons.radio_button_unchecked,
-                                size: 18,
-                                color: AppColors.primaryColor.withOpacity(0.5)),
+                                size: 18, color: _indigo.withOpacity(0.4)),
                             const SizedBox(width: 8),
                           ],
                           Expanded(
@@ -1030,7 +1095,7 @@ class _SocialScreenState extends State<SocialScreen> {
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
-                                color: AppColors.primaryColor,
+                                color: _indigo,
                               ),
                             ),
                         ],
@@ -1065,7 +1130,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 ? Icons.favorite_rounded
                 : Icons.favorite_border_rounded,
             texto: post.likeCount > 0 ? '${post.likeCount}' : 'Me gusta',
-            color: _rojo,
+            color: _morado,
             activo: post.likedByMe,
             onTap: () => social.toggleLike(post.id, auth.token!),
           ),
@@ -1075,7 +1140,7 @@ class _SocialScreenState extends State<SocialScreen> {
             icono: Icons.chat_bubble_outline_rounded,
             texto:
                 post.commentsCount > 0 ? '${post.commentsCount}' : 'Comentar',
-            color: AppColors.primaryColor,
+            color: _turquesa,
             activo: false,
             onTap: () => _showCommentsSheet(context, post.id, auth, social),
           ),
@@ -1167,6 +1232,7 @@ class _SocialScreenState extends State<SocialScreen> {
               controller: controller,
               maxLines: 5,
               autofocus: true,
+              cursorColor: _indigo,
               decoration: _inputDecoration(
                 '¿Qué mensaje crees que necesiten tus compañeros hoy, ${(auth.userName ?? '').split(' ').first}?',
               ).copyWith(hintMaxLines: 3),
@@ -1242,6 +1308,7 @@ class _SocialScreenState extends State<SocialScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: captionController,
+              cursorColor: _indigo,
               decoration: _inputDecoration('Añade un comentario...'),
             ),
             const SizedBox(height: 12),
@@ -1251,8 +1318,13 @@ class _SocialScreenState extends State<SocialScreen> {
               onTap: () async {
                 Navigator.pop(ctx);
                 _mostrarMensaje('Subiendo imagen...', AppColors.info);
-                await social.createImagePost(
+                final success = await social.createImagePost(
                     imageFile, captionController.text, auth.token!);
+                if (success) {
+                  _mostrarMensaje('¡Foto publicada! 🎉', AppColors.success);
+                } else {
+                  _mostrarMensaje('Error al publicar la foto', AppColors.error);
+                }
               },
             ),
           ],
@@ -1298,6 +1370,7 @@ class _SocialScreenState extends State<SocialScreen> {
                   children: [
                     TextField(
                       controller: questionController,
+                      cursorColor: _indigo,
                       decoration: _inputDecoration('Escribe tu pregunta...'),
                     ),
                     const SizedBox(height: 16),
@@ -1307,6 +1380,7 @@ class _SocialScreenState extends State<SocialScreen> {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: TextField(
                           controller: optionControllers[i],
+                          cursorColor: _indigo,
                           decoration:
                               _inputDecoration('Opción ${i + 1}').copyWith(
                             suffixIcon: optionControllers.length > 2
@@ -1331,12 +1405,11 @@ class _SocialScreenState extends State<SocialScreen> {
                             setModalState(() =>
                                 optionControllers.add(TextEditingController()));
                           },
-                          icon: const Icon(Icons.add_rounded,
-                              color: AppColors.primaryColor),
+                          icon: const Icon(Icons.add_rounded, color: _turquesa),
                           label: const Text(
                             'Añadir opción',
                             style: TextStyle(
-                              color: AppColors.primaryColor,
+                              color: _turquesa,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -1383,7 +1456,13 @@ class _SocialScreenState extends State<SocialScreen> {
           final auth = context.read<AuthProvider>();
           final social = context.read<SocialProvider>();
           _mostrarMensaje('Subiendo audio...', AppColors.info);
-          await social.createAudioPost(audioFile, null, auth.token!);
+          final success =
+              await social.createAudioPost(audioFile, null, auth.token!);
+          if (success) {
+            _mostrarMensaje('¡Audio publicado! 🎉', AppColors.success);
+          } else {
+            _mostrarMensaje('Error al publicar el audio', AppColors.error);
+          }
         },
       ),
     );
@@ -1401,11 +1480,12 @@ class _SocialScreenState extends State<SocialScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           '✏️ Editar publicación',
-          style: TextStyle(fontWeight: FontWeight.w800, color: _texto),
+          style: TextStyle(fontWeight: FontWeight.w800, color: _indigo),
         ),
         content: TextField(
           controller: controller,
           maxLines: 5,
+          cursorColor: _indigo,
           decoration: _inputDecoration('Escribe tu publicación...'),
         ),
         actions: [
@@ -1425,7 +1505,7 @@ class _SocialScreenState extends State<SocialScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryColor,
+              backgroundColor: _turquesa,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -1449,7 +1529,7 @@ class _SocialScreenState extends State<SocialScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           '🗑️ ¿Borrar publicación?',
-          style: TextStyle(fontWeight: FontWeight.w800, color: _texto),
+          style: TextStyle(fontWeight: FontWeight.w800, color: _indigo),
         ),
         content: const Text(
           'Esta acción no se puede deshacer.',
@@ -1514,7 +1594,9 @@ class _SocialScreenState extends State<SocialScreen> {
                 future: social.getComments(postId, auth.token!),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(
+                      child: CircularProgressIndicator(color: _turquesa),
+                    );
                   }
                   final comments = snapshot.data ?? [];
                   if (comments.isEmpty) {
@@ -1559,7 +1641,7 @@ class _SocialScreenState extends State<SocialScreen> {
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w800,
                                               fontSize: 13,
-                                              color: _texto,
+                                              color: _indigo,
                                             ),
                                           ),
                                         ),
@@ -1598,6 +1680,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 Expanded(
                   child: TextField(
                     controller: commentController,
+                    cursorColor: _indigo,
                     decoration: _inputDecoration('Escribe un comentario...'),
                   ),
                 ),
@@ -1628,7 +1711,7 @@ class _SocialScreenState extends State<SocialScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.3),
+                          color: _turquesa.withOpacity(0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 3),
                         ),
@@ -1725,7 +1808,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: _SocialScreenState._texto,
+              color: _SocialScreenState._indigo,
             ),
           ),
           const SizedBox(height: 4),
@@ -1754,7 +1837,7 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
                   BoxShadow(
                     color: (_isRecording
                             ? const Color(0xFFEF4444)
-                            : const Color(0xFF6366F1))
+                            : _SocialScreenState._turquesa)
                         .withOpacity(0.4),
                     blurRadius: _isRecording ? 22 : 14,
                     spreadRadius: _isRecording ? 4 : 0,
@@ -1781,11 +1864,11 @@ class _AudioRecorderSheetState extends State<_AudioRecorderSheet> {
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryColor,
+                  backgroundColor: _SocialScreenState._turquesa,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
@@ -1841,9 +1924,10 @@ class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.primaryColor.withOpacity(0.06),
+        color: _SocialScreenState._turquesa.withOpacity(0.06),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primaryColor.withOpacity(0.15)),
+        border:
+            Border.all(color: _SocialScreenState._turquesa.withOpacity(0.2)),
       ),
       child: Row(
         children: [
@@ -1861,7 +1945,7 @@ class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6366F1).withOpacity(0.3),
+                    color: _SocialScreenState._turquesa.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -1884,7 +1968,7 @@ class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: _SocialScreenState._texto,
+                    color: _SocialScreenState._indigo,
                   ),
                 ),
                 const SizedBox(height: 2),

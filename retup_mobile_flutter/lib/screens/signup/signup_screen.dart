@@ -1,4 +1,4 @@
-// signup_screen.dart - REDISEÑO VISUAL (misma armonía que el resto de la app)
+// signup_screen.dart - IDENTIDAD DE MARCA RETUP (armonía página web)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,15 +28,16 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _selectedGender;
   String? _selectedDepartment;
 
-  // ===== Colores (mismos que el resto de la app) =====
-  static const Color _fondo = Color(0xFFF6F7FB);
-  static const Color _texto = Color(0xFF1F2937);
+  // ===== Colores de marca RetUp (Paleta "Vínculo") =====
+  static const Color _indigo =
+      Color(0xFF2E2A72); // Predomina: fondos institucionales
+  static const Color _turquesa =
+      Color(0xFF12B5A6); // Botones y palabras destacadas
+  static const Color _tinta = Color(0xFF0E0F17); // Texto
+
+  static const Color _fondo = Color(0xFFF5F5F2); // Blanco roto como la web
+  static const Color _texto = _tinta;
   static const Color _textoSuave = Color(0xFF6B7280);
-  static const Color _morado = Color(0xFF6366F1);
-  static const List<Color> _gradientePrincipal = [
-    Color(0xFF6366F1),
-    Color(0xFF8B5CF6),
-  ];
 
   final List<String> _genderOptions = [
     'Masculino',
@@ -160,7 +161,7 @@ class _SignupScreenState extends State<SignupScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ===== CABECERA CON DEGRADADO =====
+            // ===== CABECERA ÍNDIGO =====
             _buildCabecera(context),
 
             // ===== TARJETA DEL FORMULARIO (sube sobre la cabecera) =====
@@ -189,104 +190,100 @@ class _SignupScreenState extends State<SignupScreen> {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: _gradientePrincipal,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: _indigo,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Círculos decorativos
+          // Arcos decorativos sutiles (alejados del logo)
           Positioned(
-            right: -60,
-            top: -40,
+            right: -150,
+            top: -110,
             child: Container(
-              width: 200,
-              height: 200,
+              width: 260,
+              height: 260,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.06),
+                  width: 34,
+                ),
               ),
             ),
           ),
           Positioned(
-            left: -50,
-            bottom: -30,
+            left: -70,
+            bottom: -60,
             child: Container(
-              width: 150,
-              height: 150,
+              width: 180,
+              height: 180,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.07),
                 shape: BoxShape.circle,
-              ),
-            ),
-          ),
-
-          // Botón volver
-          Positioned(
-            left: 12,
-            top: topPadding + 8,
-            child: Material(
-              color: Colors.white.withOpacity(0.2),
-              shape: const CircleBorder(),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.05),
+                  width: 26,
+                ),
               ),
             ),
           ),
 
           // Contenido
           Padding(
-            padding: EdgeInsets.fromLTRB(24, topPadding + 40, 24, 96),
+            padding: EdgeInsets.fromLTRB(24, topPadding + 36, 24, 96),
             child: Center(
               child: Column(
                 children: [
-                  Container(
-                    width: 76,
-                    height: 76,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.35),
-                        width: 1.5,
+                  // Logo oficial RetUp (versión oscura) sobre el índigo
+                  SizedBox(
+                    width: 100,
+                    height: 132,
+                    child: Image.asset(
+                      'assets/images/logo_retup_oscuro.jpg',
+                      fit: BoxFit.contain,
+                      // Convierte el fondo negro del logo en el índigo de la cabecera
+                      color: _indigo,
+                      colorBlendMode: BlendMode.screen,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(
+                        child: Text(
+                          'RetUp',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
-                    child: const Text('🚀', style: TextStyle(fontSize: 38)),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+                  // Frase en turquesa, estilo de la web
                   const Text(
-                    'RetUp',
+                    'ÚNETE Y EMPIEZA TUS RETOS',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Únete y empieza tus retos',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: _turquesa,
+                      letterSpacing: 2,
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          // Botón volver (encima de todo para que siempre se pueda pulsar)
+          Positioned(
+            left: 12,
+            top: topPadding + 8,
+            child: Material(
+              color: Colors.white.withOpacity(0.12),
+              shape: const CircleBorder(),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
               ),
             ),
           ),
@@ -308,7 +305,7 @@ class _SignupScreenState extends State<SignupScreen> {
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: _indigo.withOpacity(0.14),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -322,13 +319,25 @@ class _SignupScreenState extends State<SignupScreen> {
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,
-              color: _texto,
+              color: _indigo,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Todos los campos son obligatorios',
-            style: TextStyle(fontSize: 13.5, color: _textoSuave),
+          // "obligatorios" destacado en turquesa
+          RichText(
+            text: const TextSpan(
+              style: TextStyle(fontSize: 13.5, color: _textoSuave),
+              children: [
+                TextSpan(text: 'Todos los campos son '),
+                TextSpan(
+                  text: 'obligatorios',
+                  style: TextStyle(
+                    color: _turquesa,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 22),
 
@@ -343,6 +352,7 @@ class _SignupScreenState extends State<SignupScreen> {
             controller: _firstNameController,
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.next,
+            cursorColor: _indigo,
             decoration: _decoracionCampo(
               hint: 'Ej: Juan Carlos',
               icono: Icons.person_outline_rounded,
@@ -364,6 +374,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       controller: _lastName1Controller,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
+                      cursorColor: _indigo,
                       decoration: _decoracionCampo(
                         hint: 'Ej: Pérez',
                         icono: Icons.badge_outlined,
@@ -383,6 +394,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       controller: _lastName2Controller,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
+                      cursorColor: _indigo,
                       decoration: _decoracionCampo(
                         hint: 'Ej: García',
                         icono: Icons.badge_outlined,
@@ -406,6 +418,7 @@ class _SignupScreenState extends State<SignupScreen> {
               LengthLimitingTextInputFormatter(3),
             ],
             textInputAction: TextInputAction.next,
+            cursorColor: _indigo,
             decoration: _decoracionCampo(
               hint: 'Ej: 30',
               icono: Icons.cake_outlined,
@@ -453,6 +466,7 @@ class _SignupScreenState extends State<SignupScreen> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
+            cursorColor: _indigo,
             decoration: _decoracionCampo(
               hint: 'tu@email.com',
               icono: Icons.mail_outline_rounded,
@@ -467,6 +481,7 @@ class _SignupScreenState extends State<SignupScreen> {
             controller: _passwordController,
             obscureText: _ocultarPassword,
             textInputAction: TextInputAction.next,
+            cursorColor: _indigo,
             decoration: _decoracionCampo(
               hint: '••••••••',
               icono: Icons.lock_outline_rounded,
@@ -486,6 +501,7 @@ class _SignupScreenState extends State<SignupScreen> {
             controller: _confirmPasswordController,
             obscureText: _ocultarConfirmar,
             textInputAction: TextInputAction.done,
+            cursorColor: _indigo,
             onSubmitted: (_) {
               if (!_isLoading) _handleSignup();
             },
@@ -501,7 +517,7 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
           const SizedBox(height: 28),
 
-          // Botón Registrarse
+          // Botón Registrarse (turquesa, como en la web)
           _buildBotonRegistro(),
           const SizedBox(height: 20),
 
@@ -520,7 +536,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
-                    color: _morado,
+                    color: _turquesa,
                   ),
                 ),
               ),
@@ -543,10 +559,10 @@ class _SignupScreenState extends State<SignupScreen> {
           height: 30,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _morado.withOpacity(0.12),
+            color: _turquesa.withOpacity(0.12),
             borderRadius: BorderRadius.circular(9),
           ),
-          child: Icon(icono, color: _morado, size: 17),
+          child: Icon(icono, color: _turquesa, size: 17),
         ),
         const SizedBox(width: 10),
         Text(
@@ -554,7 +570,7 @@ class _SignupScreenState extends State<SignupScreen> {
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w800,
-            color: _texto,
+            color: _indigo,
           ),
         ),
         const SizedBox(width: 10),
@@ -595,22 +611,22 @@ class _SignupScreenState extends State<SignupScreen> {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-      prefixIcon: Icon(icono, color: _morado, size: 20),
+      prefixIcon: Icon(icono, color: _indigo, size: 20),
       suffixIcon: sufijo,
       filled: true,
       fillColor: _fondo,
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _morado, width: 1.6),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _turquesa, width: 1.8),
       ),
     );
   }
@@ -625,9 +641,9 @@ class _SignupScreenState extends State<SignupScreen> {
     return DropdownButtonFormField<String>(
       value: valor,
       isExpanded: true,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _textoSuave),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _indigo),
       dropdownColor: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       style: const TextStyle(fontSize: 15, color: _texto),
       hint: Text(
         hint,
@@ -654,18 +670,18 @@ class _SignupScreenState extends State<SignupScreen> {
         child: Ink(
           height: 54,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: _gradientePrincipal),
-            borderRadius: BorderRadius.circular(16),
+            color: _turquesa,
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: _morado.withOpacity(0.4),
+                color: _turquesa.withOpacity(0.35),
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
             ],
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             onTap: _isLoading ? null : _handleSignup,
             child: Center(
               child: _isLoading

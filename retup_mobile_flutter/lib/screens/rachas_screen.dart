@@ -1,4 +1,4 @@
-// rachas_screen.dart - REDISEÑO VISUAL (misma armonía que home_screen.dart)
+// rachas_screen.dart - IDENTIDAD DE MARCA RETUP (armonía página web)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -20,36 +20,37 @@ class RachasScreen extends StatefulWidget {
 class _RachasScreenState extends State<RachasScreen> {
   int _currentNavIndex = 2;
 
-  // ===== Colores (mismos que home_screen) =====
-  static const Color _fondo = Color(0xFFF6F7FB);
-  static const Color _texto = Color(0xFF1F2937);
+  // ===== Colores de marca RetUp (Paleta "Vínculo") =====
+  static const Color _indigo = Color(0xFF2E2A72); // Predomina
+  static const Color _indigoClaro = Color(0xFF443E9E);
+  static const Color _turquesa = Color(0xFF12B5A6); // Botones y acentos
+  static const Color _turquesaOscuro = Color(0xFF0B8A7E);
+  static const Color _morado = Color(0xFF7209B7); // Compromiso
+  static const Color _tinta = Color(0xFF0E0F17); // Texto
+
+  static const Color _fondo = Color(0xFFF5F5F2); // Blanco roto como la web
+  static const Color _texto = _tinta;
   static const Color _textoSuave = Color(0xFF6B7280);
 
-  static const List<Color> _gradientePrincipal = [
-    Color(0xFF6366F1),
-    Color(0xFF8B5CF6),
-  ];
-
-  static const List<List<Color>> _paleta = [
-    [Color(0xFF6366F1), Color(0xFF4F46E5)], // Índigo
-    [Color(0xFF8B5CF6), Color(0xFF7C3AED)], // Violeta
-    [Color(0xFF14B8A6), Color(0xFF0D9488)], // Turquesa
-    [Color(0xFFF59E0B), Color(0xFFD97706)], // Ámbar
-    [Color(0xFFEC4899), Color(0xFFDB2777)], // Rosa
-    [Color(0xFF3B82F6), Color(0xFF2563EB)], // Azul
-  ];
   static const List<Color> _verdeCompletado = [
     Color(0xFF10B981),
     Color(0xFF059669),
   ];
 
-  // Colores de estado
-  static const Color _azul = Color(0xFF3B82F6);
-  static const Color _naranja = Color(0xFFF59E0B);
+  // Colores de estado de las bolitas (se mantienen por ser universales)
   static const Color _verde = Color(0xFF10B981);
   static const Color _rojo = Color(0xFFEF4444);
-  static const Color _morado = Color(0xFF8B5CF6);
   static const Color _grisBolita = Color(0xFFE5E7EB);
+
+  // Degradado pastel de marca (turquesa → índigo) para cajitas e iconos
+  static final LinearGradient _degradadoPastel = LinearGradient(
+    colors: [
+      _turquesa.withOpacity(0.18),
+      _indigo.withOpacity(0.10),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   @override
   void initState() {
@@ -124,27 +125,65 @@ class _RachasScreenState extends State<RachasScreen> {
     return Scaffold(
       backgroundColor: _fondo,
       appBar: AppBar(
-        title: const Text('Rachas'),
-        centerTitle: true,
+        backgroundColor: _indigo,
+        foregroundColor: Colors.white,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primaryColor.withOpacity(0.85),
-                AppColors.primaryColor.withOpacity(0.75),
-              ],
+        toolbarHeight: 64,
+        centerTitle: false,
+        titleSpacing: 12,
+        automaticallyImplyLeading: false,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Solo la R del logo, fundida con el índigo (igual que en Inicio)
+            SizedBox(
+              width: 42,
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: 0.66,
+                  child: Image.asset(
+                    'assets/images/logo_retup_oscuro.jpg',
+                    width: 42,
+                    fit: BoxFit.fitWidth,
+                    color: _indigo,
+                    colorBlendMode: BlendMode.screen,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Text(
+                        'R',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: _turquesa,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            const Text(
+              'Rachas',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
       body: SafeArea(
         child: Consumer3<RachaProvider, PlanificacionProvider, AuthProvider>(
           builder: (context, rachaProvider, planProvider, authProvider, _) {
             if (rachaProvider.isLoading || planProvider.isLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(color: _turquesa),
+              );
             }
 
             if (rachaProvider.errorMessage != null) {
@@ -169,6 +208,7 @@ class _RachasScreenState extends State<RachasScreen> {
             }
 
             return RefreshIndicator(
+              color: _turquesa,
               onRefresh: _cargarDatos,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -182,23 +222,7 @@ class _RachasScreenState extends State<RachasScreen> {
                   _buildSeccionRegaloGlobal(rachaProvider, authProvider),
 
                   // ── Separador 1 ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 32, vertical: 24),
-                    child: Container(
-                      height: 1,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            const Color(0xFF6366F1).withOpacity(0.2),
-                            const Color(0xFF8B5CF6).withOpacity(0.2),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  _separador(),
 
                   // ===== 2) PROGRESO POR RETO =====
                   _buildSectionHeader(
@@ -218,23 +242,7 @@ class _RachasScreenState extends State<RachasScreen> {
                   }).toList(),
 
                   // ── Separador 2 ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 32, vertical: 24),
-                    child: Container(
-                      height: 1,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            const Color(0xFF6366F1).withOpacity(0.2),
-                            const Color(0xFF8B5CF6).withOpacity(0.2),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  _separador(),
 
                   // ===== 3) RANKING =====
                   _buildSectionHeader(
@@ -262,11 +270,24 @@ class _RachasScreenState extends State<RachasScreen> {
   // HELPERS GENERALES
   // ===================================================================
 
-  List<Color> _gradienteReto(PlanificacionData? data, String retoId) {
-    if (data == null) return _paleta[0];
-    if (data.retosCompletados.contains(retoId)) return _verdeCompletado;
-    final i = data.retos.indexWhere((r) => r.id == retoId);
-    return _paleta[(i < 0 ? 0 : i) % _paleta.length];
+  /// Separador fino entre secciones (índigo → turquesa)
+  Widget _separador() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      child: Container(
+        height: 1,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.transparent,
+              _indigo.withOpacity(0.2),
+              _turquesa.withOpacity(0.35),
+              Colors.transparent,
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _emojiReto(String titulo) {
@@ -303,7 +324,7 @@ class _RachasScreenState extends State<RachasScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: _gradientePrincipal),
+              color: _turquesa,
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
@@ -322,15 +343,25 @@ class _RachasScreenState extends State<RachasScreen> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,
-              color: _texto,
+              color: _indigo,
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            mes.isNotEmpty
-                ? '$mes · Suma días seguidos y escala en el ranking'
-                : 'Suma días seguidos y escala en el ranking',
-            style: const TextStyle(fontSize: 13, color: _textoSuave),
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(fontSize: 13, color: _textoSuave),
+              children: [
+                if (mes.isNotEmpty) TextSpan(text: '$mes · '),
+                const TextSpan(text: 'Suma días seguidos y escala en el '),
+                const TextSpan(
+                  text: 'ranking',
+                  style: TextStyle(
+                    color: _turquesa,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -347,7 +378,7 @@ class _RachasScreenState extends State<RachasScreen> {
             height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
+              gradient: _degradadoPastel,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(emoji, style: const TextStyle(fontSize: 20)),
@@ -362,7 +393,7 @@ class _RachasScreenState extends State<RachasScreen> {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -382,7 +413,7 @@ class _RachasScreenState extends State<RachasScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: fondo ?? AppColors.primaryColor.withOpacity(0.1),
+        color: fondo ?? _indigo.withOpacity(0.08),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -390,7 +421,7 @@ class _RachasScreenState extends State<RachasScreen> {
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
-          color: colorTexto ?? AppColors.primaryColor,
+          color: colorTexto ?? _indigo,
         ),
       ),
     );
@@ -401,9 +432,13 @@ class _RachasScreenState extends State<RachasScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          colors: [_indigo.withOpacity(0.06), _turquesa.withOpacity(0.06)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primaryColor.withOpacity(0.12)),
+        border: Border.all(color: _indigo.withOpacity(0.10)),
       ),
       child: Row(
         children: [
@@ -418,7 +453,7 @@ class _RachasScreenState extends State<RachasScreen> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -447,6 +482,13 @@ class _RachasScreenState extends State<RachasScreen> {
             Text(mensaje, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _turquesa,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: _cargarDatos,
               child: const Text('Reintentar'),
             ),
@@ -571,28 +613,26 @@ class _RachasScreenState extends State<RachasScreen> {
         decoration: BoxDecoration(
           gradient: estaSeleccionado
               ? const LinearGradient(
-                  colors: _gradientePrincipal,
+                  colors: [_indigo, _indigoClaro],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
-              : null,
-          color: estaSeleccionado
-              ? null
-              : (enGris ? const Color(0xFFF1F2F6) : Colors.white),
+              : (enGris ? null : _degradadoPastel),
+          color: enGris ? const Color(0xFFF1F2F6) : null,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: estaSeleccionado
-                ? Colors.transparent
+                ? _turquesa
                 : enGris
                     ? const Color(0xFFE5E7EB)
-                    : AppColors.primaryColor.withOpacity(0.15),
-            width: 1.5,
+                    : _indigo.withOpacity(0.10),
+            width: estaSeleccionado ? 2 : 1.5,
           ),
           boxShadow: [
             BoxShadow(
               color: estaSeleccionado
-                  ? const Color(0xFF6366F1).withOpacity(0.4)
-                  : Colors.black.withOpacity(enGris ? 0.0 : 0.05),
+                  ? _indigo.withOpacity(0.3)
+                  : _indigo.withOpacity(enGris ? 0.0 : 0.05),
               blurRadius: estaSeleccionado ? 16 : 10,
               offset: Offset(0, estaSeleccionado ? 6 : 4),
             ),
@@ -606,8 +646,7 @@ class _RachasScreenState extends State<RachasScreen> {
                 const Positioned(
                   top: 8,
                   right: 8,
-                  child:
-                      Icon(Icons.check_circle, color: Colors.white, size: 18),
+                  child: Icon(Icons.check_circle, color: _turquesa, size: 20),
                 ),
               Center(
                 child: Column(
@@ -619,8 +658,8 @@ class _RachasScreenState extends State<RachasScreen> {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: estaSeleccionado
-                            ? Colors.white.withOpacity(0.2)
-                            : AppColors.primaryColor.withOpacity(0.08),
+                            ? Colors.white.withOpacity(0.15)
+                            : Colors.white.withOpacity(0.85),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(emoji, style: const TextStyle(fontSize: 24)),
@@ -633,7 +672,7 @@ class _RachasScreenState extends State<RachasScreen> {
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
                         height: 1.2,
-                        color: estaSeleccionado ? Colors.white : _texto,
+                        color: estaSeleccionado ? Colors.white : _indigo,
                       ),
                     ),
                   ],
@@ -657,6 +696,7 @@ class _RachasScreenState extends State<RachasScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return Dialog(
+          backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: Padding(
@@ -669,19 +709,9 @@ class _RachasScreenState extends State<RachasScreen> {
                   height: 72,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: _gradientePrincipal,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    gradient: _degradadoPastel,
                     borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF6366F1).withOpacity(0.35),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
+                    border: Border.all(color: _turquesa.withOpacity(0.35)),
                   ),
                   child: Text(info['emoji']!,
                       style: const TextStyle(fontSize: 34)),
@@ -693,11 +723,15 @@ class _RachasScreenState extends State<RachasScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 10),
-                _chip(info['label']!),
+                _chip(
+                  info['label']!,
+                  fondo: _turquesa.withOpacity(0.12),
+                  colorTexto: _turquesaOscuro,
+                ),
                 const SizedBox(height: 12),
                 const Text(
                   'Una vez confirmado, ya no lo podrás cambiar.',
@@ -713,9 +747,9 @@ class _RachasScreenState extends State<RachasScreen> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.of(dialogContext).pop(),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFE5E7EB)),
+                            side: BorderSide(color: _indigo.withOpacity(0.15)),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           child: const Text(
@@ -735,12 +769,11 @@ class _RachasScreenState extends State<RachasScreen> {
                         child: Ink(
                           height: 48,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                                colors: _gradientePrincipal),
-                            borderRadius: BorderRadius.circular(14),
+                            color: _turquesa,
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                             onTap: () async {
                               Navigator.of(dialogContext).pop();
                               try {
@@ -802,16 +835,19 @@ class _RachasScreenState extends State<RachasScreen> {
     final diaPildora = stats?['dia_pildora'] ?? 0;
     final racha = stats?['racha_maxima'] ?? 0;
     final cumplidos = stats?['dias_cumplidos'] ?? 0;
-    final colores = _gradienteReto(data, reto.id);
+    final completado = data?.retosCompletados.contains(reto.id) ?? false;
+    final coloresCabecera =
+        completado ? _verdeCompletado : const [_indigo, _indigo];
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _indigo.withOpacity(0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: _indigo.withOpacity(0.08),
             blurRadius: 14,
             offset: const Offset(0, 5),
           ),
@@ -821,13 +857,13 @@ class _RachasScreenState extends State<RachasScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabecera con degradado
+          // Cabecera índigo (bloque protagonista, como en Inicio)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: colores,
+                colors: coloresCabecera,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -835,15 +871,19 @@ class _RachasScreenState extends State<RachasScreen> {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
+                // Arco decorativo
                 Positioned(
-                  right: -30,
-                  top: -40,
+                  right: -50,
+                  top: -60,
                   child: Container(
-                    width: 110,
-                    height: 110,
+                    width: 130,
+                    height: 130,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.07),
+                        width: 22,
+                      ),
                     ),
                   ),
                 ),
@@ -854,11 +894,21 @@ class _RachasScreenState extends State<RachasScreen> {
                       height: 50,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.15),
+                        ),
                       ),
-                      child: Text(_emojiReto(reto.title),
-                          style: const TextStyle(fontSize: 24)),
+                      child: ColorFiltered(
+                        // Icono en blanco sobre el índigo
+                        colorFilter: const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.srcIn,
+                        ),
+                        child: Text(_emojiReto(reto.title),
+                            style: const TextStyle(fontSize: 24)),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -877,9 +927,9 @@ class _RachasScreenState extends State<RachasScreen> {
                           ),
                           const SizedBox(height: 6),
                           _chip(
-                            'Píldora $diaPildora de 20',
-                            fondo: Colors.white.withOpacity(0.22),
-                            colorTexto: Colors.white,
+                            'PÍLDORA ${diaPildora.clamp(0, 20)} DE 20',
+                            fondo: _turquesa.withOpacity(0.2),
+                            colorTexto: completado ? Colors.white : _turquesa,
                           ),
                         ],
                       ),
@@ -890,7 +940,7 @@ class _RachasScreenState extends State<RachasScreen> {
             ),
           ),
 
-          // 3 tarjetas
+          // 3 tarjetas (tonos pastel de marca)
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 16, 14, 4),
             child: Row(
@@ -898,9 +948,9 @@ class _RachasScreenState extends State<RachasScreen> {
                 Expanded(
                   child: _buildStatCard(
                     title: 'Día Píldora\nL-V',
-                    value: '$diaPildora/20',
+                    value: '${diaPildora.clamp(0, 20)}/20',
                     icon: Icons.calendar_today_rounded,
-                    color: _azul,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -909,7 +959,7 @@ class _RachasScreenState extends State<RachasScreen> {
                     title: 'Racha\nL-V',
                     value: racha.toString(),
                     icon: Icons.local_fire_department_rounded,
-                    color: _naranja,
+                    color: _morado,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -918,7 +968,7 @@ class _RachasScreenState extends State<RachasScreen> {
                     title: 'Píldoras\ncumplidas',
                     value: cumplidos.toString(),
                     icon: Icons.check_circle_rounded,
-                    color: _verde,
+                    color: _turquesaOscuro,
                   ),
                 ),
               ],
@@ -947,9 +997,13 @@ class _RachasScreenState extends State<RachasScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.10), color.withOpacity(0.03)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.18)),
+        border: Border.all(color: color.withOpacity(0.14)),
       ),
       child: Column(
         children: [
@@ -957,7 +1011,7 @@ class _RachasScreenState extends State<RachasScreen> {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: Colors.white.withOpacity(0.9),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 18),
@@ -1055,7 +1109,15 @@ class _RachasScreenState extends State<RachasScreen> {
 
       Color color;
       if (esDiaGracia) {
-        color = _morado;
+        // Los días de gracia (después del día 20) cambian de color según si hay píldoras pendientes
+        if (diaData != null) {
+          final cumple = diaData['login_hecho'] == true &&
+              diaData['pildora_completada'] == true;
+          color = cumple ? _verde : _rojo;
+        } else {
+          color =
+              _rojo; // Si es día de gracia pero sin datos = hay píldoras pendientes
+        }
       } else if (numeroDelDia <= diaLaboralActual) {
         if (diaData != null) {
           final cumple = diaData['login_hecho'] == true &&
@@ -1080,11 +1142,15 @@ class _RachasScreenState extends State<RachasScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: _texto,
+                color: _indigo,
               ),
             ),
             const Spacer(),
-            _chip('Día $diaLaboralActual de $totalDiasLaborables'),
+            _chip(
+              'Día $diaLaboralActual de $totalDiasLaborables',
+              fondo: _turquesa.withOpacity(0.12),
+              colorTexto: _turquesaOscuro,
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -1144,9 +1210,10 @@ class _RachasScreenState extends State<RachasScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _indigo.withOpacity(0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: _indigo.withOpacity(0.07),
             blurRadius: 14,
             offset: const Offset(0, 5),
           ),
@@ -1155,20 +1222,30 @@ class _RachasScreenState extends State<RachasScreen> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          // Encabezado
+          // Encabezado con degradado pastel de marca
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            color: AppColors.primaryColor.withOpacity(0.06),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  _indigo.withOpacity(0.10),
+                  _turquesa.withOpacity(0.10),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
             child: Row(
               children: const [
                 SizedBox(width: 46),
                 Expanded(
                   child: Text(
-                    'Usuario',
+                    'USUARIO',
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w800,
-                      color: _textoSuave,
+                      color: _indigo,
+                      letterSpacing: 1,
                     ),
                   ),
                 ),
@@ -1180,7 +1257,7 @@ class _RachasScreenState extends State<RachasScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: _textoSuave,
+                      color: _indigo,
                     ),
                   ),
                 ),
@@ -1192,7 +1269,7 @@ class _RachasScreenState extends State<RachasScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: _textoSuave,
+                      color: _indigo,
                     ),
                   ),
                 ),
@@ -1205,8 +1282,8 @@ class _RachasScreenState extends State<RachasScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: leaderboard.length,
-            separatorBuilder: (context, index) => const Divider(
-              color: Color(0xFFF1F2F6),
+            separatorBuilder: (context, index) => Divider(
+              color: _indigo.withOpacity(0.06),
               height: 1,
             ),
             itemBuilder: (context, index) {
@@ -1219,7 +1296,7 @@ class _RachasScreenState extends State<RachasScreen> {
 
               return Container(
                 color: esPodio
-                    ? _coloresMedalla(position)[0].withOpacity(0.06)
+                    ? _coloresMedalla(position)[0].withOpacity(0.07)
                     : Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1236,20 +1313,20 @@ class _RachasScreenState extends State<RachasScreen> {
                           fontWeight:
                               esPodio ? FontWeight.w800 : FontWeight.w600,
                           fontSize: 14,
-                          color: _texto,
+                          color: esPodio ? _indigo : _texto,
                         ),
                       ),
                     ),
                     SizedBox(
                       width: 64,
                       child: Center(
-                        child: _valorPill(racha.toString(), _naranja),
+                        child: _valorPill(racha.toString(), _morado),
                       ),
                     ),
                     SizedBox(
                       width: 76,
                       child: Center(
-                        child: _valorPill(pildoras.toString(), _verde),
+                        child: _valorPill(pildoras.toString(), _turquesaOscuro),
                       ),
                     ),
                   ],
@@ -1267,7 +1344,7 @@ class _RachasScreenState extends State<RachasScreen> {
       constraints: const BoxConstraints(minWidth: 36),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withOpacity(0.10),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -1291,7 +1368,7 @@ class _RachasScreenState extends State<RachasScreen> {
       case 3:
         return const [Color(0xFFFB923C), Color(0xFFEA580C)]; // Bronce
       default:
-        return _gradientePrincipal;
+        return const [_indigo, _indigoClaro];
     }
   }
 
@@ -1337,13 +1414,13 @@ class _RachasScreenState extends State<RachasScreen> {
       );
     }
 
-    // 🎗️ 2º plata, 3º bronce, resto lila claro: listón con el número
+    // 🎗️ 2º plata, 3º bronce, resto índigo suave: listón con el número
     final bool esPodio = pos == 2 || pos == 3;
 
     Widget liston = Icon(
       Icons.bookmark_rounded,
       size: 34,
-      color: esPodio ? Colors.white : AppColors.primaryColor.withOpacity(0.18),
+      color: esPodio ? Colors.white : _indigo.withOpacity(0.14),
     );
 
     if (esPodio) {
@@ -1369,7 +1446,7 @@ class _RachasScreenState extends State<RachasScreen> {
             child: Text(
               position.toString(),
               style: TextStyle(
-                color: esPodio ? Colors.white : AppColors.primaryColor,
+                color: esPodio ? Colors.white : _indigo,
                 fontWeight: FontWeight.w900,
                 fontSize: pos >= 10 ? 10.5 : 12,
               ),

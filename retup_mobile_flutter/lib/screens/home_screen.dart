@@ -30,19 +30,27 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentNavIndex = 0; // Home es el índice 0
 
+  // ===== Colores de marca RetUp (Paleta "Vínculo") =====
+  static const Color _indigo = Color(0xFF2E2A72); // Predomina
+  static const Color _turquesa = Color(0xFF12B5A6); // Botones y acentos
+  static const Color _turquesaOscuro =
+      Color(0xFF0B8A7E); // Texto sobre turquesa claro
+  static const Color _morado = Color(0xFF7209B7); // Compromiso
+  static const Color _tinta = Color(0xFF0E0F17); // Texto
+
   // Colores de texto y fondo de la pantalla
-  static const Color _fondo = Color(0xFFF6F7FB);
-  static const Color _texto = Color(0xFF1F2937);
+  static const Color _fondo = Color(0xFFF5F5F2); // Blanco roto como la web
+  static const Color _texto = _tinta;
   static const Color _textoSuave = Color(0xFF6B7280);
 
-  // Paleta de colores para los retos (se asigna por orden)
+  // Paleta de acentos por reto (se usa en tonos pastel)
   static const List<List<Color>> _paleta = [
-    [Color(0xFF6366F1), Color(0xFF4F46E5)], // Índigo
-    [Color(0xFF8B5CF6), Color(0xFF7C3AED)], // Violeta
-    [Color(0xFF14B8A6), Color(0xFF0D9488)], // Turquesa
-    [Color(0xFFF59E0B), Color(0xFFD97706)], // Ámbar
-    [Color(0xFFEC4899), Color(0xFFDB2777)], // Rosa
-    [Color(0xFF3B82F6), Color(0xFF2563EB)], // Azul
+    [Color(0xFF2E2A72), Color(0xFF443E9E)], // Índigo
+    [Color(0xFF12B5A6), Color(0xFF0B8A7E)], // Turquesa
+    [Color(0xFF7209B7), Color(0xFF5B0893)], // Morado
+    [Color(0xFF2E2A72), Color(0xFF7209B7)], // Índigo → Morado
+    [Color(0xFF12B5A6), Color(0xFF2E2A72)], // Turquesa → Índigo
+    [Color(0xFF7209B7), Color(0xFF2E2A72)], // Morado → Índigo
   ];
   static const List<Color> _verdeCompletado = [
     Color(0xFF10B981),
@@ -220,33 +228,97 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Separador fino entre secciones (índigo → turquesa)
+  Widget _separador() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    _indigo.withOpacity(0.2),
+                    _turquesa.withOpacity(0.35),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _fondo,
       appBar: AppBar(
-        title: const Text('RetUp - Mis Retos'),
-        centerTitle: true,
+        backgroundColor: _indigo,
+        foregroundColor: Colors.white,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primaryColor.withOpacity(0.85),
-                AppColors.primaryColor.withOpacity(0.75),
-              ],
+        toolbarHeight: 64,
+        centerTitle: false,
+        titleSpacing: 12,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Solo la R del logo, fundida con el índigo
+            SizedBox(
+              width: 42,
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  // Muestra solo el 66% superior del logo (la R), sin la palabra
+                  heightFactor: 0.66,
+                  child: Image.asset(
+                    'assets/images/logo_retup_oscuro.jpg',
+                    width: 42,
+                    fit: BoxFit.fitWidth,
+                    color: _indigo,
+                    colorBlendMode: BlendMode.screen,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Text(
+                        'R',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: _turquesa,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            const Text(
+              'Mis Retos',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            tooltip: 'Cerrar sesión',
             onPressed: () {
               context.read<AuthProvider>().logout();
             },
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
@@ -258,10 +330,13 @@ class _HomeScreenState extends State<HomeScreen> {
               if (plan.errorMessage != null && !plan.isLoading) {
                 return _buildError(plan.errorMessage!);
               }
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(color: _turquesa),
+              );
             }
 
             return RefreshIndicator(
+              color: _turquesa,
               onRefresh: () => context.read<PlanificacionProvider>().cargar(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -275,29 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildRetosDelMes(data),
 
                     // ── Separador 1 ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 24),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: 1,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.transparent,
-                                    const Color(0xFF6366F1).withOpacity(0.2),
-                                    const Color(0xFF8B5CF6).withOpacity(0.2),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _separador(),
 
                     // 2) RETOS PLANIFICADOS
                     _buildSectionHeader(
@@ -310,29 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildPlanificacion(plan, data),
 
                     // ── Separador 2 ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 24),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: 1,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.transparent,
-                                    const Color(0xFF6366F1).withOpacity(0.2),
-                                    const Color(0xFF8B5CF6).withOpacity(0.2),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _separador(),
 
                     // 3) INFORMACIÓN DE LOS RETOS
                     _buildSectionHeader(
@@ -344,29 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildInfoRetos(data),
 
                     // ── Separador 3 ──
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 24),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: 1,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.transparent,
-                                    const Color(0xFF6366F1).withOpacity(0.2),
-                                    const Color(0xFF8B5CF6).withOpacity(0.2),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _separador(),
 
                     // 4) MIS PÍLDORAS FAVORITAS
                     _buildSectionHeader(
@@ -427,6 +436,38 @@ class _HomeScreenState extends State<HomeScreen> {
     return '🎯';
   }
 
+  /// Degradado pastel de marca (turquesa → índigo) para cajitas de icono
+  static final LinearGradient _degradadoPastel = LinearGradient(
+    colors: [
+      _turquesa.withOpacity(0.18),
+      _indigo.withOpacity(0.10),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Cajita con el emoji del reto (color del reto en tono pastel)
+  Widget _iconoReto(String titulo, List<Color> colores,
+      {double size = 40, double fontSize = 20, double radio = 12}) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colores[0].withOpacity(0.18),
+            colores[1].withOpacity(0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(radio),
+      ),
+      child: Text(_emojiReto(titulo), style: TextStyle(fontSize: fontSize)),
+    );
+  }
+
   Widget _buildSectionHeader(String emoji, String titulo, String subtitulo,
       {bool deslizable = false}) {
     return Padding(
@@ -438,7 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
+              gradient: _degradadoPastel,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(emoji, style: const TextStyle(fontSize: 20)),
@@ -453,7 +494,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -470,9 +511,13 @@ class _HomeScreenState extends State<HomeScreen> {
               children: const [
                 Text(
                   'Desliza',
-                  style: TextStyle(fontSize: 11, color: _textoSuave),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _turquesa,
+                  ),
                 ),
-                Icon(Icons.chevron_right, size: 16, color: _textoSuave),
+                Icon(Icons.chevron_right, size: 16, color: _turquesa),
               ],
             ),
         ],
@@ -484,7 +529,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: fondo ?? AppColors.primaryColor.withOpacity(0.1),
+        color: fondo ?? _indigo.withOpacity(0.08),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -492,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
-          color: colorTexto ?? AppColors.primaryColor,
+          color: colorTexto ?? _indigo,
         ),
       ),
     );
@@ -503,9 +548,13 @@ class _HomeScreenState extends State<HomeScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          colors: [_indigo.withOpacity(0.06), _turquesa.withOpacity(0.06)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primaryColor.withOpacity(0.12)),
+        border: Border.all(color: _indigo.withOpacity(0.10)),
       ),
       child: Row(
         children: [
@@ -520,7 +569,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -549,6 +598,13 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(mensaje, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _turquesa,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: () => context.read<PlanificacionProvider>().cargar(),
               child: const Text('Reintentar'),
             ),
@@ -611,7 +667,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
+              gradient: _degradadoPastel,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Text('🎯', style: TextStyle(fontSize: 20)),
@@ -621,12 +677,12 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Retos del Mes Inscritos',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -640,9 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-              ),
+              color: _turquesa,
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
@@ -714,9 +768,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Tarjeta protagonista: índigo sólido (como el bloque principal de la web)
   Widget _buildRetoDelMesCard(PlanificacionData data, Reto reto) {
     final completado = data.retosCompletados.contains(reto.id);
-    final colores = _gradienteReto(data, reto.id);
     final mesNombre = data.mesVigenteNombre.split(' ').first.toUpperCase();
     final totalPildoras = reto.totalPills ?? 20;
     final detalle = (reto.category ?? '').isNotEmpty
@@ -725,237 +779,237 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
+        // Mismo degradado suave que "Mensajes del mejor" en Practícalo
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4B4699), Color(0xFF3A7FA0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         boxShadow: [
           BoxShadow(
-            color: colores[0].withOpacity(0.45),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+            color: _indigo.withOpacity(0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Material(
-        borderRadius: BorderRadius.circular(26),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => _abrirReto(reto),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: colores,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Arcos decorativos (mismo estilo que el login y la web)
+              Positioned(
+                right: -70,
+                top: -70,
+                child: Container(
+                  width: 190,
+                  height: 190,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.06),
+                      width: 30,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Círculos decorativos
-                Positioned(
-                  right: -40,
-                  top: -40,
-                  child: Container(
-                    width: 150,
-                    height: 150,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      shape: BoxShape.circle,
+              Positioned(
+                left: -50,
+                bottom: -70,
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _turquesa.withOpacity(0.10),
+                      width: 22,
                     ),
                   ),
                 ),
-                Positioned(
-                  left: -30,
-                  bottom: -50,
-                  child: Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.07),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-                // Contenido
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Etiquetas
-                      Row(
-                        children: [
+              ),
+              // Contenido
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Etiquetas
+                    Row(
+                      children: [
+                        _chip(
+                          'INSCRITO · $mesNombre',
+                          fondo: _turquesa.withOpacity(0.2),
+                          colorTexto: _turquesa,
+                        ),
+                        const Spacer(),
+                        if (completado)
                           _chip(
-                            'INSCRITO · $mesNombre',
-                            fondo: Colors.white.withOpacity(0.22),
-                            colorTexto: Colors.white,
+                            '✅ Completado',
+                            fondo: Colors.white,
+                            colorTexto: _verdeCompletado[1],
                           ),
-                          const Spacer(),
-                          if (completado)
-                            _chip(
-                              '✅ Completado',
-                              fondo: Colors.white,
-                              colorTexto: colores[1],
-                            ),
-                        ],
-                      ),
+                      ],
+                    ),
 
-                      // Emoji + título
-                      Row(
-                        children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(18),
+                    // Emoji + título
+                    Row(
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.15),
+                            ),
+                          ),
+                          child: ColorFiltered(
+                            // Fuerza el icono a blanco sobre el índigo
+                            colorFilter: const ColorFilter.mode(
+                              Colors.white,
+                              BlendMode.srcIn,
                             ),
                             child: Text(
                               _emojiReto(reto.title),
                               style: const TextStyle(fontSize: 32),
                             ),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  reto.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    height: 1.15,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  detalle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      // Barra de progreso de píldoras
-                      Builder(
-                        builder: (_) {
-                          final total = reto.totalPills ?? 20;
-                          final completadas =
-                              _pildorasCompletadasPorReto[reto.id] ?? 0;
-                          return Column(
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    '$completadas/$total píldoras',
-                                    style: const TextStyle(
+                              Text(
+                                reto.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  height: 1.15,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                detalle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Barra de progreso de píldoras (turquesa → morado, como la web)
+                    Builder(
+                      builder: (_) {
+                        final total = reto.totalPills ?? 20;
+                        final completadas =
+                            _pildorasCompletadasPorReto[reto.id] ?? 0;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  '$completadas/$total píldoras',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (completadas == total)
+                                  const Text(
+                                    '🎉 ¡Completado!',
+                                    style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.white70,
+                                      color: Colors.white,
                                     ),
                                   ),
-                                  const Spacer(),
-                                  if (completadas == total)
-                                    const Text(
-                                      '🎉 ¡Completado!',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: List.generate(total, (i) {
+                                final estaCompleta = i < completadas;
+                                final t = total > 1 ? i / (total - 1) : 0.0;
+                                return Expanded(
+                                  child: Container(
+                                    height: 5,
+                                    margin: EdgeInsets.only(
+                                        right: i < total - 1 ? 2 : 0),
+                                    decoration: BoxDecoration(
+                                      color: estaCompleta
+                                          ? Color.lerp(_turquesa, _morado, t)
+                                          : Colors.white.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(3),
                                     ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: List.generate(total, (i) {
-                                  final estaCompleta = i < completadas;
-                                  return Expanded(
-                                    child: Container(
-                                      height: 4,
-                                      margin: EdgeInsets.only(
-                                          right: i < total - 1 ? 2 : 0),
-                                      decoration: BoxDecoration(
-                                        color: estaCompleta
-                                            ? Colors.white
-                                            : Colors.white.withOpacity(0.25),
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                  );
-                                }),
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                          );
-                        },
-                      ),
-                      // Botón principal
-                      Container(
-                        height: 52,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                                  ),
+                                );
+                              }),
                             ),
+                            const SizedBox(height: 10),
                           ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 30,
-                              height: 30,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: colores),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                completado
-                                    ? Icons.replay
-                                    : Icons.play_arrow_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              completado ? 'Repasar reto' : 'Comenzar reto',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: colores[1],
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Icon(Icons.arrow_forward_rounded,
-                                size: 18, color: colores[1]),
-                          ],
-                        ),
+                        );
+                      },
+                    ),
+                    // Botón principal (turquesa, como "Solicita una demo")
+                    Container(
+                      height: 52,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: _turquesa,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            completado
+                                ? Icons.replay
+                                : Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            completado ? 'Repasar reto' : 'Comenzar reto',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward_rounded,
+                              size: 18, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -996,9 +1050,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMesCard(PlanificacionProvider plan, PlanificacionData data,
       MesPlanificacion mes) {
     final bloqueado = mes.bloqueado;
-    final coloresCabecera = bloqueado
-        ? const [Color(0xFF475569), Color(0xFF334155)]
-        : const [Color(0xFF6366F1), Color(0xFF8B5CF6)];
     final fechaCorta = mes.fechaBloqueoTexto.length >= 5
         ? mes.fechaBloqueoTexto.substring(0, 5)
         : mes.fechaBloqueoTexto;
@@ -1007,9 +1058,10 @@ class _HomeScreenState extends State<HomeScreen> {
       width: 250,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _indigo.withOpacity(0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: _indigo.withOpacity(0.07),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1022,15 +1074,22 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Cabecera del mes
+            // Cabecera del mes con degradado pastel de marca
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: coloresCabecera,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: bloqueado
+                    ? const LinearGradient(
+                        colors: [Color(0xFFEDEEF2), Color(0xFFF5F5F7)],
+                      )
+                    : LinearGradient(
+                        colors: [
+                          _indigo.withOpacity(0.14),
+                          _turquesa.withOpacity(0.14),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
               ),
               child: Row(
                 children: [
@@ -1040,27 +1099,33 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           mes.nombreMes,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            color: bloqueado ? _textoSuave : _indigo,
                           ),
                         ),
                         Text(
                           '${mes.anio} · ${mes.planes.length}/2 retos',
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.white70,
+                            color: _textoSuave,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  _chip(
-                    bloqueado ? '🔒 Inscrito' : 'Cierra $fechaCorta',
-                    fondo: Colors.white.withOpacity(0.2),
-                    colorTexto: Colors.white,
-                  ),
+                  bloqueado
+                      ? _chip(
+                          '🔒 Inscrito',
+                          fondo: Colors.white,
+                          colorTexto: _textoSuave,
+                        )
+                      : _chip(
+                          'Cierra $fechaCorta',
+                          fondo: Colors.white,
+                          colorTexto: _turquesaOscuro,
+                        ),
                 ],
               ),
             ),
@@ -1108,7 +1173,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(strokeWidth: 2, color: _turquesa),
           ),
         ),
       );
@@ -1124,10 +1189,12 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 52,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: _fondo,
+            color: sinOpciones ? _fondo : _turquesa.withOpacity(0.06),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: AppColors.primaryColor.withOpacity(0.25),
+              color: sinOpciones
+                  ? AppColors.grey.withOpacity(0.3)
+                  : _turquesa.withOpacity(0.5),
               width: 1.2,
             ),
           ),
@@ -1136,7 +1203,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Icon(
                 Icons.add_circle_outline,
                 size: 20,
-                color: sinOpciones ? AppColors.grey : AppColors.primaryColor,
+                color: sinOpciones ? AppColors.grey : _turquesa,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1144,21 +1211,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   sinOpciones ? 'No hay retos disponibles' : 'Escoja un reto',
                   style: TextStyle(
                     fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color:
-                        sinOpciones ? AppColors.grey : AppColors.primaryColor,
+                    fontWeight: FontWeight.w700,
+                    color: sinOpciones ? AppColors.grey : _indigo,
                   ),
                 ),
               ),
               if (!sinOpciones)
-                const Icon(Icons.keyboard_arrow_down, color: _textoSuave),
+                const Icon(Icons.keyboard_arrow_down, color: _indigo),
             ],
           ),
         ),
       );
     }
 
-    // Hueco con reto elegido
+    // Hueco con reto elegido (tono pastel del reto)
     final colores = _gradienteReto(data, valor);
     final titulo = data.tituloReto(valor);
 
@@ -1169,23 +1235,13 @@ class _HomeScreenState extends State<HomeScreen> {
         height: 52,
         padding: const EdgeInsets.only(left: 10, right: 4),
         decoration: BoxDecoration(
-          color: colores[0].withOpacity(0.1),
+          color: colores[0].withOpacity(0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: colores[0].withOpacity(0.3)),
+          border: Border.all(color: colores[0].withOpacity(0.15)),
         ),
         child: Row(
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: colores),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(_emojiReto(titulo),
-                  style: const TextStyle(fontSize: 16)),
-            ),
+            _iconoReto(titulo, colores, size: 32, fontSize: 16, radio: 10),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -1195,7 +1251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: _texto,
+                  color: _indigo,
                 ),
               ),
             ),
@@ -1234,11 +1290,12 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${mes.nombre} · Reto $slot',
+              '${mes.nombre} · Reto $slot'.toUpperCase(),
               style: const TextStyle(
-                fontSize: 13,
-                color: _textoSuave,
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: _turquesa,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
               ),
             ),
             const SizedBox(height: 4),
@@ -1247,7 +1304,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: _texto,
+                color: _indigo,
               ),
             ),
             const SizedBox(height: 16),
@@ -1282,7 +1339,9 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Material(
-      color: seleccionado ? colores[0].withOpacity(0.1) : _fondo,
+      color: seleccionado
+          ? _turquesa.withOpacity(0.08)
+          : colores[0].withOpacity(0.04),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -1292,23 +1351,13 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: seleccionado ? colores[0] : Colors.transparent,
-              width: 1.5,
+              color: seleccionado ? _turquesa : colores[0].withOpacity(0.12),
+              width: seleccionado ? 1.5 : 1,
             ),
           ),
           child: Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: colores),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(_emojiReto(r.title),
-                    style: const TextStyle(fontSize: 20)),
-              ),
+              _iconoReto(r.title, colores, size: 42, fontSize: 20),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1319,7 +1368,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: _texto,
+                        color: _indigo,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1330,7 +1379,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              if (seleccionado) Icon(Icons.check_circle, color: colores[0]),
+              if (seleccionado)
+                const Icon(Icons.check_circle, color: _turquesa),
             ],
           ),
         ),
@@ -1437,25 +1487,22 @@ class _HomeScreenState extends State<HomeScreen> {
         width: 150,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          gradient: activo
-              ? LinearGradient(
-                  colors: colores,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: activo ? null : Colors.white,
+          gradient: LinearGradient(
+            colors: activo
+                ? [_turquesa.withOpacity(0.18), _indigo.withOpacity(0.08)]
+                : [colores[0].withOpacity(0.08), Colors.white],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: activo ? Colors.transparent : colores[0].withOpacity(0.2),
-            width: 1.5,
+            color: activo ? _turquesa : colores[0].withOpacity(0.12),
+            width: activo ? 1.8 : 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: activo
-                  ? colores[0].withOpacity(0.35)
-                  : Colors.black.withOpacity(0.04),
-              blurRadius: activo ? 12 : 8,
+              color: _indigo.withOpacity(activo ? 0.10 : 0.04),
+              blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
@@ -1470,9 +1517,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: activo
-                        ? Colors.white.withOpacity(0.2)
-                        : colores[0].withOpacity(0.12),
+                    color: Colors.white.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(_emojiReto(reto.title),
@@ -1482,7 +1527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (completado)
                   const Text('✅', style: TextStyle(fontSize: 13))
                 else if (activo)
-                  const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                  const Icon(Icons.check_circle, color: _turquesa, size: 18),
               ],
             ),
             const Spacer(),
@@ -1490,11 +1535,11 @@ class _HomeScreenState extends State<HomeScreen> {
               reto.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 height: 1.2,
-                color: activo ? Colors.white : _texto,
+                color: _indigo,
               ),
             ),
             const SizedBox(height: 4),
@@ -1502,9 +1547,9 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitulo,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
-                color: activo ? Colors.white70 : _textoSuave,
+                color: _textoSuave,
               ),
             ),
           ],
@@ -1523,9 +1568,10 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _indigo.withOpacity(0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: _indigo.withOpacity(0.07),
             blurRadius: 14,
             offset: const Offset(0, 5),
           ),
@@ -1535,13 +1581,16 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabecera de color
+          // Cabecera con degradado pastel del reto
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: colores,
+                colors: [
+                  colores[0].withOpacity(0.14),
+                  colores[1].withOpacity(0.04),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -1553,7 +1602,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 50,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(_emojiReto(reto.title),
@@ -1569,7 +1618,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: _indigo,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -1578,17 +1627,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         runSpacing: 6,
                         children: [
                           if ((reto.category ?? '').isNotEmpty)
-                            _chip(reto.category!,
-                                fondo: Colors.white.withOpacity(0.2),
-                                colorTexto: Colors.white),
+                            _chip(reto.category!, fondo: Colors.white),
                           if ((reto.difficulty ?? '').isNotEmpty)
                             _chip('Nivel ${reto.difficulty}',
-                                fondo: Colors.white.withOpacity(0.2),
-                                colorTexto: Colors.white),
+                                fondo: Colors.white),
                           _chip(
-                              '${pildoras?.length ?? reto.totalPills ?? 0} píldoras',
-                              fondo: Colors.white.withOpacity(0.2),
-                              colorTexto: Colors.white),
+                            '${pildoras?.length ?? reto.totalPills ?? 0} píldoras',
+                            fondo: Colors.white,
+                            colorTexto: _turquesaOscuro,
+                          ),
                         ],
                       ),
                     ],
@@ -1619,15 +1666,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 Spacer(),
                 Text(
                   'Desliza',
-                  style: TextStyle(fontSize: 11, color: _textoSuave),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _turquesa,
+                  ),
                 ),
-                Icon(Icons.chevron_right, size: 16, color: _textoSuave),
+                Icon(Icons.chevron_right, size: 16, color: _turquesa),
               ],
             ),
           ),
@@ -1636,7 +1687,9 @@ class _HomeScreenState extends State<HomeScreen> {
           if (pildoras == null)
             const SizedBox(
               height: 100,
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(
+                child: CircularProgressIndicator(color: _turquesa),
+              ),
             )
           else if (pildoras.isEmpty)
             const Padding(
@@ -1675,9 +1728,9 @@ class _HomeScreenState extends State<HomeScreen> {
       width: 112,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colores[0].withOpacity(0.07),
+        color: colores[0].withOpacity(0.06),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colores[0].withOpacity(0.18)),
+        border: Border.all(color: colores[0].withOpacity(0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1707,8 +1760,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   '${p.durationMinutes} min',
                   style: const TextStyle(
                     fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: _textoSuave,
+                    fontWeight: FontWeight.w700,
+                    color: _turquesaOscuro,
                   ),
                 ),
             ],
@@ -1744,7 +1797,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: SizedBox(
             width: 24,
             height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(strokeWidth: 2, color: _turquesa),
           ),
         ),
       );
@@ -1796,12 +1849,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 150,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  gradient: LinearGradient(
+                    colors: [colores[0].withOpacity(0.10), Colors.white],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: colores[0].withOpacity(0.2)),
+                  border: Border.all(color: colores[0].withOpacity(0.14)),
                   boxShadow: [
                     BoxShadow(
-                      color: colores[0].withOpacity(0.12),
+                      color: _indigo.withOpacity(0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -1833,7 +1890,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Icon(
                           Icons.favorite,
                           size: 16,
-                          color: Colors.red,
+                          color: _morado,
                         ),
                       ],
                     ),
@@ -1856,10 +1913,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       retoTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: colores[0],
+                        fontWeight: FontWeight.w700,
+                        color: _turquesaOscuro,
                       ),
                     ),
                   ],

@@ -1,4 +1,4 @@
-// practicalo_screen.dart - REDISEÑO VISUAL (misma armonía que home y rachas)
+// practicalo_screen.dart - IDENTIDAD DE MARCA RETUP (armonía página web)
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -25,28 +25,35 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  // ===== Colores (mismos que home y rachas) =====
-  static const Color _fondo = Color(0xFFF6F7FB);
-  static const Color _texto = Color(0xFF1F2937);
+  // ===== Colores de marca RetUp (Paleta "Vínculo") =====
+  static const Color _indigo = Color(0xFF2E2A72); // Predomina
+  static const Color _indigoClaro = Color(0xFF443E9E);
+  static const Color _turquesa = Color(0xFF12B5A6); // Botones y acentos
+  static const Color _turquesaOscuro = Color(0xFF0B8A7E);
+  static const Color _morado = Color(0xFF7209B7); // Compromiso
+  static const Color _tinta = Color(0xFF0E0F17); // Texto
+
+  static const Color _fondo = Color(0xFFF5F5F2); // Blanco roto como la web
+  static const Color _texto = _tinta;
   static const Color _textoSuave = Color(0xFF6B7280);
 
-  static const List<Color> _gradientePrincipal = [
-    Color(0xFF6366F1),
-    Color(0xFF8B5CF6),
-  ];
-  static const List<List<Color>> _paleta = [
-    [Color(0xFF6366F1), Color(0xFF4F46E5)], // Índigo
-    [Color(0xFF8B5CF6), Color(0xFF7C3AED)], // Violeta
-    [Color(0xFF14B8A6), Color(0xFF0D9488)], // Turquesa
-    [Color(0xFFEC4899), Color(0xFFDB2777)], // Rosa
-    [Color(0xFF3B82F6), Color(0xFF2563EB)], // Azul
-  ];
-  static const List<Color> _azul = [Color(0xFF3B82F6), Color(0xFF2563EB)];
-  static const List<Color> _violeta = [Color(0xFF8B5CF6), Color(0xFF7C3AED)];
+  static const List<Color> _botonPrincipal = [_turquesa, _turquesaOscuro];
+
+  // Colores de estado (se mantienen por ser universales)
+  static const Color _dorado = Color(0xFFF59E0B); // Estrellas de calificación
   static const List<Color> _verde = [Color(0xFF10B981), Color(0xFF059669)];
-  static const List<Color> _ambar = [Color(0xFFF59E0B), Color(0xFFD97706)];
   static const Color _rojo = Color(0xFFEF4444);
   static const Color _gris = Color(0xFF9CA3AF);
+
+  // Degradado pastel de marca (turquesa → índigo) para cajitas e iconos
+  static final LinearGradient _degradadoPastel = LinearGradient(
+    colors: [
+      _turquesa.withOpacity(0.18),
+      _indigo.withOpacity(0.10),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   @override
   void initState() {
@@ -214,25 +221,61 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
     return Scaffold(
       backgroundColor: _fondo,
       appBar: AppBar(
-        title: const Text('Practícalo'),
-        centerTitle: true,
+        backgroundColor: _indigo,
+        foregroundColor: Colors.white,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primaryColor.withOpacity(0.85),
-                AppColors.primaryColor.withOpacity(0.75),
-              ],
+        toolbarHeight: 64,
+        centerTitle: false,
+        titleSpacing: 12,
+        automaticallyImplyLeading: false,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Solo la R del logo, fundida con el índigo (igual que en Inicio)
+            SizedBox(
+              width: 42,
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: 0.66,
+                  child: Image.asset(
+                    'assets/images/logo_retup_oscuro.jpg',
+                    width: 42,
+                    fit: BoxFit.fitWidth,
+                    color: _indigo,
+                    colorBlendMode: BlendMode.screen,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Text(
+                        'R',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: _turquesa,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            const Text(
+              'Practícalo',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator(color: _turquesa))
             : _errorMessage != null
                 ? _buildError(_errorMessage!)
                 : SingleChildScrollView(
@@ -262,25 +305,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                               _buildMensajes(),
 
                               // ── Separador 1 ──
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 32, vertical: 24),
-                                child: Container(
-                                  height: 1,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.transparent,
-                                        const Color(0xFF6366F1)
-                                            .withOpacity(0.2),
-                                        const Color(0xFF8B5CF6)
-                                            .withOpacity(0.2),
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              _separador(),
                             ],
 
                             // ===== 2) PRÁCTICA RECIBIDA =====
@@ -323,23 +348,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                               ),
 
                             // ── Separador 2 ──
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 32, vertical: 24),
-                              child: Container(
-                                height: 1,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.transparent,
-                                      const Color(0xFF6366F1).withOpacity(0.2),
-                                      const Color(0xFF8B5CF6).withOpacity(0.2),
-                                      Colors.transparent,
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
+                            _separador(),
 
                             // ===== 3) PRÁCTICA ENVIADA =====
                             _buildSectionHeader(
@@ -411,6 +420,26 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
     );
   }
 
+  /// Separador fino entre secciones (índigo → turquesa)
+  Widget _separador() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      child: Container(
+        height: 1,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.transparent,
+              _indigo.withOpacity(0.2),
+              _turquesa.withOpacity(0.35),
+              Colors.transparent,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -420,7 +449,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: _gradientePrincipal),
+              color: _turquesa,
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
@@ -439,13 +468,25 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,
-              color: _texto,
+              color: _indigo,
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
-            'Practica tus píldoras con compañeros y recibe feedback',
-            style: TextStyle(fontSize: 13, color: _textoSuave),
+          RichText(
+            text: const TextSpan(
+              style: TextStyle(fontSize: 13, color: _textoSuave),
+              children: [
+                TextSpan(
+                    text: 'Practica tus píldoras con compañeros y recibe '),
+                TextSpan(
+                  text: 'feedback',
+                  style: TextStyle(
+                    color: _turquesa,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -463,7 +504,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
             height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
+              gradient: _degradadoPastel,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(emoji, style: const TextStyle(fontSize: 20)),
@@ -478,7 +519,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -493,9 +534,15 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Text('Desliza',
-                    style: TextStyle(fontSize: 11, color: _textoSuave)),
-                Icon(Icons.chevron_right, size: 16, color: _textoSuave),
+                Text(
+                  'Desliza',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _turquesa,
+                  ),
+                ),
+                Icon(Icons.chevron_right, size: 16, color: _turquesa),
               ],
             ),
         ],
@@ -507,7 +554,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: fondo ?? AppColors.primaryColor.withOpacity(0.1),
+        color: fondo ?? _indigo.withOpacity(0.08),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -515,7 +562,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
-          color: colorTexto ?? AppColors.primaryColor,
+          color: colorTexto ?? _indigo,
         ),
       ),
     );
@@ -526,9 +573,13 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          colors: [_indigo.withOpacity(0.06), _turquesa.withOpacity(0.06)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primaryColor.withOpacity(0.12)),
+        border: Border.all(color: _indigo.withOpacity(0.10)),
       ),
       child: Row(
         children: [
@@ -543,7 +594,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -572,6 +623,13 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
             Text(mensaje, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _turquesa,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: () {
                 _cargarMensajes();
                 _cargarPracticalo();
@@ -617,9 +675,9 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: acento.withOpacity(0.07),
+        color: Colors.white.withOpacity(0.85),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: acento.withOpacity(0.15)),
+        border: Border.all(color: acento.withOpacity(0.18)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -660,7 +718,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: colores[0].withOpacity(0.3),
+              color: colores[0].withOpacity(0.25),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -706,6 +764,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white.withOpacity(0.7),
           side: BorderSide(color: color.withOpacity(0.4), width: 1.3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -730,8 +789,9 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.35), width: 1.3),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -764,7 +824,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
           (i) => Icon(
             Icons.star_rounded,
             size: 16,
-            color: i < n ? _ambar[0] : const Color(0xFFE5E7EB),
+            color: i < n ? _dorado : const Color(0xFFE5E7EB),
           ),
         ),
         const SizedBox(width: 6),
@@ -813,16 +873,22 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
     }
   }
 
-  Widget _tarjetaBase({required Widget child}) {
+  /// Tarjeta base con degradado pastel del color de acento
+  Widget _tarjetaBase({required Widget child, required Color acento}) {
     return Container(
       width: 280,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          colors: [acento.withOpacity(0.10), Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: acento.withOpacity(0.14)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: _indigo.withOpacity(0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -833,7 +899,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
   }
 
   // ===================================================================
-  // 1) MENSAJES DEL MEJOR
+  // 1) MENSAJES DEL MEJOR (bloque protagonista en índigo)
   // ===================================================================
 
   Widget _buildMensajes() {
@@ -849,20 +915,20 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
             final mensaje = _mensajesAgrupados[index];
             final message = mensaje['message'] as String;
             final senderCount = mensaje['senderCount'] as int;
-            final colores = _paleta[index % _paleta.length];
 
             return Container(
               width: 260,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
-                gradient: LinearGradient(
-                  colors: colores,
+                // Degradado suave: índigo claro → azul verdoso (inspirado en el logo)
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4B4699), Color(0xFF3A7FA0)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: colores[0].withOpacity(0.35),
+                    color: _indigo.withOpacity(0.16),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -871,15 +937,34 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
               clipBehavior: Clip.antiAlias,
               child: Stack(
                 children: [
+                  // Arcos decorativos (como el login y la web)
                   Positioned(
-                    right: -30,
-                    top: -30,
+                    right: -50,
+                    top: -50,
                     child: Container(
-                      width: 110,
-                      height: 110,
+                      width: 140,
+                      height: 140,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.06),
+                          width: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: -40,
+                    bottom: -60,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _turquesa.withOpacity(0.10),
+                          width: 18,
+                        ),
                       ),
                     ),
                   ),
@@ -888,9 +973,9 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.format_quote_rounded,
-                          color: Colors.white.withOpacity(0.8),
+                          color: _turquesa,
                           size: 28,
                         ),
                         const SizedBox(height: 6),
@@ -910,7 +995,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                         ),
                         _chip(
                           '👥 $senderCount ${senderCount == 1 ? 'compañero' : 'compañeros'}',
-                          fondo: Colors.white.withOpacity(0.22),
+                          fondo: Colors.white.withOpacity(0.18),
                           colorTexto: Colors.white,
                         ),
                       ],
@@ -946,7 +1031,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
         children: [
           _botonGradiente(
             texto: 'Sí, cuando puedas coordinamos',
-            colores: _verde,
+            colores: _botonPrincipal,
             icono: Icons.check_rounded,
             onTap: () async {
               await practicaloProvider.responderInvitacion(
@@ -974,7 +1059,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
         practica['star_rating'] == null) {
       acciones = _botonGradiente(
         texto: 'Calificar práctica',
-        colores: _ambar,
+        colores: _botonPrincipal,
         icono: Icons.star_rounded,
         onTap: () {
           _mostrarCalificacion(
@@ -1002,24 +1087,30 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
           _estadoBarra(_textoRespuesta(response), _rojo, Icons.close_rounded);
     } else {
       acciones = _estadoBarra(
-          _textoRespuesta(response), _azul[1], Icons.event_available_rounded);
+          _textoRespuesta(response), _indigo, Icons.event_available_rounded);
     }
 
     return _tarjetaBase(
+      acento: _turquesa,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _avatar(senderName, _azul),
+              _avatar(senderName, const [_turquesa, _turquesaOscuro]),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'De',
-                      style: TextStyle(fontSize: 11, color: _textoSuave),
+                      'DE',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: _turquesaOscuro,
+                        letterSpacing: 1,
+                      ),
                     ),
                     Text(
                       senderName,
@@ -1028,7 +1119,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: _texto,
+                        color: _indigo,
                       ),
                     ),
                   ],
@@ -1037,7 +1128,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          _burbuja(mensaje, _azul[0]),
+          _burbuja(mensaje, _turquesa),
           const Spacer(),
           acciones,
         ],
@@ -1064,7 +1155,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
     if (response == 'yes_today' && status != 'completed') {
       acciones = _botonGradiente(
         texto: 'Confirmar práctica realizada',
-        colores: _azul,
+        colores: _botonPrincipal,
         icono: Icons.task_alt_rounded,
         onTap: () async {
           await practicaloProvider.confirmarReunion(
@@ -1077,30 +1168,36 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
       acciones = _estadoBarra('Práctica anulada', _rojo, Icons.block_rounded);
     } else if (status == 'completed' && practica['star_rating'] == null) {
       acciones = _estadoBarra(
-          'Esperando calificación', _ambar[1], Icons.hourglass_top_rounded);
+          'Esperando calificación', _morado, Icons.hourglass_top_rounded);
     } else if (status == 'completed' && practica['star_rating'] != null) {
       acciones = _estadoBarra(
           'Práctica completada', _verde[1], Icons.verified_rounded);
     } else {
       acciones =
-          _estadoBarra('Esperando respuesta', _gris, Icons.schedule_rounded);
+          _estadoBarra('Esperando respuesta', _indigo, Icons.schedule_rounded);
     }
 
     return _tarjetaBase(
+      acento: _indigo,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _avatar(recipientName, _violeta),
+              _avatar(recipientName, const [_indigo, _indigoClaro]),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Para',
-                      style: TextStyle(fontSize: 11, color: _textoSuave),
+                      'PARA',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: _turquesaOscuro,
+                        letterSpacing: 1,
+                      ),
                     ),
                     Text(
                       recipientName,
@@ -1109,7 +1206,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: _texto,
+                        color: _indigo,
                       ),
                     ),
                   ],
@@ -1117,13 +1214,13 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
               ),
               _chip(
                 _textoStatus(status),
-                fondo: _violeta[0].withOpacity(0.1),
-                colorTexto: _violeta[1],
+                fondo: Colors.white,
+                colorTexto: _indigo,
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _burbuja(practica['message'] ?? 'Sin mensaje', _violeta[0]),
+          _burbuja(practica['message'] ?? 'Sin mensaje', _indigo),
           if (practica['star_rating'] != null) ...[
             const SizedBox(height: 10),
             _estrellas(practica['star_rating'], 'Te calificaron con'),
@@ -1162,6 +1259,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             return Dialog(
+              backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
@@ -1175,19 +1273,9 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                       height: 72,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: _ambar,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        gradient: _degradadoPastel,
                         borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _ambar[0].withOpacity(0.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                        border: Border.all(color: _turquesa.withOpacity(0.35)),
                       ),
                       child: const Text('⭐', style: TextStyle(fontSize: 34)),
                     ),
@@ -1198,7 +1286,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: _texto,
+                        color: _indigo,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -1222,7 +1310,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                               Icons.star_rounded,
                               size: 40,
                               color: index < estrellas
-                                  ? _ambar[0]
+                                  ? _dorado
                                   : const Color(0xFFE5E7EB),
                             ),
                           ),
@@ -1235,7 +1323,7 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: estrellas > 0 ? _ambar[1] : _textoSuave,
+                        color: estrellas > 0 ? _turquesaOscuro : _textoSuave,
                       ),
                     ),
                     const SizedBox(height: 22),
@@ -1247,10 +1335,10 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                             child: OutlinedButton(
                               onPressed: () => Navigator.pop(dialogContext),
                               style: OutlinedButton.styleFrom(
-                                side:
-                                    const BorderSide(color: Color(0xFFE5E7EB)),
+                                side: BorderSide(
+                                    color: _indigo.withOpacity(0.15)),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                               child: const Text(
@@ -1272,12 +1360,11 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                               child: Ink(
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                      colors: _gradientePrincipal),
-                                  borderRadius: BorderRadius.circular(14),
+                                  color: _turquesa,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(12),
                                   onTap: () async {
                                     if (estrellas > 0) {
                                       await practicaloProvider.calificar(

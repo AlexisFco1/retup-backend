@@ -1,4 +1,4 @@
-// pildoras_list_screen.dart - REDISEÑO VISUAL (misma armonía que home, rachas y practícalo)
+// pildoras_list_screen.dart - IDENTIDAD DE MARCA RETUP (armonía página web)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -30,21 +30,24 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
   Set<String> _completadasIds = {};
   bool _isLoadingFavoritos = true;
 
-  // ===== Colores (mismos que home, rachas y practícalo) =====
-  static const Color _fondo = Color(0xFFF6F7FB);
-  static const Color _texto = Color(0xFF1F2937);
+  // ===== Colores de marca RetUp (Paleta "Vínculo") =====
+  static const Color _indigo = Color(0xFF2E2A72); // Predomina
+  static const Color _turquesa = Color(0xFF12B5A6); // Botones y acentos
+  static const Color _morado = Color(0xFF7209B7); // Compromiso
+  static const Color _tinta = Color(0xFF0E0F17); // Texto
+
+  static const Color _fondo = Color(0xFFF5F5F2); // Blanco roto como la web
+  static const Color _texto = _tinta;
   static const Color _textoSuave = Color(0xFF6B7280);
 
-  static const List<Color> _gradientePrincipal = [
-    Color(0xFF6366F1),
-    Color(0xFF8B5CF6),
-  ];
+  // Paleta de las píldoras (misma que la pantalla de inicio)
   static const List<List<Color>> _paleta = [
-    [Color(0xFF6366F1), Color(0xFF4F46E5)], // Índigo
-    [Color(0xFF8B5CF6), Color(0xFF7C3AED)], // Violeta
-    [Color(0xFF14B8A6), Color(0xFF0D9488)], // Turquesa
-    [Color(0xFFEC4899), Color(0xFFDB2777)], // Rosa
-    [Color(0xFF3B82F6), Color(0xFF2563EB)], // Azul
+    [Color(0xFF2E2A72), Color(0xFF443E9E)], // Índigo
+    [Color(0xFF12B5A6), Color(0xFF0B8A7E)], // Turquesa
+    [Color(0xFF7209B7), Color(0xFF5B0893)], // Morado
+    [Color(0xFF2E2A72), Color(0xFF7209B7)], // Índigo → Morado
+    [Color(0xFF12B5A6), Color(0xFF2E2A72)], // Turquesa → Índigo
+    [Color(0xFF7209B7), Color(0xFF2E2A72)], // Morado → Índigo
   ];
   static const List<Color> _verde = [Color(0xFF10B981), Color(0xFF059669)];
 
@@ -155,28 +158,27 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
     return Scaffold(
       backgroundColor: _fondo,
       appBar: AppBar(
+        backgroundColor: _indigo,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        toolbarHeight: 64,
+        centerTitle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        ),
         title: Text(
           widget.reto.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-        ),
-        centerTitle: true,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primaryColor.withOpacity(0.85),
-                AppColors.primaryColor.withOpacity(0.75),
-              ],
-            ),
+          style: const TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
           ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SafeArea(
@@ -185,7 +187,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
             if (provider.isLoading) {
               return const Center(
                 child: CircularProgressIndicator(
-                  color: AppColors.primaryColor,
+                  color: _turquesa,
                 ),
               );
             }
@@ -236,7 +238,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: _gradientePrincipal),
+            color: _turquesa,
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Text(
@@ -255,7 +257,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w900,
-            color: _texto,
+            color: _indigo,
           ),
         ),
         if (descripcion != null && descripcion.trim().isNotEmpty) ...[
@@ -276,7 +278,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: _indigo.withOpacity(0.07),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -294,7 +296,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: _texto,
+                        color: _indigo,
                       ),
                     ),
                   ),
@@ -303,20 +305,31 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primaryColor,
+                      color: _turquesa,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progreso,
-                  minHeight: 6,
-                  backgroundColor: AppColors.primaryColor.withOpacity(0.12),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.primaryColor,
+              // Barra de progreso con degradado turquesa → morado (como la web)
+              Container(
+                height: 6,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: _indigo.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: progreso,
+                  heightFactor: 1,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_turquesa, _morado],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -346,7 +359,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: _indigo.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -379,12 +392,12 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
                         Row(
                           children: [
                             Text(
-                              'Píldora ${index + 1}',
+                              'PÍLDORA ${index + 1}',
                               style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: _textoSuave,
-                                letterSpacing: 0.3,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                                color: _turquesa,
+                                letterSpacing: 1,
                               ),
                             ),
                             if (estaCompletada) ...[
@@ -401,7 +414,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: estaCompletada ? _textoSuave : _texto,
+                            color: estaCompletada ? _textoSuave : _indigo,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -443,7 +456,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
                                         : Icons.favorite_border,
                                     key: ValueKey<bool>(esFavorito),
                                     color: esFavorito
-                                        ? const Color(0xFFEF4444)
+                                        ? _morado
                                         : Colors.grey.shade400,
                                     size: 22,
                                   ),
@@ -472,13 +485,13 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: AppColors.primaryColor.withOpacity(0.1),
+                            color: _turquesa.withOpacity(0.12),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.chevron_right_rounded,
                             size: 20,
-                            color: AppColors.primaryColor,
+                            color: _turquesa,
                           ),
                         ),
                 ],
@@ -554,7 +567,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.primaryColor.withOpacity(0.12)),
+            border: Border.all(color: _indigo.withOpacity(0.12)),
           ),
           child: Row(
             children: [
@@ -570,7 +583,7 @@ class _PillorasListScreenState extends State<PillorasListScreen> {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: _texto,
+                        color: _indigo,
                       ),
                     ),
                     const SizedBox(height: 4),

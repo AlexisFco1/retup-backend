@@ -1,4 +1,4 @@
-// login_screen.dart - REDISEÑO VISUAL (misma armonía que el resto de la app)
+// login_screen.dart - IDENTIDAD DE MARCA RETUP (armonía página web)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -19,14 +19,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _ocultarPassword = true;
 
-  // ===== Colores (mismos que el resto de la app) =====
-  static const Color _fondo = Color(0xFFF6F7FB);
-  static const Color _texto = Color(0xFF1F2937);
+  // ===== Colores de marca RetUp (Paleta "Vínculo") =====
+  static const Color _indigo =
+      Color(0xFF2E2A72); // Predomina: fondos institucionales
+  static const Color _turquesa =
+      Color(0xFF12B5A6); // Botones y palabras destacadas
+  static const Color _morado =
+      Color(0xFF7209B7); // Compromiso (acentos puntuales)
+  static const Color _tinta = Color(0xFF0E0F17); // Texto
+
+  static const Color _fondo = Color(0xFFF5F5F2); // Blanco roto como la web
+  static const Color _texto = _tinta;
   static const Color _textoSuave = Color(0xFF6B7280);
-  static const List<Color> _gradientePrincipal = [
-    Color(0xFF6366F1),
-    Color(0xFF8B5CF6),
-  ];
 
   @override
   void initState() {
@@ -83,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ===== CABECERA CON DEGRADADO =====
+            // ===== CABECERA ÍNDIGO =====
             _buildCabecera(context),
 
             // ===== TARJETA DEL FORMULARIO (sube sobre la cabecera) =====
@@ -112,85 +116,81 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: _gradientePrincipal,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: _indigo,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Círculos decorativos
+          // Arcos decorativos sutiles (como en la web)
           Positioned(
-            right: -60,
-            top: -40,
+            right: -150,
+            top: -110,
             child: Container(
-              width: 200,
-              height: 200,
+              width: 260,
+              height: 260,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.06),
+                  width: 34,
+                ),
               ),
             ),
           ),
           Positioned(
-            left: -50,
-            bottom: -30,
+            left: -70,
+            bottom: -60,
             child: Container(
-              width: 150,
-              height: 150,
+              width: 180,
+              height: 180,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.07),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.05),
+                  width: 26,
+                ),
               ),
             ),
           ),
           // Contenido
           Padding(
-            padding: EdgeInsets.fromLTRB(24, topPadding + 48, 24, 96),
+            padding: EdgeInsets.fromLTRB(24, topPadding + 40, 24, 96),
             child: Column(
               children: [
-                Container(
-                  width: 88,
-                  height: 88,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(26),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.35),
-                      width: 1.5,
+                // Logo oficial RetUp (versión oscura) directamente sobre el índigo
+                SizedBox(
+                  width: 120,
+                  height: 158,
+                  child: Image.asset(
+                    'assets/images/logo_retup_oscuro.jpg',
+                    fit: BoxFit.contain,
+                    // Convierte el fondo negro del logo en el índigo de la cabecera
+                    color: _indigo,
+                    colorBlendMode: BlendMode.screen,
+                    // Aviso visible si el logo no se ha cargado
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Text(
+                        'RetUp',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                  child: const Text('🚀', style: TextStyle(fontSize: 44)),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 22),
+                // Frase en turquesa, estilo "DESARROLLO HUMANO · DATOS..." de la web
                 const Text(
-                  'RetUp',
+                  'DESARROLLA TUS HABILIDADES BLANDAS',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Desarrolla tus habilidades blandas',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: _turquesa,
+                    letterSpacing: 2,
                   ),
                 ),
               ],
@@ -214,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: _indigo.withOpacity(0.14),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -228,13 +228,25 @@ class _LoginScreenState extends State<LoginScreen> {
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,
-              color: _texto,
+              color: _indigo,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Inicia sesión para continuar con tus retos',
-            style: TextStyle(fontSize: 13.5, color: _textoSuave),
+          // "retos" destacado en turquesa
+          RichText(
+            text: const TextSpan(
+              style: TextStyle(fontSize: 13.5, color: _textoSuave),
+              children: [
+                TextSpan(text: 'Inicia sesión para continuar con tus '),
+                TextSpan(
+                  text: 'retos',
+                  style: TextStyle(
+                    color: _turquesa,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -245,6 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
+            cursorColor: _indigo,
             decoration: _decoracionCampo(
               hint: 'tu@email.com',
               icono: Icons.mail_outline_rounded,
@@ -259,6 +272,7 @@ class _LoginScreenState extends State<LoginScreen> {
             controller: _passwordController,
             obscureText: _ocultarPassword,
             textInputAction: TextInputAction.done,
+            cursorColor: _indigo,
             onSubmitted: (_) {
               if (!_isLoading) _handleLogin();
             },
@@ -280,7 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 28),
 
-          // Botón Iniciar sesión
+          // Botón Iniciar sesión (turquesa, como "Solicita una demo")
           _buildBotonLogin(),
           const SizedBox(height: 20),
 
@@ -306,7 +320,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF6366F1),
+                    color: _turquesa,
                   ),
                 ),
               ),
@@ -336,22 +350,22 @@ class _LoginScreenState extends State<LoginScreen> {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-      prefixIcon: Icon(icono, color: const Color(0xFF6366F1), size: 20),
+      prefixIcon: Icon(icono, color: _indigo, size: 20),
       suffixIcon: sufijo,
       filled: true,
       fillColor: _fondo,
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.6),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _turquesa, width: 1.8),
       ),
     );
   }
@@ -364,18 +378,18 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Ink(
           height: 54,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: _gradientePrincipal),
-            borderRadius: BorderRadius.circular(16),
+            color: _turquesa,
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF6366F1).withOpacity(0.4),
+                color: _turquesa.withOpacity(0.35),
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
             ],
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             onTap: _isLoading ? null : _handleLogin,
             child: Center(
               child: _isLoading

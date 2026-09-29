@@ -1,4 +1,4 @@
-// profile_screen.dart - REDISEÑO VISUAL (misma armonía que home, rachas y practícalo)
+// profile_screen.dart - IDENTIDAD DE MARCA RETUP (armonía página web)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -27,27 +27,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, double?> _feedbackScoresPerReto = {};
   Set<String> _retosExpandidos = {};
 
-  // ===== Colores (mismos que las otras pantallas) =====
-  static const Color _fondo = Color(0xFFF6F7FB);
-  static const Color _texto = Color(0xFF1F2937);
+  // ===== Colores de marca RetUp (Paleta "Vínculo") =====
+  static const Color _indigo = Color(0xFF2E2A72); // Predomina
+  static const Color _turquesa = Color(0xFF12B5A6); // Botones y acentos
+  static const Color _turquesaOscuro = Color(0xFF0B8A7E);
+  static const Color _morado = Color(0xFF7209B7); // Compromiso
+  static const Color _tinta = Color(0xFF0E0F17); // Texto
+
+  static const Color _fondo = Color(0xFFF5F5F2); // Blanco roto como la web
+  static const Color _texto = _tinta;
   static const Color _textoSuave = Color(0xFF6B7280);
 
-  static const List<Color> _gradientePrincipal = [
-    Color(0xFF6366F1),
-    Color(0xFF8B5CF6),
+  // Degradado suave protagonista (mismo que Retos y Practícalo)
+  static const List<Color> _degradadoSuave = [
+    Color(0xFF4B4699),
+    Color(0xFF3A7FA0),
   ];
+
+  // Paleta de acentos por reto (se usa en tonos pastel)
   static const List<List<Color>> _paleta = [
-    [Color(0xFF6366F1), Color(0xFF4F46E5)], // Índigo
-    [Color(0xFF8B5CF6), Color(0xFF7C3AED)], // Violeta
-    [Color(0xFF14B8A6), Color(0xFF0D9488)], // Turquesa
-    [Color(0xFFF59E0B), Color(0xFFD97706)], // Ámbar
-    [Color(0xFFEC4899), Color(0xFFDB2777)], // Rosa
-    [Color(0xFF3B82F6), Color(0xFF2563EB)], // Azul
+    [Color(0xFF2E2A72), Color(0xFF443E9E)], // Índigo
+    [Color(0xFF12B5A6), Color(0xFF0B8A7E)], // Turquesa
+    [Color(0xFF7209B7), Color(0xFF5B0893)], // Morado
+    [Color(0xFF2E2A72), Color(0xFF7209B7)], // Índigo → Morado
+    [Color(0xFF12B5A6), Color(0xFF2E2A72)], // Turquesa → Índigo
+    [Color(0xFF7209B7), Color(0xFF2E2A72)], // Morado → Índigo
   ];
-  static const Color _azul = Color(0xFF3B82F6);
+
+  // Colores de la escala de desempeño (se mantienen por ser universales)
   static const Color _verde = Color(0xFF10B981);
   static const Color _ambar = Color(0xFFF59E0B);
   static const Color _rojo = Color(0xFFEF4444);
+
+  // Degradado pastel de marca (turquesa → índigo) para cajitas e iconos
+  static final LinearGradient _degradadoPastel = LinearGradient(
+    colors: [
+      _turquesa.withOpacity(0.18),
+      _indigo.withOpacity(0.10),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   @override
   void initState() {
@@ -160,7 +180,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Color _getFeedbackColor(double score) {
     if (score >= 75) return _verde;
-    if (score >= 50) return _azul;
+    if (score >= 50) return _turquesa;
     if (score >= 25) return _ambar;
     return _rojo;
   }
@@ -263,25 +283,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: _fondo,
       appBar: AppBar(
-        title: const Text('Perfil'),
-        centerTitle: true,
+        backgroundColor: _indigo,
+        foregroundColor: Colors.white,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primaryColor.withOpacity(0.85),
-                AppColors.primaryColor.withOpacity(0.75),
-              ],
+        toolbarHeight: 64,
+        centerTitle: false,
+        titleSpacing: 12,
+        automaticallyImplyLeading: false,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Solo la R del logo, fundida con el índigo (igual que en Inicio)
+            SizedBox(
+              width: 42,
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: 0.66,
+                  child: Image.asset(
+                    'assets/images/logo_retup_oscuro.jpg',
+                    width: 42,
+                    fit: BoxFit.fitWidth,
+                    color: _indigo,
+                    colorBlendMode: BlendMode.screen,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Text(
+                        'R',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: _turquesa,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            const Text(
+              'Perfil',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator(color: _turquesa))
             : _errorMessage != null
                 ? _buildError(_errorMessage!)
                 : Consumer3<RetoProvider, RachaProvider, PracticaloProvider>(
@@ -421,7 +477,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
+              gradient: _degradadoPastel,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(emoji, style: const TextStyle(fontSize: 20)),
@@ -436,7 +492,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -456,7 +512,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: fondo ?? AppColors.primaryColor.withOpacity(0.1),
+        color: fondo ?? _indigo.withOpacity(0.08),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -464,7 +520,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
-          color: colorTexto ?? AppColors.primaryColor,
+          color: colorTexto ?? _indigo,
         ),
       ),
     );
@@ -475,9 +531,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          colors: [_indigo.withOpacity(0.06), _turquesa.withOpacity(0.06)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primaryColor.withOpacity(0.12)),
+        border: Border.all(color: _indigo.withOpacity(0.10)),
       ),
       child: Row(
         children: [
@@ -492,7 +552,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: _texto,
+                    color: _indigo,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -521,6 +581,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(mensaje, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _turquesa,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: _loadData,
               child: const Text('Reintentar'),
             ),
@@ -531,7 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ===================================================================
-  // TARJETA DE USUARIO
+  // TARJETA DE USUARIO (bloque protagonista con degradado suave)
   // ===================================================================
 
   Widget _buildTarjetaUsuario(AuthProvider authProvider, int totalRetos) {
@@ -544,42 +611,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
         gradient: const LinearGradient(
-          colors: _gradientePrincipal,
+          colors: _degradadoSuave,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.4),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+            color: _indigo.withOpacity(0.16),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
+          // Arcos decorativos (como el login y la web)
           Positioned(
-            right: -40,
-            top: -40,
+            right: -60,
+            top: -60,
             child: Container(
-              width: 150,
-              height: 150,
+              width: 170,
+              height: 170,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.07),
+                  width: 28,
+                ),
               ),
             ),
           ),
           Positioned(
-            left: -30,
-            bottom: -50,
+            left: -40,
+            bottom: -60,
             child: Container(
-              width: 120,
-              height: 120,
+              width: 130,
+              height: 130,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.07),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: _turquesa.withOpacity(0.12),
+                  width: 20,
+                ),
               ),
             ),
           ),
@@ -592,8 +666,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 76,
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
+                    color: Colors.white.withOpacity(0.2),
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _turquesa.withOpacity(0.6),
+                      width: 1.5,
+                    ),
                   ),
                   child: Container(
                     alignment: Alignment.center,
@@ -603,8 +681,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Text(
                       inicial,
-                      style: TextStyle(
-                        color: AppColors.primaryColor,
+                      style: const TextStyle(
+                        color: _indigo,
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
                       ),
@@ -640,7 +718,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 10),
                       _chip(
                         '🎯 $totalRetos ${totalRetos == 1 ? 'reto' : 'retos'}',
-                        fondo: Colors.white.withOpacity(0.22),
+                        fondo: Colors.white.withOpacity(0.18),
                         colorTexto: Colors.white,
                       ),
                     ],
@@ -655,7 +733,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ===================================================================
-  // TARJETA POR RETO
+  // TARJETA POR RETO (cabecera en tono pastel)
   // ===================================================================
   Widget _buildRetoCard({
     required String retoId,
@@ -676,9 +754,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _indigo.withOpacity(0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: _indigo.withOpacity(0.07),
             blurRadius: 14,
             offset: const Offset(0, 5),
           ),
@@ -694,105 +773,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: colores,
+                colors: [
+                  colores[0].withOpacity(0.14),
+                  colores[1].withOpacity(0.04),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
-            child: Stack(
-              clipBehavior: Clip.none,
+            child: Row(
               children: [
-                Positioned(
-                  right: -30,
-                  top: -40,
-                  child: Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
+                Container(
+                  width: 46,
+                  height: 46,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titulo,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: _indigo,
+                        ),
+                      ),
+                      if (categoria != null && categoria.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          categoria,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: _textoSuave,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                // Porcentaje general (solo cuando está colapsado)
+                if (!expandido) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorGeneral.withOpacity(0.4)),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    child: RichText(
+                      text: TextSpan(
                         children: [
-                          Text(
-                            titulo,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          TextSpan(
+                            text: general.toStringAsFixed(0),
                             style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: _indigo,
                             ),
                           ),
-                          if (categoria != null && categoria.isNotEmpty) ...[
-                            const SizedBox(height: 3),
-                            Text(
-                              categoria,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white.withOpacity(0.8),
-                              ),
+                          const TextSpan(
+                            text: '%',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: _textoSuave,
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
-                    // Porcentaje general (solo cuando está colapsado)
-                    if (!expandido) ...[
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.22),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: RichText(
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: general.toStringAsFixed(0),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const TextSpan(
-                                text: '%',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -816,10 +882,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(
                     expandido ? 'Ocultar detalles' : 'Ver detalles',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: colores[0],
+                      color: _turquesaOscuro,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -828,7 +894,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
                     size: 20,
-                    color: colores[0],
+                    color: _turquesaOscuro,
                   ),
                 ],
               ),
@@ -851,7 +917,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         CircularProgressIndicator(
                           value: (general / 100).clamp(0.0, 1.0),
                           strokeWidth: 9,
-                          backgroundColor: const Color(0xFFEEF0F5),
+                          backgroundColor: _indigo.withOpacity(0.08),
                           valueColor: AlwaysStoppedAnimation(colorGeneral),
                         ),
                         Center(
@@ -863,7 +929,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: const TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w900,
-                                    color: _texto,
+                                    color: _indigo,
                                   ),
                                 ),
                                 const TextSpan(
@@ -891,7 +957,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: _texto,
+                            color: _indigo,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -916,7 +982,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // 3 indicadores
+            // 3 indicadores (colores de marca en tono pastel)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
               child: Row(
@@ -929,7 +995,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mostrarPorcentaje: feedback != null,
                       progreso: feedback != null ? feedback / 100 : 0,
                       icono: Icons.forum_rounded,
-                      color: _azul,
+                      color: _indigo,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -941,7 +1007,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mostrarPorcentaje: asistencia > 0,
                       progreso: asistencia / 100,
                       icono: Icons.event_available_rounded,
-                      color: _verde,
+                      color: _turquesaOscuro,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -953,7 +1019,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mostrarPorcentaje: practica != null,
                       progreso: practica != null ? practica / 100 : 0,
                       icono: Icons.star_rounded,
-                      color: _ambar,
+                      color: _morado,
                     ),
                   ),
                 ],
@@ -976,9 +1042,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.10), color.withOpacity(0.03)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.18)),
+        border: Border.all(color: color.withOpacity(0.14)),
       ),
       child: Column(
         children: [
@@ -986,7 +1056,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: Colors.white.withOpacity(0.9),
               shape: BoxShape.circle,
             ),
             child: Icon(icono, color: color, size: 18),
