@@ -33,6 +33,7 @@ class AuthService {
           'success': true,
           'token': data['token'],
           'userId': data['user']?['id'] ?? data['userId'],
+          'user': data['user'], // Datos completos (nombre, apellidos...)
           'message': 'Login exitoso',
         };
       } else {

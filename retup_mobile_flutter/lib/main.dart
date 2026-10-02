@@ -12,6 +12,7 @@ import 'providers/planificacion_provider.dart';
 import 'providers/social_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/inicio_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/social_screen.dart';
 import 'screens/rachas_screen.dart';
@@ -22,7 +23,7 @@ import 'package:intl/date_symbol_data_local.dart';
 Future<void> main() async {
   // Inicializar Supabase con credenciales directas
   await Supabase.initialize(
-    url: 'https://ebysbekfijndklgkpk.supabase.co',
+    url: 'https://ebysbsefkfjjndklgkpk.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVieXNic2Vma2Zqam5ka2xna3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3ODk1ODEsImV4cCI6MjEwNDM2NTU4MX0.WL5wGCnAA9v8QIwX7drFxhHVaKaIEfHj7-48vupu8xI',
   );
@@ -67,9 +68,10 @@ class MyApp extends StatelessWidget {
                   if (!authProvider.isAuthenticated) {
                     return const LoginScreen();
                   }
-                  return const HomeScreen();
+                  return const InicioScreen();
                 },
               ),
+          '/retos': (context) => const HomeScreen(),
           '/profile': (context) => const ProfileScreen(),
           '/social': (context) => const SocialScreen(),
           '/rachas': (context) => const RachasScreen(),

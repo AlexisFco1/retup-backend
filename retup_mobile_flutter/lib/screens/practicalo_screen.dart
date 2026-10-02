@@ -18,7 +18,7 @@ class PracticaloScreen extends StatefulWidget {
 }
 
 class _PracticaloScreenState extends State<PracticaloScreen> {
-  int _currentNavIndex = 3;
+  int _currentNavIndex = 4; // Practícalo es el índice 4
   final NotificationService _notificationService = NotificationService();
 
   List<Map<String, dynamic>> _mensajesAgrupados = [];
@@ -200,14 +200,17 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
         Navigator.pushReplacementNamed(context, '/');
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, '/social');
+        Navigator.pushReplacementNamed(context, '/retos');
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/rachas');
+        Navigator.pushReplacementNamed(context, '/social');
         break;
       case 3:
+        Navigator.pushReplacementNamed(context, '/rachas');
         break;
       case 4:
+        break; // Ya estamos en Practícalo
+      case 5:
         Navigator.pushReplacementNamed(context, '/profile');
         break;
     }
@@ -282,9 +285,15 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Consumer<PracticaloProvider>(
                       builder: (context, practicaloProvider, child) {
-                        final recibidas =
-                            practicaloProvider.practicaloRecibidas;
-                        final enviadas = practicaloProvider.practicaloEnviadas;
+                        // Orden: 1º acción pendiente, 2º en espera, 3º terminadas/canceladas
+                        final recibidas = _ordenarPorPrioridad(
+                          practicaloProvider.practicaloRecibidas,
+                          _prioridadRecibida,
+                        );
+                        final enviadas = _ordenarPorPrioridad(
+                          practicaloProvider.practicaloEnviadas,
+                          _prioridadEnviada,
+                        );
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -854,6 +863,55 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
       default:
         return 'Respondida: $response';
     }
+  }
+
+  // ===================================================================
+  // ORDEN DE PRÁCTICAS: 0 = te toca hacer algo, 1 = en espera, 2 = terminada
+  // (mismas condiciones que deciden qué muestra cada tarjeta)
+  // ===================================================================
+
+  int _prioridadRecibida(Map<String, dynamic> p) {
+    final response = p['response'];
+    final status = p['status'];
+    final calificada = p['star_rating'] != null;
+
+    if (response == null) return 0; // Responder Sí / No
+    if (status == 'completed' && !calificada) return 0; // Calificar práctica
+    if (status == 'completed' && calificada) return 2; // Completada
+    if (response == 'no_thanks') return 2; // Rechazada
+    return 1; // Aceptada: esperando que el compañero confirme
+  }
+
+  int _prioridadEnviada(Map<String, dynamic> p) {
+    final response = p['response'];
+    final status = p['status'];
+    final calificada = p['star_rating'] != null;
+
+    if (response == 'yes_today' && status != 'completed') return 0; // Confirmar
+    if (response == 'no_thanks') return 2; // Anulada
+    if (status == 'completed' && calificada) return 2; // Completada
+    return 1; // Esperando respuesta o esperando calificación
+  }
+
+  /// Ordena por prioridad; si empatan, conserva el orden original
+  List<Map<String, dynamic>> _ordenarPorPrioridad(
+    List<dynamic> lista,
+    int Function(Map<String, dynamic>) prioridad,
+  ) {
+    final conIndice = lista
+        .asMap()
+        .entries
+        .map((e) => MapEntry(e.key, Map<String, dynamic>.from(e.value as Map)))
+        .toList();
+
+    conIndice.sort((a, b) {
+      final pa = prioridad(a.value);
+      final pb = prioridad(b.value);
+      if (pa != pb) return pa - pb;
+      return a.key - b.key; // Mismo grupo: orden original
+    });
+
+    return conIndice.map((e) => e.value).toList();
   }
 
   String _textoStatus(dynamic status) {

@@ -7,6 +7,7 @@ import '../services/feedback_service.dart';
 import '../providers/reto_provider.dart';
 import '../providers/racha_provider.dart';
 import '../providers/practicalo_provider.dart';
+import '../providers/planificacion_provider.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
 
@@ -19,12 +20,15 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late FeedbackService _feedbackService;
-  int _currentNavIndex = 4;
+  int _currentNavIndex = 5; // Perfil es el índice 5
   double? _feedbackScore;
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, double> _asistenciaScores = {};
   Map<String, double?> _feedbackScoresPerReto = {};
+  // Retos inscritos en el mes en curso (de la planificación)
+  Set<String> _retosInscritosIds = {};
+  String _mesVigenteNombre = '';
   Set<String> _retosExpandidos = {};
 
   // ===== Colores de marca RetUp (Paleta "Vínculo") =====
@@ -105,6 +109,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final practicaloProvider = context.read<PracticaloProvider>();
       await practicaloProvider.cargarEnviadas(token: token, userId: userId);
 
+      // Retos inscritos del mes en curso (misma fuente que Inicio y Retos)
+      final planProvider = context.read<PlanificacionProvider>();
+      await planProvider.cargar();
+      final plan = planProvider.data;
+      _retosInscritosIds = plan?.retosDelMes.map((r) => r.id).toSet() ?? {};
+      _mesVigenteNombre = plan?.mesVigenteNombre ?? '';
+
+      // Píldoras cumplidas del mes por reto inscrito (mismo dato que Rachas)
+      if (_retosInscritosIds.isNotEmpty) {
+        await rachaProvider.cargarEstadisticasMultipleRetos(
+          userId,
+          _retosInscritosIds.toList(),
+          token,
+        );
+      }
+
       _feedbackScoresPerReto.clear();
       for (var retoLocal in retoProvider.retos) {
         try {
@@ -151,16 +171,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Navigator.pushReplacementNamed(context, '/');
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, '/social');
+        Navigator.pushReplacementNamed(context, '/retos');
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/rachas');
+        Navigator.pushReplacementNamed(context, '/social');
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, '/practicalo');
+        Navigator.pushReplacementNamed(context, '/rachas');
         break;
       case 4:
+        Navigator.pushReplacementNamed(context, '/practicalo');
         break;
+      case 5:
+        break; // Ya estamos en Perfil
     }
   }
 
@@ -188,7 +211,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   double _calcularCalificacionAsistencia({
     required String retoId,
     required RachaProvider rachaProvider,
+    bool esInscrito = false,
   }) {
+    // Retos inscritos del mes: 5 puntos por cada píldora del reto completada
+    // (20 píldoras = 100). Las píldoras sueltas no cuentan.
+    if (esInscrito) {
+      final stats = rachaProvider.obtenerStatsReto(retoId);
+      final cumplidas = (stats?['dias_cumplidos'] as num?)?.toInt() ?? 0;
+      final puntos = cumplidas * 5.0;
+      return puntos > 100 ? 100.0 : puntos;
+    }
+
+    // Retos no inscritos: cálculo anterior (días cumplidos / días transcurridos)
     final progresoDiario = rachaProvider.obtenerProgresoDiario(retoId);
 
     if (progresoDiario == null || progresoDiario.isEmpty) {
@@ -356,6 +390,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _calcularCalificacionAsistencia(
                           retoId: retoLocal.reto.id,
                           rachaProvider: rachaProvider,
+                          esInscrito:
+                              _retosInscritosIds.contains(retoLocal.reto.id),
                         );
                         final double? practicaRaw = _calcularNotaPromedio(
                           retoId: retoLocal.reto.id,
@@ -370,7 +406,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             asistencia > 0 ||
                             practica != null;
 
-                        if (tieneAlgunDato) {
+                        final bool esInscrito =
+                            _retosInscritosIds.contains(retoLocal.reto.id);
+
+                        // Los retos inscritos del mes se muestran siempre;
+                        // los demás solo si tienen algún dato
+                        if (tieneAlgunDato || esInscrito) {
                           // Para el promedio general, solo promediar las categorías que tienen datos
                           double sumaGenerales = 0;
                           int cantidadConDatos = 0;
@@ -399,8 +440,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 asistencia, // double — 0.0 = sin datos (ya existente)
                             'practica': practica, // double? — null = sin datos
                             'general': general,
+                            'inscrito': esInscrito,
                           });
                         }
+                      }
+
+                      // Dividir en: inscritos del mes / otros con calificaciones
+                      final inscritos = retosConDatos
+                          .where((r) => r['inscrito'] == true)
+                          .toList();
+                      final otros = retosConDatos
+                          .where((r) => r['inscrito'] != true)
+                          .toList();
+
+                      // Tarjeta de un reto (misma que antes)
+                      Widget tarjetaReto(Map<String, dynamic> item) {
+                        final retoLocal = item['retoLocal'];
+                        final int index = item['index'] as int;
+                        return _buildRetoCard(
+                          retoId: retoLocal.reto.id,
+                          colores: _paleta[index % _paleta.length],
+                          emoji: retoLocal.emoji,
+                          titulo: retoLocal.reto.title ?? 'Reto sin nombre',
+                          categoria: retoLocal.reto.category,
+                          general: item['general'] as double,
+                          feedback: item['feedback'] as double?,
+                          asistencia: item['asistencia'] as double,
+                          practica: item['practica'] as double?,
+                        );
                       }
 
                       return SingleChildScrollView(
@@ -413,42 +480,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 authProvider, retosConDatos.length),
                             const SizedBox(height: 28),
 
-                            // ===== CALIFICACIONES POR RETO =====
+                            // ===== SECCIÓN 1: RETOS INSCRITOS DEL MES =====
                             _buildSectionHeader(
-                              '📊',
-                              'Calificaciones por reto',
-                              'Feedback, asistencia y práctica de cada reto',
+                              '🎯',
+                              _mesVigenteNombre.isNotEmpty
+                                  ? 'Retos inscritos · $_mesVigenteNombre'
+                                  : 'Retos inscritos este mes',
+                              'Feedback, asistencia y práctica de tus retos del mes',
                             ),
                             const SizedBox(height: 14),
 
-                            if (retosConDatos.isEmpty)
+                            if (inscritos.isEmpty)
                               Padding(
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
                                 child: _buildEstadoVacio(
                                   '🌱',
-                                  'Aún no tienes calificaciones',
-                                  'Cuando completes píldoras, recibas feedback o practiques con un compañero, verás aquí tu desempeño.',
+                                  'No tienes retos inscritos este mes',
+                                  'Planifica tus retos en la pestaña Retos para ver aquí tu desempeño.',
                                 ),
                               )
                             else
-                              ...retosConDatos.map((item) {
-                                final retoLocal = item['retoLocal'];
-                                final int index = item['index'] as int;
+                              ...inscritos.map(tarjetaReto),
 
-                                return _buildRetoCard(
-                                  retoId: retoLocal.reto.id,
-                                  colores: _paleta[index % _paleta.length],
-                                  emoji: retoLocal.emoji,
-                                  titulo:
-                                      retoLocal.reto.title ?? 'Reto sin nombre',
-                                  categoria: retoLocal.reto.category,
-                                  general: item['general'] as double,
-                                  feedback: item['feedback'] as double?,
-                                  asistencia: item['asistencia'] as double,
-                                  practica: item['practica'] as double?,
-                                );
-                              }).toList(),
+                            // ===== SECCIÓN 2: OTROS RETOS CON CALIFICACIONES =====
+                            if (otros.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              _buildSectionHeader(
+                                '💬',
+                                'Otros retos con calificaciones',
+                                'No estás inscrito este mes, pero tus compañeros te valoraron o tienes actividad en ellos',
+                              ),
+                              const SizedBox(height: 14),
+                              ...otros.map(tarjetaReto),
+                            ],
                             const SizedBox(height: 8),
                           ],
                         ),

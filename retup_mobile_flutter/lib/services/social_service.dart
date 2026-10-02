@@ -31,10 +31,12 @@ class SocialService {
   // Crear publicación de texto
   Future<bool> createTextPost(String textContent, String token) async {
     try {
-      final response = await _api.post('/social/posts', data: {
-        'content_type': 'text',
-        'text_content': textContent,
-      });
+      // jsonEncode escapa saltos de línea y comillas (si no, el JSON se rompe)
+      final response = await _api.post('/social/posts',
+          data: jsonEncode({
+            'content_type': 'text',
+            'text_content': textContent,
+          }));
       return response.statusCode == 201 || response.statusCode == 200;
     } catch (e) {
       print('❌ Error creando post de texto: $e');

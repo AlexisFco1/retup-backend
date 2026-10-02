@@ -1,5 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:io';
+import 'dart:async';
 
 class ApiService {
   static const String baseUrl = 'https://retup-backend.onrender.com/api';
@@ -29,7 +31,11 @@ class ApiService {
 
       return response;
     } catch (e) {
-      throw Exception('Error en GET $path: $e');
+      if (e is SocketException || e is TimeoutException) {
+        throw Exception(
+            'No hay conexión a internet. Verifica tu conexión e intenta nuevamente.');
+      }
+      throw Exception('Error en la solicitud. Intenta nuevamente.');
     }
   }
 
@@ -49,7 +55,11 @@ class ApiService {
 
       return response;
     } catch (e) {
-      throw Exception('Error en POST $path: $e');
+      if (e is SocketException || e is TimeoutException) {
+        throw Exception(
+            'No hay conexión a internet. Verifica tu conexión e intenta nuevamente.');
+      }
+      throw Exception('Error en la solicitud. Intenta nuevamente.');
     }
   }
 
@@ -69,7 +79,12 @@ class ApiService {
 
       return response;
     } catch (e) {
-      throw Exception('Error en PUT $path: $e');
+      // Detectar tipo de error y devolver mensaje genérico
+      if (e is SocketException || e is TimeoutException) {
+        throw Exception(
+            'No hay conexión a internet. Verifica tu conexión e intenta nuevamente.');
+      }
+      throw Exception('Error en la solicitud. Intenta nuevamente.');
     }
   }
 
@@ -88,7 +103,11 @@ class ApiService {
 
       return response;
     } catch (e) {
-      throw Exception('Error en DELETE $path: $e');
+      if (e is SocketException || e is TimeoutException) {
+        throw Exception(
+            'No hay conexión a internet. Verifica tu conexión e intenta nuevamente.');
+      }
+      throw Exception('Error en la solicitud. Intenta nuevamente.');
     }
   }
 

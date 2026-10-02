@@ -21,7 +21,7 @@ class SocialScreen extends StatefulWidget {
 }
 
 class _SocialScreenState extends State<SocialScreen> {
-  int _currentNavIndex = 1;
+  int _currentNavIndex = 2; // Social es el índice 2
 
   // ===== Colores de marca RetUp (Paleta "Vínculo") =====
   static const Color _indigo = Color(0xFF2E2A72); // Predomina
@@ -77,14 +77,17 @@ class _SocialScreenState extends State<SocialScreen> {
         Navigator.pushReplacementNamed(context, '/');
         break;
       case 1:
+        Navigator.pushReplacementNamed(context, '/retos');
         break;
       case 2:
+        break; // Ya estamos en Social
+      case 3:
         Navigator.pushReplacementNamed(context, '/rachas');
         break;
-      case 3:
+      case 4:
         Navigator.pushReplacementNamed(context, '/practicalo');
         break;
-      case 4:
+      case 5:
         Navigator.pushReplacementNamed(context, '/profile');
         break;
     }

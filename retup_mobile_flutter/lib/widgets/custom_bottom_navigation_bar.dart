@@ -42,42 +42,59 @@ class _CustomBottomNavigationBarState extends State<CustomBottomNavigationBar> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _NavItem(
-                label: 'Retos',
-                emoji: '⛰️',
-                isActive: widget.currentIndex == 0,
-                onTap: () => widget.onTap(0),
+              Expanded(
+                child: _NavItem(
+                  label: 'Inicio',
+                  emoji: '🏠',
+                  isActive: widget.currentIndex == 0,
+                  onTap: () => widget.onTap(0),
+                ),
               ),
-              _NavItem(
-                label: 'Social',
-                emoji: '👥',
-                isActive: widget.currentIndex == 1,
-                onTap: () => widget.onTap(1),
+              Expanded(
+                child: _NavItem(
+                  label: 'Retos',
+                  emoji: '⛰️',
+                  isActive: widget.currentIndex == 1,
+                  onTap: () => widget.onTap(1),
+                ),
               ),
-              _NavItem(
-                label: 'Rachas',
-                emoji: '🔥',
-                isActive: widget.currentIndex == 2,
-                onTap: () => widget.onTap(2),
+              Expanded(
+                child: _NavItem(
+                  label: 'Social',
+                  emoji: '👥',
+                  isActive: widget.currentIndex == 2,
+                  onTap: () => widget.onTap(2),
+                ),
               ),
-              Consumer<NotificationProvider>(
-                builder: (context, notificationProvider, _) {
-                  return _NavItem(
-                    label: 'Practicalo',
-                    emoji: '💪',
-                    isActive: widget.currentIndex == 3,
-                    onTap: () => widget.onTap(3),
-                    badgeCount: notificationProvider.unreadCount,
-                  );
-                },
+              Expanded(
+                child: _NavItem(
+                  label: 'Rachas',
+                  emoji: '🔥',
+                  isActive: widget.currentIndex == 3,
+                  onTap: () => widget.onTap(3),
+                ),
               ),
-              _NavItem(
-                label: 'Perfil',
-                emoji: '👤',
-                isActive: widget.currentIndex == 4,
-                onTap: () => widget.onTap(4),
+              Expanded(
+                child: Consumer<NotificationProvider>(
+                  builder: (context, notificationProvider, _) {
+                    return _NavItem(
+                      label: 'Practicalo',
+                      emoji: '💪',
+                      isActive: widget.currentIndex == 4,
+                      onTap: () => widget.onTap(4),
+                      badgeCount: notificationProvider.unreadCount,
+                    );
+                  },
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  label: 'Perfil',
+                  emoji: '👤',
+                  isActive: widget.currentIndex == 5,
+                  onTap: () => widget.onTap(5),
+                ),
               ),
             ],
           ),
@@ -109,62 +126,65 @@ class _NavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: EdgeInsets.symmetric(
-          horizontal: isActive ? 16 : 8,
+          horizontal: isActive ? 10 : 4,
           vertical: 8,
         ),
         decoration: BoxDecoration(
           color: isActive ? Colors.blue.withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Text(emoji, style: TextStyle(fontSize: isActive ? 28 : 24)),
-                // Badge de notificaciones (solo para Practicalo)
-                if (badgeCount > 0)
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 2,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Text(emoji, style: TextStyle(fontSize: isActive ? 28 : 24)),
+                  // Badge de notificaciones (solo para Practicalo)
+                  if (badgeCount > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2,
+                          ),
                         ),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 20,
-                        minHeight: 20,
-                      ),
-                      child: Text(
-                        badgeCount > 99 ? '99+' : '$badgeCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                        constraints: const BoxConstraints(
+                          minWidth: 20,
+                          minHeight: 20,
                         ),
-                        textAlign: TextAlign.center,
+                        child: Text(
+                          badgeCount > 99 ? '99+' : '$badgeCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? Colors.blue : Colors.grey[600],
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: isActive ? Colors.blue : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

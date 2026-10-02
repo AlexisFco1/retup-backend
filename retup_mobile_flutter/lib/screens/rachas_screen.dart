@@ -18,7 +18,7 @@ class RachasScreen extends StatefulWidget {
 }
 
 class _RachasScreenState extends State<RachasScreen> {
-  int _currentNavIndex = 2;
+  int _currentNavIndex = 3; // Rachas es el índice 3
 
   // ===== Colores de marca RetUp (Paleta "Vínculo") =====
   static const Color _indigo = Color(0xFF2E2A72); // Predomina
@@ -106,15 +106,18 @@ class _RachasScreenState extends State<RachasScreen> {
         Navigator.pushReplacementNamed(context, '/');
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, '/social');
+        Navigator.pushReplacementNamed(context, '/retos');
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/rachas');
+        Navigator.pushReplacementNamed(context, '/social');
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, '/practicalo');
+        Navigator.pushReplacementNamed(context, '/rachas');
         break;
       case 4:
+        Navigator.pushReplacementNamed(context, '/practicalo');
+        break;
+      case 5:
         Navigator.pushReplacementNamed(context, '/profile');
         break;
     }
@@ -1109,14 +1112,19 @@ class _RachasScreenState extends State<RachasScreen> {
 
       Color color;
       if (esDiaGracia) {
-        // Los días de gracia (después del día 20) cambian de color según si hay píldoras pendientes
-        if (diaData != null) {
-          final cumple = diaData['login_hecho'] == true &&
-              diaData['pildora_completada'] == true;
-          color = cumple ? _verde : _rojo;
+        // Días de gracia (después del día 20):
+        // 🟢 verde  → ese día hizo login + píldora
+        // 🔴 rojo   → el día ya pasó sin cumplir
+        // 🟣 morado → aún no llega, o es hoy y todavía está a tiempo
+        final cumple = diaData != null &&
+            diaData['login_hecho'] == true &&
+            diaData['pildora_completada'] == true;
+        if (cumple) {
+          color = _verde;
+        } else if (numeroDelDia < diaLaboralActual) {
+          color = _rojo;
         } else {
-          color =
-              _rojo; // Si es día de gracia pero sin datos = hay píldoras pendientes
+          color = _morado;
         }
       } else if (numeroDelDia <= diaLaboralActual) {
         if (diaData != null) {

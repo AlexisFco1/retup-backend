@@ -6,12 +6,14 @@ import '../providers/pildora_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/racha_provider.dart';
 import '../providers/practicalo_provider.dart';
+import '../providers/social_provider.dart';
 import '../services/secciones_service.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
 import '../services/feedback_service.dart';
 import '../services/notification_service.dart';
 import '../services/progress_service.dart';
+import '../services/home_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
 
@@ -20,6 +22,9 @@ class PildoraDetailScreen extends StatefulWidget {
   final String retoTitle;
   final String retoId;
   final bool isReadOnly;
+  // true solo cuando se abre desde Inicio (píldora suelta):
+  // se guarda en pildoras_sueltas y NO cuenta en Rachas ni rankings
+  final bool esSuelta;
 
   const PildoraDetailScreen({
     Key? key,
@@ -27,6 +32,7 @@ class PildoraDetailScreen extends StatefulWidget {
     required this.retoTitle,
     required this.retoId,
     this.isReadOnly = false,
+    this.esSuelta = false,
   }) : super(key: key);
 
   @override
@@ -57,6 +63,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   final FeedbackService _feedbackService = FeedbackService();
   final NotificationService _notificationService = NotificationService();
   final ProgressService _progressService = ProgressService();
+  final HomeService _homeService = HomeService(); // Píldoras sueltas
   final ScrollController _scrollController = ScrollController();
   List<Seccion> _secciones = [];
   int _seccionActual = 0;
@@ -95,6 +102,13 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   int? _selfAssessmentScore;
   bool _scoreGuardado = false;
   late bool _isReadOnly;
+  bool _yaLaHizoSuelta =
+      false; // Píldora suelta ya terminada (suelta o en su reto)
+
+  // Sección 9: publicar en Social (opcional)
+  final TextEditingController _socialController = TextEditingController();
+  bool _publicandoSocial = false;
+  bool _publicadoSocial = false;
 
   @override
   void initState() {
@@ -110,6 +124,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _socialController.dispose();
     super.dispose();
   }
 
@@ -254,6 +269,37 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       final userId = authProvider.userId;
       if (userId == null) return;
 
+      // Píldora suelta: estado desde pildoras_sueltas (no toca user_pill_progress)
+      if (widget.esSuelta) {
+        final estado =
+            await _homeService.obtenerEstadoSuelta(widget.pildora.id);
+        if (!mounted) return;
+        setState(() {
+          if (estado.selfAssessmentScore != null) {
+            _selfAssessmentScore = estado.selfAssessmentScore;
+            _scoreGuardado = true;
+          }
+          if (estado.yaLaHizo) {
+            _isReadOnly = true;
+            _yaLaHizoSuelta = true;
+          }
+        });
+        if (estado.yaLaHizo) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                  '✅ Ya hiciste esta píldora. Puedes volver a leerla.'),
+              backgroundColor: const Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
       final pillProgress =
           await _progressService.getPillProgress(userId, widget.pildora.id);
       if (pillProgress != null && pillProgress.selfAssessmentScore != null) {
@@ -273,14 +319,22 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       final userId = authProvider.userId;
       if (userId == null) return;
 
-      final pillProgress =
-          await _progressService.getPillProgress(userId, widget.pildora.id);
-      if (pillProgress == null) return;
+      bool success;
+      if (widget.esSuelta) {
+        // Píldora suelta → pildoras_sueltas (no cuenta en Rachas)
+        await _homeService.guardarAutopercepcionSuelta(
+            widget.pildora.id, score);
+        success = true;
+      } else {
+        final pillProgress =
+            await _progressService.getPillProgress(userId, widget.pildora.id);
+        if (pillProgress == null) return;
 
-      final success = await _progressService.updateProgress(
-        pillProgress.id,
-        {'self_assesment_score': score},
-      );
+        success = await _progressService.updateProgress(
+          pillProgress.id,
+          {'self_assesment_score': score},
+        );
+      }
 
       if (success && mounted) {
         setState(() {
@@ -580,15 +634,18 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         Navigator.pushReplacementNamed(context, '/');
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, '/social');
+        Navigator.pushReplacementNamed(context, '/retos');
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/rachas');
+        Navigator.pushReplacementNamed(context, '/social');
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, '/practicalo');
+        Navigator.pushReplacementNamed(context, '/rachas');
         break;
       case 4:
+        Navigator.pushReplacementNamed(context, '/practicalo');
+        break;
+      case 5:
         Navigator.pushReplacementNamed(context, '/profile');
         break;
     }
@@ -851,18 +908,32 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         return;
       }
 
-      // 1. Completar la píldora normalmente
-      final pildoraProvider = context.read<PildoraProvider>();
-      final success = await pildoraProvider.completarPildora(
-        pillRating: estrellas,
-        pillFeedbackMessage: mensaje.isNotEmpty ? mensaje : null,
-      );
+      bool success;
+      if (widget.esSuelta) {
+        // Píldora suelta: se guarda en pildoras_sueltas.
+        // NO usa PildoraProvider ni registra en Rachas → no afecta rankings
+        await _homeService.completarSuelta(
+          widget.pildora.id,
+          pillRating: estrellas,
+          pillFeedbackMessage: mensaje.isNotEmpty ? mensaje : null,
+        );
+        success = true;
+      } else {
+        // 1. Completar la píldora normalmente
+        final pildoraProvider = context.read<PildoraProvider>();
+        success = await pildoraProvider.completarPildora(
+          pillRating: estrellas,
+          pillFeedbackMessage: mensaje.isNotEmpty ? mensaje : null,
+        );
+      }
 
       if (success && mounted) {
-        // 2. Registrar la píldora completada en Rachas (CON TOKEN)
-        final rachaProvider = context.read<RachaProvider>();
-        await rachaProvider.registrarPildoraCompletada(
-            userId, widget.retoId, token);
+        // 2. Registrar la píldora completada en Rachas (solo si NO es suelta)
+        if (!widget.esSuelta) {
+          final rachaProvider = context.read<RachaProvider>();
+          await rachaProvider.registrarPildoraCompletada(
+              userId, widget.retoId, token);
+        }
 
         showDialog(
           context: context,
@@ -906,8 +977,10 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    '¡Has completado la píldora!\nContinúa así para subir en el ranking',
+                  Text(
+                    widget.esSuelta
+                        ? '¡Has completado la píldora!\nGracias por tu calificación'
+                        : '¡Has completado la píldora!\nContinúa así para subir en el ranking',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
@@ -925,6 +998,11 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                       onPressed: () {
                         Navigator.pop(
                             context); // Cierra el diálogo de Felicidades
+                        if (widget.esSuelta) {
+                          // Suelta: sin XP, vuelve a Inicio (que se recarga sola)
+                          Navigator.pop(context);
+                          return;
+                        }
                         final now = DateTime.now();
                         final esEntresemana = now.weekday >= DateTime.monday &&
                             now.weekday <= DateTime.friday;
@@ -1827,6 +1905,192 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   }
 
   // ── Tarjeta principal de la sección ──
+  /// Sección 9: tarjeta opcional para publicar un mensaje en Social
+  Widget _construirPublicarSocial(List<Color> colores) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colores[0].withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      colores[0].withOpacity(0.18),
+                      colores[1].withOpacity(0.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(Icons.forum_rounded, color: colores[0], size: 22),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '¿Quieres subir algo a Social?',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: _texto,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Opcional · comparte lo que aprendiste con tu equipo',
+                      style: TextStyle(fontSize: 12.5, color: _textoSuave),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_publicadoSocial)
+            // Estado: ya publicado
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _verde[0].withOpacity(0.10),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _verde[0].withOpacity(0.30)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_rounded, color: _verde[1], size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '¡Publicado en Social!',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _verde[1],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            TextField(
+              controller: _socialController,
+              maxLines: 4,
+              minLines: 3,
+              maxLength: 500,
+              enabled: !_publicandoSocial,
+              cursorColor: colores[0],
+              decoration: InputDecoration(
+                hintText: 'Escribe aquí tu mensaje para el equipo...',
+                hintStyle: const TextStyle(color: _textoSuave, fontSize: 14),
+                filled: true,
+                fillColor: const Color(0xFFF6F7FB),
+                contentPadding: const EdgeInsets.all(14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: colores[0], width: 1.5),
+                ),
+              ),
+            ),
+            // Vista previa de la referencia que se añadirá al post
+            Text(
+              'Se añadirá: ${_referenciaPildora()}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: _textoSuave,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _botonGradiente(
+              texto: 'Publicar en Social',
+              icono: Icons.send_rounded,
+              colores: colores,
+              cargando: _publicandoSocial,
+              onPressed: _publicandoSocial ? null : _publicarEnSocial,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Línea que se añade al post para saber de qué píldora y reto habla
+  String _referenciaPildora() {
+    return '💊 En referencia a la píldora «${widget.pildora.title}» '
+        'del reto «${widget.retoTitle}»';
+  }
+
+  /// Publica el texto escrito en la sección 9 como post de Social
+  Future<void> _publicarEnSocial() async {
+    final texto = _socialController.text.trim();
+    if (texto.isEmpty) {
+      _mostrarSnack('Escribe un mensaje antes de publicar');
+      return;
+    }
+
+    final token = context.read<AuthProvider>().token;
+    if (token == null) {
+      _mostrarSnack('No hay usuario autenticado', esError: true);
+      return;
+    }
+
+    FocusScope.of(context).unfocus(); // Cierra el teclado
+    setState(() => _publicandoSocial = true);
+
+    try {
+      // Se añade automáticamente a qué píldora y reto se refiere el mensaje
+      final textoFinal = '$texto\n\n${_referenciaPildora()}';
+      final ok = await context
+          .read<SocialProvider>()
+          .createTextPost(textoFinal, token);
+      if (!mounted) return;
+
+      if (ok) {
+        setState(() {
+          _publicadoSocial = true;
+          _socialController.clear();
+        });
+        _mostrarSnack('¡Publicado en Social! 🎉', esExito: true);
+      } else {
+        _mostrarSnack('No se pudo publicar. Intenta de nuevo', esError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _mostrarSnack('No se pudo publicar. Intenta de nuevo', esError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _publicandoSocial = false);
+    }
+  }
+
   Widget _construirTarjetaSeccion(Seccion seccion, List<Color> colores) {
     final tema = _temaSeccion(seccion);
     final esAnonima = seccion.screenType == 'anonymous_question';
@@ -2426,7 +2690,9 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
             child: esUltima
                 ? (_isReadOnly
                     ? _botonGradiente(
-                        texto: 'Volver al listado',
+                        texto: _yaLaHizoSuelta
+                            ? '✅ Ya la hiciste · Volver'
+                            : 'Volver al listado',
                         icono: Icons.arrow_back_rounded,
                         colores: _heroColores,
                         onPressed: () => Navigator.pop(context),
@@ -2620,6 +2886,13 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                                     _secciones[_seccionActual],
                                     _coloresSeccion,
                                   ),
+                                ],
+                                // Publicar en Social (SOLO en sección 9, opcional, NO en modo lectura)
+                                if (!_isReadOnly &&
+                                    _secciones[_seccionActual].screenNumber ==
+                                        9) ...[
+                                  const SizedBox(height: 18),
+                                  _construirPublicarSocial(_coloresSeccion),
                                 ],
                               ],
                             ),

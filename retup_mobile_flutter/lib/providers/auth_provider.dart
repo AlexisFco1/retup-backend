@@ -23,6 +23,25 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  /// Nombre completo: nombre + apellidos → full_name → parte del email
+  String _nombreCompleto(dynamic user, String email) {
+    if (user is Map) {
+      final partes = [
+        user['first_name'],
+        user['last_name_1'],
+        user['last_name_2'],
+      ]
+          .where((p) => p != null && p.toString().trim().isNotEmpty)
+          .map((p) => p.toString().trim())
+          .toList();
+      if (partes.isNotEmpty) return partes.join(' ');
+
+      final fullName = user['full_name']?.toString().trim() ?? '';
+      if (fullName.isNotEmpty) return fullName;
+    }
+    return email.split('@')[0];
+  }
+
   // LOGIN REAL
   Future<bool> login(String email, String password) async {
     try {
@@ -37,7 +56,7 @@ class AuthProvider extends ChangeNotifier {
         _token = response['token'];
         _userId = response['userId']?.toString();
         _userEmail = email;
-        _userName = email.split('@')[0];
+        _userName = _nombreCompleto(response['user'], email);
 
         // 🆕 REGISTRAR LOGIN EN RACHA para todos los retos
         await _registrarLoginEnRachas();

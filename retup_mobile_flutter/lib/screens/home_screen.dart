@@ -28,7 +28,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentNavIndex = 0; // Home es el índice 0
+  int _currentNavIndex = 1; // Retos es el índice 1 (Inicio es el 0)
 
   // ===== Colores de marca RetUp (Paleta "Vínculo") =====
   static const Color _indigo = Color(0xFF2E2A72); // Predomina
@@ -214,15 +214,17 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.pushReplacementNamed(context, '/');
         break;
       case 1:
+        break; // Ya estamos en Retos
+      case 2:
         Navigator.pushReplacementNamed(context, '/social');
         break;
-      case 2:
+      case 3:
         Navigator.pushReplacementNamed(context, '/rachas');
         break;
-      case 3:
+      case 4:
         Navigator.pushReplacementNamed(context, '/practicalo');
         break;
-      case 4:
+      case 5:
         Navigator.pushReplacementNamed(context, '/profile');
         break;
     }
@@ -1136,9 +1138,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   children: bloqueado
                       ? [
-                          for (final p in mes.planes) ...[
-                            _buildSlot(plan, data, mes, p.slot),
-                            const SizedBox(height: 8),
+                          // Espacio solo ENTRE retos (no después del último)
+                          for (int i = 0; i < mes.planes.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 8),
+                            _buildSlot(plan, data, mes, mes.planes[i].slot),
                           ],
                         ]
                       : [
