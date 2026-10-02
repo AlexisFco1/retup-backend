@@ -3003,6 +3003,28 @@ app.get('/api/home/destacados', authenticateToken, async (req, res) => {
         rating,
       };
     });
+        // También cuentan las estrellas de las píldoras sueltas.
+    // Si el usuario calificó la misma píldora dentro del reto, se queda la del reto (no se duplica).
+    const sueltasCalificadas = await _traerTodo(() =>
+      supabase
+        .from('pildoras_sueltas')
+        .select('id, user_id, pill_id, pill_rating')
+        .eq('is_completed', true)
+        .not('pill_rating', 'is', null)
+        .order('id')
+    );
+
+    sueltasCalificadas.forEach(c => {
+      const rating = Number(c.pill_rating);
+      const clave = `${c.user_id}_${c.pill_id}`;
+      if (!pildoraPorId[c.pill_id] || !(rating > 0) || calificacionUnica[clave]) return;
+      calificacionUnica[clave] = {
+        user_id: c.user_id,
+        pill_id: c.pill_id,
+        rating,
+      };
+    });
+
     const calificaciones = Object.values(calificacionUnica);
 
     // 3) TOP 10 PÍLDORAS MEJOR CALIFICADAS (promedio de estrellas)
@@ -3091,8 +3113,141 @@ app.get('/api/home/destacados', authenticateToken, async (req, res) => {
       top_inscritos: topInscritos,
       top_calificados: topCalificados,
     });
-  } catch (error) {
+   } catch (error) {
     console.error('❌ Error en GET /api/home/destacados:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ═══════════════ PÍLDORAS SUELTAS (desde Inicio) ═══════════════
+// No escriben en user_pill_progress ni en racha → no afectan Rachas ni rankings
+
+// ¿El usuario ya completó esta píldora dentro de su reto?
+async function _completadaEnReto(userId, pillId) {
+  const { data, error } = await supabase
+    .from('user_pill_progress')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('pill_id', pillId)
+    .eq('is_completed', true)
+    .limit(1);
+  if (error) throw error;
+  return (data || []).length > 0;
+}
+
+// Fila de pildoras_sueltas del usuario para esa píldora (o null)
+async function _filaSuelta(userId, pillId) {
+  const { data, error } = await supabase
+    .from('pildoras_sueltas')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('pill_id', pillId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// GET: Estado de la píldora suelta para el usuario
+app.get('/api/pildoras-sueltas/:pillId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { pillId } = req.params;
+
+    const fila = await _filaSuelta(userId, pillId);
+    const completadaEnReto = await _completadaEnReto(userId, pillId);
+
+    res.json({
+      success: true,
+      data: {
+        self_assesment_score: fila ? fila.self_assesment_score : null,
+        is_completed: fila ? fila.is_completed === true : false,
+        completada_en_reto: completadaEnReto,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error en GET /api/pildoras-sueltas/:pillId:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT: Guardar autopercepción (sección 5) de una píldora suelta
+app.put('/api/pildoras-sueltas/:pillId/autopercepcion', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { pillId } = req.params;
+    const score = parseInt(req.body.self_assesment_score, 10);
+
+    if (!score || score < 1 || score > 5) {
+      return res.status(400).json({ success: false, error: 'Autopercepción no válida' });
+    }
+
+    const fila = await _filaSuelta(userId, pillId);
+    if (fila && fila.is_completed) {
+      return res.status(400).json({ success: false, error: 'Ya hiciste esta píldora' });
+    }
+
+    const { error } = await supabase
+      .from('pildoras_sueltas')
+      .upsert(
+        {
+          user_id: userId,
+          pill_id: pillId,
+          self_assesment_score: score,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,pill_id' }
+      );
+    if (error) throw error;
+
+    console.log(`💊 Autopercepción suelta guardada - User: ${userId}, Píldora: ${pillId}, Score: ${score}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error en PUT /api/pildoras-sueltas/autopercepcion:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST: Terminar una píldora suelta (con estrellas y mensaje opcional)
+app.post('/api/pildoras-sueltas/:pillId/completar', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { pillId } = req.params;
+    const rating = parseInt(req.body.pill_rating, 10);
+    const mensaje = req.body.pill_feedback_message || null;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, error: 'La calificación debe ser de 1 a 5 estrellas' });
+    }
+
+    const fila = await _filaSuelta(userId, pillId);
+    if (fila && fila.is_completed) {
+      return res.status(400).json({ success: false, error: 'Ya hiciste esta píldora' });
+    }
+    if (await _completadaEnReto(userId, pillId)) {
+      return res.status(400).json({ success: false, error: 'Ya hiciste esta píldora en tu reto' });
+    }
+
+    const ahora = new Date().toISOString();
+    const { error } = await supabase
+      .from('pildoras_sueltas')
+      .upsert(
+        {
+          user_id: userId,
+          pill_id: pillId,
+          pill_rating: rating,
+          pill_feedback_message: mensaje,
+          is_completed: true,
+          completed_at: ahora,
+          updated_at: ahora,
+        },
+        { onConflict: 'user_id,pill_id' }
+      );
+    if (error) throw error;
+
+    console.log(`💊 Píldora suelta completada - User: ${userId}, Píldora: ${pillId}, ⭐ ${rating}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error en POST /api/pildoras-sueltas/completar:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
