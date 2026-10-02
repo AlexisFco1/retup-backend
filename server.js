@@ -193,69 +193,87 @@ app.get('/api/racha/preferencia-regalo/:userId/:retoId', authenticateToken, asyn
     });
   }
 });
-// ===== GUARDAR PREFERENCIA DE REGALO GLOBAL =====
+// ===== REGALO DEL MES (una elección por usuario y mes) =====
+// Se guarda en user_regalo_mensual. Cada mes se puede elegir UNA vez;
+// el mes siguiente queda libre de nuevo (se desbloquea solo).
+const _REGALOS_VALIDOS = ['social', 'restaurante', 'tarjeta'];
+
+// Año y mes actuales según la hora de Madrid
+function _anioMesMadrid() {
+  const [anio, mes] = _hoyMadrid().split('-').map(Number);
+  return { anio, mes };
+}
+
+// ===== GUARDAR REGALO DEL MES =====
 app.post('/api/racha/guardar-preferencia-regalo-global', authenticateToken, async (req, res) => {
   try {
-    const { user_id, regalo_tipo } = req.body;
+    const userId = req.user.id;
+    const { regalo_tipo } = req.body;
 
-    if (!user_id || !regalo_tipo) {
+    if (!_REGALOS_VALIDOS.includes(regalo_tipo)) {
+      return res.status(400).json({ success: false, error: 'Tipo de regalo no válido' });
+    }
+
+    const { anio, mes } = _anioMesMadrid();
+    console.log(`🎁 POST regalo del mes: user=${userId}, ${mes}/${anio}, tipo=${regalo_tipo}`);
+
+    // ¿Ya eligió este mes?
+    const { data: existente, error: errBuscar } = await supabase
+      .from('user_regalo_mensual')
+      .select('gift_type')
+      .eq('user_id', userId)
+      .eq('anio', anio)
+      .eq('mes', mes)
+      .maybeSingle();
+    if (errBuscar) throw errBuscar;
+
+    if (existente) {
       return res.status(400).json({
         success: false,
-        error: 'Faltan parámetros: user_id, regalo_tipo'
+        error: 'Ya elegiste tu regalo de este mes',
+        data: existente.gift_type,
       });
     }
 
-    console.log(`🎁 POST guardar-preferencia-regalo-global: user=${user_id}, tipo=${regalo_tipo}`);
+    const { error } = await supabase
+      .from('user_regalo_mensual')
+      .insert({ user_id: userId, anio, mes, gift_type: regalo_tipo });
 
-    // Usar 'global' como reto_id para la preferencia global
-    const { data: existente } = await supabase
-      .from('user_reto_gifts')
-      .select('id')
-      .eq('user_id', user_id)
-            .eq('reto_id', '00000000-0000-0000-0000-000000000000')
-      .maybeSingle();
-
-    if (existente) {
-      const { error } = await supabase
-        .from('user_reto_gifts')
-        .update({ gift_type: regalo_tipo, updated_at: new Date().toISOString() })
-        .eq('id', existente.id);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from('user_reto_gifts')
-        .insert({
-          user_id,
-                    reto_id: '00000000-0000-0000-0000-000000000000',
-          gift_type: regalo_tipo,
-        });
-      if (error) throw error;
+    if (error) {
+      // 23505 = ya existe (dos envíos a la vez): se trata como "ya eligió"
+      if (error.code === '23505') {
+        return res.status(400).json({ success: false, error: 'Ya elegiste tu regalo de este mes' });
+      }
+      throw error;
     }
 
-    res.json({ success: true, data: regalo_tipo });
+    res.json({ success: true, data: regalo_tipo, anio, mes });
   } catch (error) {
-    console.error('❌ Error en guardar-preferencia-regalo-global:', error.message);
+    console.error('❌ Error guardando regalo del mes:', error.message);
     res.status(400).json({ success: false, error: error.message });
   }
 });
 
-// ===== OBTENER PREFERENCIA DE REGALO GLOBAL =====
+// ===== OBTENER REGALO DEL MES =====
+// Devuelve null si aún no eligió este mes → la pantalla se desbloquea
 app.get('/api/racha/preferencia-regalo-global/:userId', authenticateToken, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.user.id;
+    const { anio, mes } = _anioMesMadrid();
 
     const { data, error } = await supabase
-      .from('user_reto_gifts')
+      .from('user_regalo_mensual')
       .select('gift_type')
       .eq('user_id', userId)
-            .eq('reto_id', '00000000-0000-0000-0000-000000000000')
+      .eq('anio', anio)
+      .eq('mes', mes)
       .maybeSingle();
 
     if (error) throw error;
 
-    res.json({ success: true, data: data?.gift_type || null });
+    res.json({ success: true, data: data?.gift_type || null, anio, mes });
   } catch (error) {
-    console.error('❌ Error en preferencia-regalo-global:', error.message);
+    console.error('❌ Error obteniendo regalo del mes:', error.message);
     res.status(400).json({ success: false, error: error.message });
   }
 });
