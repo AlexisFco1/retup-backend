@@ -2929,9 +2929,170 @@ app.put('/api/planificacion', authenticateToken, async (req, res) => {
       );
     if (upsertError) throw upsertError;
 
-    res.json({ success: true, message: 'Planificación guardada' });
+       res.json({ success: true, message: 'Planificación guardada' });
   } catch (error) {
     console.error('❌ Error en PUT /api/planificacion:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ═══════════════ HOME: DESTACADOS ═══════════════
+
+// Supabase devuelve máximo 1000 filas por consulta: esta función pide por páginas hasta traer todo
+async function _traerTodo(crearQuery) {
+  const tam = 1000;
+  let desde = 0;
+  let todo = [];
+  while (true) {
+    const { data, error } = await crearQuery().range(desde, desde + tam - 1);
+    if (error) throw error;
+    todo = todo.concat(data || []);
+    if (!data || data.length < tam) break;
+    desde += tam;
+  }
+  return todo;
+}
+
+// GET: Top 10 píldoras mejor calificadas, Top 10 retos más inscritos y Top 10 retos mejor calificados
+app.get('/api/home/destacados', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log('🏠 GET /api/home/destacados - Usuario:', userId);
+
+    // 1) Retos y píldoras de la empresa del usuario
+    const retos = await _retosDeEmpresa(userId);
+    const retoIds = retos.map(r => r.id);
+    if (retoIds.length === 0) {
+      return res.json({ success: true, top_pildoras: [], top_inscritos: [], top_calificados: [] });
+    }
+
+    const retoPorId = {};
+    retos.forEach(r => { retoPorId[r.id] = r; });
+
+    const pildoras = await _traerTodo(() =>
+      supabase
+        .from('pildoras')
+        .select('id, reto_id, pill_number, title, key_skill, description, duration_minutes')
+        .in('reto_id', retoIds)
+        .order('id')
+    );
+
+    const pildoraPorId = {};
+    const totalPildorasPorReto = {};
+    pildoras.forEach(p => {
+      pildoraPorId[p.id] = p;
+      totalPildorasPorReto[p.reto_id] = (totalPildorasPorReto[p.reto_id] || 0) + 1;
+    });
+
+    // 2) Calificaciones de píldoras (solo de píldoras de la empresa, 1 por usuario+píldora)
+    const filasCalificadas = await _traerTodo(() =>
+      supabase
+        .from('user_pill_progress')
+        .select('id, user_id, pill_id, pill_rating')
+        .not('pill_rating', 'is', null)
+        .order('id')
+    );
+
+    const calificacionUnica = {}; // "userId_pillId" -> { user_id, pill_id, rating }
+    filasCalificadas.forEach(c => {
+      const rating = Number(c.pill_rating);
+      if (!pildoraPorId[c.pill_id] || !(rating > 0)) return;
+      calificacionUnica[`${c.user_id}_${c.pill_id}`] = {
+        user_id: c.user_id,
+        pill_id: c.pill_id,
+        rating,
+      };
+    });
+    const calificaciones = Object.values(calificacionUnica);
+
+    // 3) TOP 10 PÍLDORAS MEJOR CALIFICADAS (promedio de estrellas)
+    const porPildora = {};
+    calificaciones.forEach(c => {
+      if (!porPildora[c.pill_id]) porPildora[c.pill_id] = { suma: 0, votos: 0 };
+      porPildora[c.pill_id].suma += c.rating;
+      porPildora[c.pill_id].votos++;
+    });
+
+    const topPildoras = Object.entries(porPildora)
+      .map(([pillId, v]) => {
+        const p = pildoraPorId[pillId];
+        return {
+          ...p,
+          reto_title: retoPorId[p.reto_id] ? retoPorId[p.reto_id].title : '',
+          promedio: Number((v.suma / v.votos).toFixed(2)),
+          total_calificaciones: v.votos,
+        };
+      })
+      .sort((a, b) => b.promedio - a.promedio || b.total_calificaciones - a.total_calificaciones)
+      .slice(0, 10);
+
+    // 4) TOP 10 RETOS MÁS INSCRITOS (usuarios distintos en planificacion_retos)
+    const planes = await _traerTodo(() =>
+      supabase
+        .from('planificacion_retos')
+        .select('user_id, reto_id, anio, mes, slot')
+        .in('reto_id', retoIds)
+        .order('user_id')
+        .order('anio')
+        .order('mes')
+        .order('slot')
+    );
+
+    const inscritosPorReto = {};
+    planes.forEach(p => {
+      if (!inscritosPorReto[p.reto_id]) inscritosPorReto[p.reto_id] = new Set();
+      inscritosPorReto[p.reto_id].add(p.user_id);
+    });
+
+    const topInscritos = retos
+      .map(r => ({
+        ...r,
+        total_pildoras: totalPildorasPorReto[r.id] || 0,
+        inscritos: inscritosPorReto[r.id] ? inscritosPorReto[r.id].size : 0,
+      }))
+      .filter(r => r.inscritos > 0)
+      .sort((a, b) => b.inscritos - a.inscritos)
+      .slice(0, 10);
+
+    // 5) TOP 10 RETOS MEJOR CALIFICADOS
+    //    Por usuario: suma de sus estrellas en el reto / total de píldoras del reto (no hechas = 0)
+    //    Luego: promedio entre todos los usuarios que calificaron alguna píldora del reto
+    const sumaPorRetoUsuario = {}; // retoId -> { userId -> suma de estrellas }
+    calificaciones.forEach(c => {
+      const retoId = pildoraPorId[c.pill_id].reto_id;
+      if (!sumaPorRetoUsuario[retoId]) sumaPorRetoUsuario[retoId] = {};
+      sumaPorRetoUsuario[retoId][c.user_id] =
+        (sumaPorRetoUsuario[retoId][c.user_id] || 0) + c.rating;
+    });
+
+    const topCalificados = retos
+      .filter(r => sumaPorRetoUsuario[r.id] && totalPildorasPorReto[r.id])
+      .map(r => {
+        const totalPildoras = totalPildorasPorReto[r.id];
+        const sumasUsuarios = Object.values(sumaPorRetoUsuario[r.id]);
+        const promediosUsuario = sumasUsuarios.map(suma => suma / totalPildoras);
+        const promedio =
+          promediosUsuario.reduce((acc, x) => acc + x, 0) / promediosUsuario.length;
+        return {
+          ...r,
+          total_pildoras: totalPildoras,
+          promedio: Number(promedio.toFixed(2)),
+          total_usuarios: sumasUsuarios.length,
+        };
+      })
+      .sort((a, b) => b.promedio - a.promedio || b.total_usuarios - a.total_usuarios)
+      .slice(0, 10);
+
+    console.log(`✅ Destacados: ${topPildoras.length} píldoras, ${topInscritos.length} inscritos, ${topCalificados.length} calificados`);
+
+    res.json({
+      success: true,
+      top_pildoras: topPildoras,
+      top_inscritos: topInscritos,
+      top_calificados: topCalificados,
+    });
+  } catch (error) {
+    console.error('❌ Error en GET /api/home/destacados:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
