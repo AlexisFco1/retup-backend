@@ -328,7 +328,7 @@ class _InicioScreenState extends State<InicioScreen> {
               _buildSectionHeader(
                 '💊',
                 'Píldoras mejor calificadas',
-                'Top 10 · hazlas cuando quieras, no suman a tu racha',
+                'Top 20 · hazlas cuando quieras',
                 deslizable: true,
               ),
               const SizedBox(height: 12),

@@ -3045,7 +3045,7 @@ app.get('/api/home/destacados', authenticateToken, async (req, res) => {
 
     const calificaciones = Object.values(calificacionUnica);
 
-    // 3) TOP 10 PÍLDORAS MEJOR CALIFICADAS (promedio de estrellas)
+        // 3) TOP 20 PÍLDORAS MEJOR CALIFICADAS (promedio de estrellas)
     const porPildora = {};
     calificaciones.forEach(c => {
       if (!porPildora[c.pill_id]) porPildora[c.pill_id] = { suma: 0, votos: 0 };
@@ -3063,8 +3063,8 @@ app.get('/api/home/destacados', authenticateToken, async (req, res) => {
           total_calificaciones: v.votos,
         };
       })
-      .sort((a, b) => b.promedio - a.promedio || b.total_calificaciones - a.total_calificaciones)
-      .slice(0, 10);
+            .sort((a, b) => b.promedio - a.promedio || b.total_calificaciones - a.total_calificaciones)
+      .slice(0, 20);
 
     // 4) TOP 10 RETOS MÁS INSCRITOS (usuarios distintos en planificacion_retos)
     const planes = await _traerTodo(() =>

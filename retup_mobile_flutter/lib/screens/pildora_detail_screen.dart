@@ -1949,7 +1949,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '¿Quieres subir algo a Social?',
+                      '¿Quieres subir un mensaje a Social?',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -1958,7 +1958,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Opcional · comparte lo que aprendiste con tu equipo',
+                      'Opcional. Con la información que aprendiste hoy, ¿qué mensaje le darías a tu equipo?',
                       style: TextStyle(fontSize: 12.5, color: _textoSuave),
                     ),
                   ],
@@ -2018,17 +2018,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                 ),
               ),
             ),
-            // Vista previa de la referencia que se añadirá al post
-            Text(
-              'Se añadirá: ${_referenciaPildora()}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-                color: _textoSuave,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             _botonGradiente(
               texto: 'Publicar en Social',
               icono: Icons.send_rounded,
@@ -2040,12 +2030,6 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         ],
       ),
     );
-  }
-
-  /// Línea que se añade al post para saber de qué píldora y reto habla
-  String _referenciaPildora() {
-    return '💊 En referencia a la píldora «${widget.pildora.title}» '
-        'del reto «${widget.retoTitle}»';
   }
 
   /// Publica el texto escrito en la sección 9 como post de Social
@@ -2066,11 +2050,8 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     setState(() => _publicandoSocial = true);
 
     try {
-      // Se añade automáticamente a qué píldora y reto se refiere el mensaje
-      final textoFinal = '$texto\n\n${_referenciaPildora()}';
-      final ok = await context
-          .read<SocialProvider>()
-          .createTextPost(textoFinal, token);
+      final ok =
+          await context.read<SocialProvider>().createTextPost(texto, token);
       if (!mounted) return;
 
       if (ok) {

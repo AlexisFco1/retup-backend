@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/feedback_service.dart';
+import '../services/progress_service.dart';
+import '../services/pildoras_service.dart';
 import '../providers/reto_provider.dart';
 import '../providers/racha_provider.dart';
 import '../providers/practicalo_provider.dart';
@@ -28,6 +30,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, double?> _feedbackScoresPerReto = {};
   // Retos inscritos en el mes en curso (de la planificación)
   Set<String> _retosInscritosIds = {};
+  // Píldoras completadas por reto (de siempre, no solo este mes)
+  final Map<String, int> _pildorasCompletadasPorReto = {};
   String _mesVigenteNombre = '';
   Set<String> _retosExpandidos = {};
 
@@ -116,14 +120,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _retosInscritosIds = plan?.retosDelMes.map((r) => r.id).toSet() ?? {};
       _mesVigenteNombre = plan?.mesVigenteNombre ?? '';
 
-      // Píldoras cumplidas del mes por reto inscrito (mismo dato que Rachas)
-      if (_retosInscritosIds.isNotEmpty) {
-        await rachaProvider.cargarEstadisticasMultipleRetos(
-          userId,
-          _retosInscritosIds.toList(),
-          token,
-        );
-      }
+      // Píldoras completadas por reto, en cualquier mes (las sueltas no cuentan)
+      final progresos =
+          await ProgressService().getAllPillProgressForUser(userId);
+      final completadasIds = progresos
+          .where((p) => p.isCompleted)
+          .map((p) => p.pillId.toString())
+          .toSet();
+
+      final pildorasService = PillorasService();
+      _pildorasCompletadasPorReto.clear();
+      await Future.wait(retoProvider.retos.map((retoLocal) async {
+        final pildoras = await pildorasService.getByRetoId(retoLocal.reto.id);
+        _pildorasCompletadasPorReto[retoLocal.reto.id] =
+            pildoras.where((p) => completadasIds.contains(p.id)).length;
+      }));
 
       _feedbackScoresPerReto.clear();
       for (var retoLocal in retoProvider.retos) {
@@ -213,74 +224,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required RachaProvider rachaProvider,
     bool esInscrito = false,
   }) {
-    // Retos inscritos del mes: 5 puntos por cada píldora del reto completada
-    // (20 píldoras = 100). Las píldoras sueltas no cuentan.
-    if (esInscrito) {
-      final stats = rachaProvider.obtenerStatsReto(retoId);
-      final cumplidas = (stats?['dias_cumplidos'] as num?)?.toInt() ?? 0;
-      final puntos = cumplidas * 5.0;
-      return puntos > 100 ? 100.0 : puntos;
-    }
-
-    // Retos no inscritos: cálculo anterior (días cumplidos / días transcurridos)
-    final progresoDiario = rachaProvider.obtenerProgresoDiario(retoId);
-
-    if (progresoDiario == null || progresoDiario.isEmpty) {
-      return 0.0;
-    }
-
-    final hoy = DateTime.now();
-    final mes = hoy.month;
-    final ano = hoy.year;
-    final ultimoDiaDelMes = DateTime(ano, mes + 1, 0).day;
-
-    final diasLaborablesTeoricos = <DateTime>[];
-    for (int day = 1; day <= ultimoDiaDelMes; day++) {
-      final fecha = DateTime(ano, mes, day);
-      if (fecha.weekday >= 1 && fecha.weekday <= 5) {
-        diasLaborablesTeoricos.add(fecha);
-      }
-    }
-
-    final datosMap = <String, Map<String, dynamic>>{};
-    for (var registro in progresoDiario) {
-      datosMap[registro['fecha']] = registro;
-    }
-
-    final hoyString = hoy.toIso8601String().split('T')[0];
-
-    int diaLaboralActual = 0;
-    for (int i = 0; i < diasLaborablesTeoricos.length; i++) {
-      final fechaStr =
-          diasLaborablesTeoricos[i].toIso8601String().split('T')[0];
-      if (fechaStr.compareTo(hoyString) <= 0) {
-        diaLaboralActual = i + 1;
-      } else {
-        break;
-      }
-    }
-
-    int bolitasVerdes = 0;
-    for (int i = 0; i < diaLaboralActual; i++) {
-      final fechaStr =
-          diasLaborablesTeoricos[i].toIso8601String().split('T')[0];
-      final diaData = datosMap[fechaStr];
-
-      if (diaData != null) {
-        final cumple = diaData['login_hecho'] == true &&
-            diaData['pildora_completada'] == true;
-        if (cumple) {
-          bolitasVerdes++;
-        }
-      }
-    }
-
-    final divisor = diaLaboralActual > 20 ? 20 : diaLaboralActual;
-    if (divisor == 0) {
-      return 0.0;
-    }
-
-    return (bolitasVerdes / divisor) * 100;
+    // 5 puntos por cada píldora del reto completada, en cualquier mes.
+    // 20 píldoras = 100. Las sueltas no cuentan. No se reinicia al cambiar de mes.
+    final completadas = _pildorasCompletadasPorReto[retoId] ?? 0;
+    final puntos = completadas * 5.0;
+    return puntos > 100 ? 100.0 : puntos;
   }
 
   double? _calcularNotaPromedio({
