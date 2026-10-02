@@ -699,7 +699,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Tu opinión nos ayuda a mejorar',
+                  '✅ Píldora completada. Califícala si quieres (opcional)',
                   style: TextStyle(fontSize: 14, color: _textoSuave),
                 ),
                 const SizedBox(height: 20),
@@ -763,8 +763,8 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                   child: _botonGradiente(
                     // La calificación es opcional
                     texto: _estrellas == 0
-                        ? 'Completar sin calificar'
-                        : 'Enviar y completar',
+                        ? 'Continuar sin calificar'
+                        : 'Enviar calificación',
                     icono: Icons.check_circle_rounded,
                     colores: _verde,
                     onPressed: () {
@@ -889,17 +889,33 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     });
   }
 
+  /// Guarda la calificación de una píldora YA completada
+  Future<void> _guardarCalificacion({
+    String? progresoId,
+    int? estrellas,
+    required String mensaje,
+  }) async {
+    final msg = mensaje.isNotEmpty ? mensaje : null;
+    try {
+      if (widget.esSuelta) {
+        await _homeService.calificarSuelta(
+          widget.pildora.id,
+          pillRating: estrellas,
+          pillFeedbackMessage: msg,
+        );
+      } else if (progresoId != null) {
+        await _progressService.updateProgress(progresoId, {
+          if (estrellas != null) 'pill_rating': estrellas,
+          if (msg != null) 'pill_feedback_message': msg,
+        });
+      }
+    } catch (e) {
+      // La píldora ya está completada; si falla, solo se pierde la calificación
+      print('⚠️ No se pudo guardar la calificación: $e');
+    }
+  }
+
   Future<void> _completarPildora() async {
-    // Mostrar diálogo de calificación ANTES de completar
-    final resultado = await _mostrarDialogoCalificacion();
-    if (resultado == null) return; // El usuario canceló
-
-    // 0 estrellas = no calificó → se guarda sin calificación (null), no como 0
-    final int? estrellas = (resultado['estrellas'] as int) > 0
-        ? resultado['estrellas'] as int
-        : null;
-    final String mensaje = resultado['mensaje'];
-
     setState(() => _isLoading = true);
 
     try {
@@ -912,23 +928,19 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         return;
       }
 
+      // 1. COMPLETAR PRIMERO (sin calificación).
+      //    Si el usuario sale de la app en el pop-up, la píldora ya quedó completada.
       bool success;
+      String? progresoId; // Para guardar después la calificación
       if (widget.esSuelta) {
-        // Píldora suelta: se guarda en pildoras_sueltas.
-        // NO usa PildoraProvider ni registra en Rachas → no afecta rankings
-        await _homeService.completarSuelta(
-          widget.pildora.id,
-          pillRating: estrellas,
-          pillFeedbackMessage: mensaje.isNotEmpty ? mensaje : null,
-        );
+        // Píldora suelta: se guarda en pildoras_sueltas (no afecta Rachas)
+        await _homeService.completarSuelta(widget.pildora.id);
         success = true;
       } else {
-        // 1. Completar la píldora normalmente
         final pildoraProvider = context.read<PildoraProvider>();
-        success = await pildoraProvider.completarPildora(
-          pillRating: estrellas,
-          pillFeedbackMessage: mensaje.isNotEmpty ? mensaje : null,
-        );
+        // Se guarda el id ANTES: completarPildora() pasa a la siguiente píldora
+        progresoId = pildoraProvider.progresoActual?.id;
+        success = await pildoraProvider.completarPildora();
       }
 
       if (success && mounted) {
@@ -938,6 +950,21 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
           await rachaProvider.registrarPildoraCompletada(
               userId, widget.retoId, token);
         }
+
+        if (mounted) setState(() => _isLoading = false);
+
+        // 3. Ya está completada: pedir calificación (opcional)
+        final resultado = await _mostrarDialogoCalificacion();
+        final int estrellas = (resultado?['estrellas'] as int?) ?? 0;
+        final String mensaje = (resultado?['mensaje'] as String?) ?? '';
+        if (estrellas > 0 || mensaje.isNotEmpty) {
+          await _guardarCalificacion(
+            progresoId: progresoId,
+            estrellas: estrellas > 0 ? estrellas : null,
+            mensaje: mensaje,
+          );
+        }
+        if (!mounted) return;
 
         showDialog(
           context: context,

@@ -3271,6 +3271,42 @@ app.post('/api/pildoras-sueltas/:pillId/completar', authenticateToken, async (re
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// PUT: Calificar una píldora suelta YA completada (opcional)
+app.put('/api/pildoras-sueltas/:pillId/calificar', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { pillId } = req.params;
+    const ratingRaw = req.body.pill_rating;
+    const rating = ratingRaw == null ? null : parseInt(ratingRaw, 10);
+    const mensaje = req.body.pill_feedback_message || null;
+
+    if (rating !== null && (isNaN(rating) || rating < 1 || rating > 5)) {
+      return res.status(400).json({ success: false, error: 'La calificación debe ser de 1 a 5 estrellas' });
+    }
+
+    const fila = await _filaSuelta(userId, pillId);
+    if (!fila || !fila.is_completed) {
+      return res.status(400).json({ success: false, error: 'Primero completa la píldora' });
+    }
+
+    const update = { updated_at: new Date().toISOString() };
+    if (rating !== null) update.pill_rating = rating;
+    if (mensaje) update.pill_feedback_message = mensaje;
+
+    const { error } = await supabase
+      .from('pildoras_sueltas')
+      .update(update)
+      .eq('id', fila.id);
+    if (error) throw error;
+
+    console.log(`⭐ Píldora suelta calificada - User: ${userId}, Píldora: ${pillId}, ⭐ ${rating}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error en PUT /api/pildoras-sueltas/calificar:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ═══════════════ FAVORITOS ═══════════════
 
 // GET: Obtener favoritos de un usuario

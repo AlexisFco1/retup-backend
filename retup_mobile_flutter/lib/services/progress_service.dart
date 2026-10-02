@@ -79,7 +79,8 @@ class ProgressService {
 
   Future<bool> updateProgress(String id, Map<String, dynamic> data) async {
     try {
-      final response = await _apiService.put('/user-progress/$id', data: data);
+      final response =
+          await _apiService.put('/user-progress/$id', data: jsonEncode(data));
       return response.statusCode == 200;
     } catch (e) {
       print('Error updating progress: $e');

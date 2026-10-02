@@ -179,6 +179,27 @@ class HomeService {
     }
   }
 
+  /// PUT /api/pildoras-sueltas/:pillId/calificar (píldora ya completada)
+  Future<void> calificarSuelta(
+    String pillId, {
+    int? pillRating,
+    String? pillFeedbackMessage,
+  }) async {
+    final response = await _apiService.put(
+      '/pildoras-sueltas/$pillId/calificar',
+      data: jsonEncode({
+        'pill_rating': pillRating,
+        'pill_feedback_message': pillFeedbackMessage,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        _mensajeError(response.body, 'No se pudo guardar la calificación'),
+      );
+    }
+  }
+
   /// Extrae el mensaje de error que devuelve el backend ({ error: '...' })
   String _mensajeError(String body, String porDefecto) {
     try {
