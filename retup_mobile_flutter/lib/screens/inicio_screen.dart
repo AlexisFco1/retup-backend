@@ -334,7 +334,7 @@ class _InicioScreenState extends State<InicioScreen> {
               const SizedBox(height: 12),
               _buildTopPildoras(),
 
-              _separador(),
+              _separador(vertical: 12),
 
               // 3) TOP 10 RETOS MÁS INSCRITOS
               _buildSectionHeader(
@@ -421,9 +421,9 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
-  Widget _separador() {
+  Widget _separador({double vertical = 24}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      padding: EdgeInsets.symmetric(horizontal: 32, vertical: vertical),
       child: Container(
         height: 1,
         decoration: BoxDecoration(
@@ -775,7 +775,7 @@ class _InicioScreenState extends State<InicioScreen> {
     }
 
     return SizedBox(
-      height: 205,
+      height: 180,
       child: _horizontal(
         ListView.separated(
           scrollDirection: Axis.horizontal,

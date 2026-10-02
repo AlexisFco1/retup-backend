@@ -22,6 +22,8 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
   final NotificationService _notificationService = NotificationService();
 
   List<Map<String, dynamic>> _mensajesAgrupados = [];
+  // Ids de las tarjetas que están saliendo (animación al responder)
+  final Set<String> _saliendo = {};
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -347,10 +349,14 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                                     separatorBuilder: (_, __) =>
                                         const SizedBox(width: 12),
                                     itemBuilder: (context, index) =>
-                                        _buildRecibidaCard(
-                                      recibidas[index],
-                                      practicaloProvider,
-                                      token,
+                                        _tarjetaAnimada(
+                                      id: recibidas[index]['id'].toString(),
+                                      index: index,
+                                      child: _buildRecibidaCard(
+                                        recibidas[index],
+                                        practicaloProvider,
+                                        token,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -389,10 +395,14 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
                                     separatorBuilder: (_, __) =>
                                         const SizedBox(width: 12),
                                     itemBuilder: (context, index) =>
-                                        _buildEnviadaCard(
-                                      enviadas[index],
-                                      practicaloProvider,
-                                      token,
+                                        _tarjetaAnimada(
+                                      id: enviadas[index]['id'].toString(),
+                                      index: index,
+                                      child: _buildEnviadaCard(
+                                        enviadas[index],
+                                        practicaloProvider,
+                                        token,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -914,6 +924,69 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
     return conIndice.map((e) => e.value).toList();
   }
 
+  // ===================================================================
+  // ANIMACIÓN DE TARJETAS AL CAMBIAR DE LUGAR
+  // ===================================================================
+
+  /// 1) La tarjeta sale (baja y se desvanece), 2) se ejecuta la acción,
+  /// 3) la lista se reordena y las tarjetas entran en su nuevo lugar
+  Future<void> _animarSalida(String id, Future<bool> Function() accion) async {
+    if (_saliendo.contains(id)) return; // Evita doble toque
+    setState(() => _saliendo.add(id));
+    await Future.delayed(const Duration(milliseconds: 350));
+
+    final ok = await accion();
+    if (!mounted) return;
+    setState(() => _saliendo.remove(id));
+
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              const Text('✅ Respuesta guardada · la tarjeta cambió de lugar'),
+          backgroundColor: _turquesaOscuro,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  /// Envuelve una tarjeta: animación de salida y de entrada en su nueva posición
+  Widget _tarjetaAnimada({
+    required String id,
+    required int index,
+    required Widget child,
+  }) {
+    final saliendo = _saliendo.contains(id);
+
+    return KeyedSubtree(
+      // Si la tarjeta cambia de posición, cambia la llave → anima la entrada
+      key: ValueKey('$id-$index'),
+      child: AnimatedSlide(
+        offset: saliendo ? const Offset(0, 0.25) : Offset.zero,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInCubic,
+        child: AnimatedOpacity(
+          opacity: saliendo ? 0 : 1,
+          duration: const Duration(milliseconds: 300),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 1, end: 0),
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeOutCubic,
+            builder: (context, t, child) => Transform.translate(
+              offset: Offset(70 * t, 0), // Entra deslizándose desde la derecha
+              child: Opacity(opacity: 1 - t * 0.7, child: child),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
   String _textoStatus(dynamic status) {
     switch (status) {
       case 'pending':
@@ -1091,25 +1164,27 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
             texto: 'Sí, cuando puedas coordinamos',
             colores: _botonPrincipal,
             icono: Icons.check_rounded,
-            onTap: () async {
-              await practicaloProvider.responderInvitacion(
+            onTap: () => _animarSalida(
+              practica['id'].toString(),
+              () => practicaloProvider.responderInvitacion(
                 token: token,
                 practicaloId: practica['id'],
                 response: 'yes_today',
-              );
-            },
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           _botonBorde(
             texto: 'No, gracias',
             color: _rojo,
-            onTap: () async {
-              await practicaloProvider.responderInvitacion(
+            onTap: () => _animarSalida(
+              practica['id'].toString(),
+              () => practicaloProvider.responderInvitacion(
                 token: token,
                 practicaloId: practica['id'],
                 response: 'no_thanks',
-              );
-            },
+              ),
+            ),
           ),
         ],
       );
@@ -1215,12 +1290,13 @@ class _PracticaloScreenState extends State<PracticaloScreen> {
         texto: 'Confirmar práctica realizada',
         colores: _botonPrincipal,
         icono: Icons.task_alt_rounded,
-        onTap: () async {
-          await practicaloProvider.confirmarReunion(
+        onTap: () => _animarSalida(
+          practica['id'].toString(),
+          () => practicaloProvider.confirmarReunion(
             token: token,
             practicaloId: practica['id'],
-          );
-        },
+          ),
+        ),
       );
     } else if (response == 'no_thanks') {
       acciones = _estadoBarra('Práctica anulada', _rojo, Icons.block_rounded);
