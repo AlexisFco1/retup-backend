@@ -3547,68 +3547,7 @@ app.post('/api/social/posts/:postId/like', authenticateToken, async (req, res) =
   }
 });
 
-// ===== CRON: GANADOR DE RACHAS MENSUAL =====
-// Se ejecuta el último día de cada mes a las 23:00 (hora Madrid)
-cron.schedule('0 23 28-31 * *', async () => {
-  try {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
 
-    // Solo ejecutar si mañana es día 1 (hoy es último día del mes)
-    if (tomorrow.getDate() !== 1) return;
-
-    console.log('🏆 Ejecutando selección de ganador de rachas del mes...');
-
-    const mes = now.getMonth() + 1;
-    const anio = now.getFullYear();
-    const mesTexto = MESES_ES[mes - 1];
-
-    // Buscar el usuario con la racha máxima del mes
-    const { data: rachaStats, error } = await supabase
-      .from('user_racha_stats')
-      .select('user_id, racha_maxima, mes, año')
-      .eq('mes', mesTexto)
-      .eq('año', String(anio))
-      .order('racha_maxima', { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-
-    if (!rachaStats || rachaStats.length === 0) {
-      console.log('⚠️ No se encontraron rachas para este mes');
-      return;
-    }
-
-    const ganador = rachaStats[0];
-
-    // Obtener nombre del ganador
-    const { data: userData } = await supabase
-      .from('users')
-      .select('full_name, first_name, company_id')
-      .eq('id', ganador.user_id)
-      .single();
-
-    const nombreGanador = userData?.full_name || userData?.first_name || 'Usuario';
-
-    // Crear el post automático del sistema
-    const { error: postError } = await supabase
-      .from('social_posts')
-      .insert([{
-        user_id: ganador.user_id,
-        company_id: userData?.company_id,
-        content_type: 'streak_winner',
-        text_content: `🏆 ¡Ganador de Rachas del mes de ${mesTexto}! 🏆\n\n🎉 Felicitamos a ${nombreGanador} por mantener la racha más alta del mes con ${ganador.racha_maxima} días consecutivos.\n\n¡Sigue así! 💪🔥`,
-        is_system_post: true,
-      }]);
-
-    if (postError) throw postError;
-
-    console.log(`🏆 Ganador del mes ${mesTexto}: ${nombreGanador} con racha de ${ganador.racha_maxima}`);
-  } catch (error) {
-    console.error('❌ Error en cron de ganador de rachas:', error);
-  }
-});
 // =============================================
 // ENDPOINTS DE SOCIAL
 // =============================================
@@ -3728,69 +3667,127 @@ app.post('/api/social/posts/:postId/like', authenticateToken, async (req, res) =
   }
 });
 // =============================================
-// CRON: GANADOR DE RACHAS DEL MES (último día a las 23:00 Madrid)
+// GANADOR DE RACHAS DEL MES → post automático en Social
 // =============================================
-cron.schedule('0 23 28-31 * *', async () => {
-  try {
-    const ahora = _hoyMadrid();
-    const manana = new Date(ahora);
-    manana.setDate(manana.getDate() + 1);
+// Mismo criterio que el ranking unificado de Rachas:
+// 1º mayor racha máxima del mes; si hay empate, más píldoras cumplidas en el mes.
+async function _publicarGanadorRachas(anio, mes) {
+  const nombreMes = MESES_ES[mes - 1];
+  const etiqueta = `${nombreMes} ${anio}`;
 
-    // Solo ejecutar si mañana es día 1 (es decir, hoy es el último día del mes)
-    if (manana.getDate() !== 1) {
-      console.log('⏭️ No es el último día del mes, saltando cron de ganador de rachas');
-      return;
-    }
-
-    const mes = ahora.getMonth() + 1;
-    const anio = ahora.getFullYear();
-    const nombreMes = MESES_ES[mes - 1];
-
-    console.log(`🏆 Ejecutando cron de ganador de rachas para ${nombreMes} ${anio}...`);
-
-    // Buscar el usuario con la mayor racha máxima del mes actual
-    const { data: rachaStats, error } = await supabase
-      .from('user_racha_stats')
-      .select('user_id, racha_maxima')
-      .order('racha_maxima', { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-
-    if (!rachaStats || rachaStats.length === 0) {
-      console.log('⚠️ No hay datos de rachas para este mes');
-      return;
-    }
-
-    const ganador = rachaStats[0];
-
-    // Obtener nombre del ganador
-    const { data: userData } = await supabase
-      .from('users')
-      .select('first_name, last_name_1')
-      .eq('id', ganador.user_id)
-      .single();
-
-    const nombreGanador = userData
-      ? `${userData.first_name || ''} ${userData.last_name_1 || ''}`.trim()
-      : 'Usuario desconocido';
-
-    // Crear el post automático del sistema
-    const { error: postError } = await supabase
-      .from('social_posts')
-      .insert({
-        user_id: ganador.user_id,
-        content_type: 'streak_winner',
-        text_content: `🏆🔥 ¡Ganador de rachas de ${nombreMes} ${anio}! 🔥🏆\n\n¡Felicidades a ${nombreGanador}! Ha logrado la racha más alta del mes con ${ganador.racha_maxima} días consecutivos.\n\n¡Sigue así, eres una inspiración para todos! 💪`,
-        is_system_post: true,
-      });
-
-    if (postError) throw postError;
-
-    console.log(`✅ Post de ganador de rachas creado: ${nombreGanador} con racha de ${ganador.racha_maxima}`);
-  } catch (error) {
-    console.error('❌ Error en cron de ganador de rachas:', error);
+  // 1) ¿Ya se publicó? (evita duplicados si el servidor se reinicia)
+  const { data: yaPublicado, error: errPub } = await supabase
+    .from('social_posts')
+    .select('id')
+    .eq('content_type', 'streak_winner')
+    .ilike('text_content', `%${etiqueta}%`)
+    .limit(1);
+  if (errPub) throw errPub;
+  if (yaPublicado && yaPublicado.length > 0) {
+    console.log(`ℹ️ El ganador de rachas de ${etiqueta} ya estaba publicado`);
+    return;
   }
+
+  // 2) Mejor racha de cada usuario en ese mes (mes y año son números)
+  const { data: stats, error: errStats } = await supabase
+    .from('user_racha_stats')
+    .select('user_id, racha_maxima')
+    .eq('mes', mes)
+    .eq('año', anio);
+  if (errStats) throw errStats;
+
+  const mejorRacha = {};
+  (stats || []).forEach(s => {
+    const r = Number(s.racha_maxima) || 0;
+    if (!mejorRacha[s.user_id] || r > mejorRacha[s.user_id]) {
+      mejorRacha[s.user_id] = r;
+    }
+  });
+
+  const maxRacha = Math.max(0, ...Object.values(mejorRacha));
+  if (maxRacha <= 0) {
+    console.log(`⚠️ No hubo rachas en ${etiqueta}, no se publica ganador`);
+    return;
+  }
+
+  const candidatos = Object.keys(mejorRacha).filter(id => mejorRacha[id] === maxRacha);
+
+  // 3) Desempate: píldoras cumplidas en el mes (igual que el ranking de Rachas)
+  const ultimoDia = new Date(anio, mes, 0).getDate();
+  const desde = `${anio}-${_pad2(mes)}-01`;
+  const hasta = `${anio}-${_pad2(mes)}-${_pad2(ultimoDia)}T23:59:59`;
+
+  const { data: completadas, error: errComp } = await supabase
+    .from('user_pill_progress')
+    .select('user_id')
+    .in('user_id', candidatos)
+    .eq('is_completed', true)
+    .gte('completed_at', desde)
+    .lte('completed_at', hasta);
+  if (errComp) throw errComp;
+
+  const pildoras = {};
+  candidatos.forEach(id => { pildoras[id] = 0; });
+  (completadas || []).forEach(c => { pildoras[c.user_id]++; });
+
+  const maxPildoras = Math.max(...candidatos.map(id => pildoras[id]));
+  const ganadores = candidatos.filter(id => pildoras[id] === maxPildoras);
+
+  // 4) Nombres de los ganadores
+  const { data: usuarios, error: errUsers } = await supabase
+    .from('users')
+    .select('id, full_name, first_name, last_name_1, email, company_id')
+    .in('id', ganadores);
+  if (errUsers) throw errUsers;
+  if (!usuarios || usuarios.length === 0) return;
+
+  const nombreDe = u =>
+    `${u.first_name || ''} ${u.last_name_1 || ''}`.trim() ||
+    u.full_name ||
+    (u.email || '').split('@')[0] ||
+    'Usuario';
+
+  const nombres = usuarios.map(nombreDe);
+  const listaNombres = nombres.length === 1
+    ? nombres[0]
+    : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+
+  const texto = nombres.length === 1
+    ? `🏆🔥 ¡Ganador de rachas de ${etiqueta}! 🔥🏆\n\n¡Felicidades a ${listaNombres}! Logró la racha más alta del mes con ${maxRacha} días consecutivos y ${maxPildoras} píldoras cumplidas.\n\n¡Sigue así, eres una inspiración para todos! 💪`
+    : `🏆🔥 ¡Ganadores de rachas de ${etiqueta}! 🔥🏆\n\n¡Felicidades a ${listaNombres}! Empataron con la racha más alta del mes: ${maxRacha} días consecutivos y ${maxPildoras} píldoras cumplidas.\n\n¡Sigan así, son una inspiración para todos! 💪`;
+
+  // 5) Publicar el post del sistema
+  const principal = usuarios[0];
+  const { error: postError } = await supabase
+    .from('social_posts')
+    .insert({
+      user_id: principal.id,
+      company_id: principal.company_id || null,
+      content_type: 'streak_winner',
+      text_content: texto,
+      is_system_post: true,
+    });
+  if (postError) throw postError;
+
+  console.log(`✅ Post de ganador de rachas de ${etiqueta} publicado: ${listaNombres}`);
+}
+
+// Publica el ganador del MES ANTERIOR (según la fecha de Madrid)
+async function _publicarGanadorMesAnterior() {
+  try {
+    const [anioHoy, mesHoy] = _hoyMadrid().split('-').map(Number);
+    const mes = mesHoy === 1 ? 12 : mesHoy - 1;
+    const anio = mesHoy === 1 ? anioHoy - 1 : anioHoy;
+    console.log(`🏆 Revisando ganador de rachas de ${MESES_ES[mes - 1]} ${anio}...`);
+    await _publicarGanadorRachas(anio, mes);
+  } catch (error) {
+    console.error('❌ Error publicando ganador de rachas:', error);
+  }
+}
+
+// Día 1 de cada mes a las 00:05, hora de Madrid
+cron.schedule('5 0 1 * *', _publicarGanadorMesAnterior, {
+  timezone: 'Europe/Madrid',
 });
 // =============================================
 // ENDPOINTS ADICIONALES DE SOCIAL
@@ -3997,6 +3994,8 @@ app.post('/api/social/posts/:postId/pin', authenticateToken, async (req, res) =>
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  // Si el servidor estaba dormido el día 1, publica ahora el ganador pendiente
+  _publicarGanadorMesAnterior();
 });
 // ========== INICIALIZAR CRON JOB ==========
 // Ejecutar cada día a las 00:00 (UTC)
