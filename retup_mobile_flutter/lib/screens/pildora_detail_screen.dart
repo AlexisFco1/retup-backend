@@ -412,15 +412,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          const Text(
-            '¿Cómo te evalúas en esta habilidad?',
-            style: TextStyle(
-              fontSize: 13,
-              color: Color(0xFF6B7280),
-            ),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(5, (index) {
@@ -773,17 +765,6 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                         'mensaje': _mensajeController.text.trim(),
                       });
                     },
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text(
-                    'Cancelar',
-                    style: TextStyle(
-                      color: _textoSuave,
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
                 ),
               ],
