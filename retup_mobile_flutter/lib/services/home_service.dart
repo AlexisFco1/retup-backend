@@ -161,7 +161,7 @@ class HomeService {
   /// POST /api/pildoras-sueltas/:pillId/completar
   Future<void> completarSuelta(
     String pillId, {
-    required int pillRating,
+    int? pillRating, // Opcional
     String? pillFeedbackMessage,
   }) async {
     final response = await _apiService.post(

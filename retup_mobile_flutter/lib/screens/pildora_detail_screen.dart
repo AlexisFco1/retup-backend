@@ -761,17 +761,18 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: _botonGradiente(
-                    texto: 'Enviar y completar',
+                    // La calificación es opcional
+                    texto: _estrellas == 0
+                        ? 'Completar sin calificar'
+                        : 'Enviar y completar',
                     icono: Icons.check_circle_rounded,
                     colores: _verde,
-                    onPressed: _estrellas == 0
-                        ? null
-                        : () {
-                            Navigator.pop(context, {
-                              'estrellas': _estrellas,
-                              'mensaje': _mensajeController.text.trim(),
-                            });
-                          },
+                    onPressed: () {
+                      Navigator.pop(context, {
+                        'estrellas': _estrellas,
+                        'mensaje': _mensajeController.text.trim(),
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -893,7 +894,10 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
     final resultado = await _mostrarDialogoCalificacion();
     if (resultado == null) return; // El usuario canceló
 
-    final int estrellas = resultado['estrellas'];
+    // 0 estrellas = no calificó → se guarda sin calificación (null), no como 0
+    final int? estrellas = (resultado['estrellas'] as int) > 0
+        ? resultado['estrellas'] as int
+        : null;
     final String mensaje = resultado['mensaje'];
 
     setState(() => _isLoading = true);

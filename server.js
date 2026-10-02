@@ -3230,10 +3230,12 @@ app.post('/api/pildoras-sueltas/:pillId/completar', authenticateToken, async (re
   try {
     const userId = req.user.id;
     const { pillId } = req.params;
-    const rating = parseInt(req.body.pill_rating, 10);
+     // La calificación es opcional: null = no calificó
+    const ratingRaw = req.body.pill_rating;
+    const rating = ratingRaw == null ? null : parseInt(ratingRaw, 10);
     const mensaje = req.body.pill_feedback_message || null;
 
-    if (!rating || rating < 1 || rating > 5) {
+    if (rating !== null && (isNaN(rating) || rating < 1 || rating > 5)) {
       return res.status(400).json({ success: false, error: 'La calificación debe ser de 1 a 5 estrellas' });
     }
 

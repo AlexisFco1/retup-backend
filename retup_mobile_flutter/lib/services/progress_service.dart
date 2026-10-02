@@ -65,9 +65,10 @@ class ProgressService {
         data['pill_feedback_message'] = pillFeedbackMessage;
       }
 
+      // jsonEncode escapa saltos de línea y comillas del comentario
       final response = await _apiService.put(
         '/user-progress/$progressId',
-        data: data,
+        data: jsonEncode(data),
       );
       return response.statusCode == 200;
     } catch (e) {
