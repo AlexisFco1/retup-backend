@@ -198,4 +198,177 @@ router.get('/mantenimiento/directorio', authenticateToken, exigirAccesoDashboard
 router.get('/mantenimiento/alertas', authenticateToken, exigirAccesoDashboard(['mantenimiento']), rutaLecturaMantenimiento('dash_mant_alertas'));
 router.get('/mantenimiento/catalogo', authenticateToken, exigirAccesoDashboard(['mantenimiento']), rutaLecturaMantenimiento('dash_mant_catalogo'));
 
+// ===================== MANTENIMIENTO · ALTA DE USUARIOS =====================
+const nodeCrypto = require('crypto');
+
+const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
+// Contraseña temporal de 12 caracteres, sin los que se confunden (0/O, 1/l/I).
+// Siempre lleva al menos una minúscula, una mayúscula y un número.
+function generarPasswordTemporal() {
+  const minusculas = 'abcdefghjkmnpqrstuvwxyz';
+  const mayusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const numeros = '23456789';
+  const todos = minusculas + mayusculas + numeros;
+  const elegir = (texto) => texto[nodeCrypto.randomInt(texto.length)];
+
+  const caracteres = [elegir(minusculas), elegir(mayusculas), elegir(numeros)];
+  while (caracteres.length < 12) caracteres.push(elegir(todos));
+
+  // Mezclar para que la mayúscula y el número no estén siempre al principio
+  for (let i = caracteres.length - 1; i > 0; i--) {
+    const j = nodeCrypto.randomInt(i + 1);
+    [caracteres[i], caracteres[j]] = [caracteres[j], caracteres[i]];
+  }
+  return caracteres.join('');
+}
+
+// Quita espacios sobrantes; devuelve null si queda vacío
+function textoLimpio(valor, maximo = 120) {
+  if (typeof valor !== 'string') return null;
+  const limpio = valor.trim().replace(/\s+/g, ' ');
+  return limpio ? limpio.slice(0, maximo) : null;
+}
+
+function errorDatos(res, mensaje) {
+  return res.status(400).json({ success: false, error: mensaje });
+}
+
+router.post('/mantenimiento/usuarios', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    // 1) Leer y limpiar los datos del formulario
+    const cuerpo = req.body || {};
+    const first_name = textoLimpio(cuerpo.first_name, 60);
+    const last_name_1 = textoLimpio(cuerpo.last_name_1, 60);
+    const last_name_2 = textoLimpio(cuerpo.last_name_2, 60);
+    const job_title = textoLimpio(cuerpo.job_title, 120);
+    const email = typeof cuerpo.email === 'string' ? cuerpo.email.trim().toLowerCase() : '';
+    const department_id = cuerpo.department_id || null;
+    const team_id = cuerpo.team_id || null;
+    const hire_date = cuerpo.hire_date || null;
+
+    // 2) Validaciones
+    if (!first_name || !last_name_1) return errorDatos(res, 'El nombre y el primer apellido son obligatorios.');
+    if (!FORMATO_EMAIL.test(email)) return errorDatos(res, 'El email no es válido.');
+    if (department_id && !FORMATO_UUID.test(department_id)) return errorDatos(res, 'Departamento no válido.');
+    if (team_id && !FORMATO_UUID.test(team_id)) return errorDatos(res, 'Equipo no válido.');
+    if (hire_date && (!FORMATO_FECHA.test(hire_date) || Number.isNaN(Date.parse(hire_date)))) {
+      return errorDatos(res, 'La fecha de ingreso debe tener el formato AAAA-MM-DD.');
+    }
+
+    // 3) El departamento y el equipo tienen que ser de la empresa del administrador
+    let departamento = null;
+    if (department_id) {
+      const { data, error } = await db
+        .from('departments')
+        .select('id, name')
+        .eq('id', department_id)
+        .eq('company_id', empresaId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return errorDatos(res, 'Ese departamento no existe en tu empresa.');
+      departamento = data;
+    }
+
+    if (team_id) {
+      const { data: equipo, error } = await db
+        .from('teams')
+        .select('id, department_id')
+        .eq('id', team_id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!equipo) return errorDatos(res, 'Ese equipo no existe.');
+
+      if (departamento && equipo.department_id !== departamento.id) {
+        return errorDatos(res, 'El equipo elegido no pertenece a ese departamento.');
+      }
+      if (!departamento) {
+        // Sin departamento elegido: se toma el del equipo (comprobando que sea de la empresa)
+        const { data: depEquipo, error: errDep } = await db
+          .from('departments')
+          .select('id, name')
+          .eq('id', equipo.department_id)
+          .eq('company_id', empresaId)
+          .maybeSingle();
+        if (errDep) throw errDep;
+        if (!depEquipo) return errorDatos(res, 'Ese equipo no existe en tu empresa.');
+        departamento = depEquipo;
+      }
+    }
+
+    // 4) El email no puede estar ya registrado
+    const { data: existentes, error: errExiste } = await db
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .limit(1);
+    if (errExiste) throw errExiste;
+    if (existentes.length > 0) {
+      return res.status(409).json({ success: false, error: 'Ya existe una persona con ese email.' });
+    }
+
+    // 5) Crear la cuenta en Supabase Auth, ya confirmada, con contraseña temporal
+    const passwordTemporal = generarPasswordTemporal();
+    const { data: creado, error: errAuth } = await db.auth.admin.createUser({
+      email,
+      password: passwordTemporal,
+      email_confirm: true,
+    });
+    if (errAuth) {
+      if (/already|registered|exists/i.test(errAuth.message)) {
+        return res.status(409).json({ success: false, error: 'Ya existe una cuenta con ese email.' });
+      }
+      throw errAuth;
+    }
+    const nuevoId = creado.user.id;
+
+    // 6) Fila en users: mismos campos que el registro de la app + los nuevos
+    const full_name = [first_name, last_name_1, last_name_2].filter(Boolean).join(' ');
+    const { data: fila, error: errFila } = await db
+      .from('users')
+      .insert([{
+        id: nuevoId,
+        company_id: empresaId,
+        email,
+        full_name,
+        first_name,
+        last_name_1,
+        last_name_2,
+        department: departamento ? departamento.name : null,
+        department_id: departamento ? departamento.id : null,
+        team_id,
+        job_title,
+        hire_date,
+        role: 'collaborator',
+        is_active: true,
+        status: 'invitado',
+      }])
+      .select('id, email, full_name, status')
+      .single();
+
+    if (errFila) {
+      // 7) Deshacer: sin fila en users, se borra la cuenta de Auth para no dejarla huérfana
+      await db.auth.admin.deleteUser(nuevoId);
+      throw errFila;
+    }
+
+    // 8) Respuesta. La contraseña solo viaja aquí, una vez; nunca se escribe en el log
+    console.log(`Alta de usuario ${email} por el administrador ${req.user.id}`);
+    res.set('Cache-Control', 'no-store');
+    res.status(201).json({
+      success: true,
+      usuario: { id: fila.id, email: fila.email, nombre: fila.full_name, estado: fila.status },
+      password_temporal: passwordTemporal,
+    });
+  } catch (err) {
+    console.error('Error en alta de usuario:', err.message);
+    res.status(500).json({ success: false, error: `No se pudo crear el usuario: ${err.message}` });
+  }
+});
+
 module.exports = router;
