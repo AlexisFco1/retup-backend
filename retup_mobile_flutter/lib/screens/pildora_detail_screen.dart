@@ -14,6 +14,7 @@ import '../services/feedback_service.dart';
 import '../services/notification_service.dart';
 import '../services/progress_service.dart';
 import '../services/home_service.dart';
+import '../services/eventos_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../widgets/custom_bottom_navigation_bar.dart';
 
@@ -64,6 +65,8 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
   final NotificationService _notificationService = NotificationService();
   final ProgressService _progressService = ProgressService();
   final HomeService _homeService = HomeService(); // Píldoras sueltas
+  // Dashboard: mide el recorrido por secciones (null = no se mide, ej. modo lectura)
+  RecorridoPildora? _recorrido;
   final ScrollController _scrollController = ScrollController();
   List<Seccion> _secciones = [];
   int _seccionActual = 0;
@@ -123,6 +126,9 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
 
   @override
   void dispose() {
+    // Dashboard: si sale sin completar, la sección abierta cuenta como abandono.
+    // Si ya completó, no hay sección abierta y esto no hace nada.
+    _recorrido?.salir('salir');
     _scrollController.dispose();
     _socialController.dispose();
     super.dispose();
@@ -157,6 +163,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
         print('⚠️ Las secciones están vacías');
       } else {
         print('✅ Secciones cargadas correctamente');
+        _iniciarRecorrido();
       }
     } catch (e) {
       print('❌ ERROR COMPLETO: $e');
@@ -282,6 +289,7 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
           if (estado.yaLaHizo) {
             _isReadOnly = true;
             _yaLaHizoSuelta = true;
+            _recorrido = null; // Dashboard: en modo lectura no se mide
           }
         });
         if (estado.yaLaHizo) {
@@ -607,6 +615,9 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       setState(() {
         _seccionActual++;
       });
+      // Dashboard: cierra la sección anterior como "alcanzada" y abre la nueva
+      _recorrido?.cambiarDeSeccion(
+          'siguiente', _secciones[_seccionActual].screenNumber);
       _subirAlInicio();
     }
   }
@@ -616,8 +627,35 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       setState(() {
         _seccionActual--;
       });
+      // Dashboard: retroceso dentro de la píldora (no es abandono)
+      _recorrido?.cambiarDeSeccion(
+          'anterior', _secciones[_seccionActual].screenNumber);
       _subirAlInicio();
     }
+  }
+
+  // ═══════════════ DASHBOARD: medición del recorrido ═══════════════
+  /// Empieza a medir esta visita a la píldora (no se mide en modo lectura)
+  void _iniciarRecorrido() {
+    if (_isReadOnly || _secciones.isEmpty || _recorrido != null) return;
+
+    final origen = widget.esSuelta ? 'suelta' : 'reto';
+    final pillId = widget.pildora.id.toString();
+
+    _recorrido = RecorridoPildora(
+      pillId: pillId,
+      retoId: widget.retoId,
+      origen: origen,
+    );
+    _recorrido!.entrar(_secciones[_seccionActual].screenNumber);
+
+    // Sin await: no bloquea la pantalla
+    EventosService().registrarActividad(
+      'pill_start',
+      retoId: widget.retoId,
+      pillId: pillId,
+      origen: origen,
+    );
   }
 
   void _onNavTap(int index) {
@@ -925,6 +963,15 @@ class _PildoraDetailScreenState extends State<PildoraDetailScreen> {
       }
 
       if (success && mounted) {
+        // Dashboard: la última sección cuenta como "enviada" y la píldora como completada
+        _recorrido?.salir('enviar');
+        EventosService().registrarActividad(
+          'pill_complete',
+          retoId: widget.retoId,
+          pillId: widget.pildora.id.toString(),
+          origen: widget.esSuelta ? 'suelta' : 'reto',
+        );
+
         // 2. Registrar la píldora completada en Rachas (solo si NO es suelta)
         if (!widget.esSuelta) {
           final rachaProvider = context.read<RachaProvider>();
