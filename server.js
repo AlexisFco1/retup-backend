@@ -2830,13 +2830,14 @@ app.get('/api/planificacion', authenticateToken, async (req, res) => {
 
         const { error: insertError } = await supabase
           .from('planificacion_retos')
-          .upsert(
+                    .upsert(
             {
               user_id: userId,
               reto_id: elegido.id,
               anio: vigente.anio,
               mes: vigente.mes,
               slot: 1,
+              origen: 'sistema', // Dashboard: reto asignado al azar (no elegido)
             },
             { onConflict: 'user_id,anio,mes,slot', ignoreDuplicates: true }
           );
@@ -2960,13 +2961,14 @@ app.put('/api/planificacion', authenticateToken, async (req, res) => {
     // 6) Guardar (crea o reemplaza el reto de ese desplegable)
     const { error: upsertError } = await supabase
       .from('planificacion_retos')
-      .upsert(
+           .upsert(
         {
           user_id: userId,
           reto_id: retoId,
           anio,
           mes,
           slot,
+          origen: 'voluntario', // Dashboard: lo eligió la persona (también si reemplaza uno asignado)
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,anio,mes,slot' }
