@@ -839,4 +839,292 @@ router.put('/mantenimiento/equipos/:id', authenticateToken, exigirAccesoDashboar
   }
 });
 
+// ===================== MANTENIMIENTO · ALTA MASIVA POR CSV =====================
+const MAX_FILAS_CSV = 300;
+
+// Minúsculas y sin tildes, para comparar "logistica" con "Logística"
+function normalizarClave(texto) {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es').trim();
+}
+
+// Acepta AAAA-MM-DD, DD/MM/AAAA o DD-MM-AAAA.
+// Devuelve 'AAAA-MM-DD', null si está vacía, o false si no es una fecha real.
+function leerFechaCsv(valor) {
+  const texto = typeof valor === 'string' ? valor.trim() : '';
+  if (!texto) return null;
+
+  let anio;
+  let mes;
+  let dia;
+  let partes = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (partes) {
+    [, anio, mes, dia] = partes;
+  } else {
+    partes = texto.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (!partes) return false;
+    [, dia, mes, anio] = partes;
+  }
+
+  const iso = `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+  const fecha = new Date(`${iso}T00:00:00Z`);
+  // Si la fecha no existe (31/02), JavaScript la "corrige" a otro día: así lo detectamos
+  if (Number.isNaN(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== iso) return false;
+  return iso;
+}
+
+// Revisa todas las filas SIN crear nada. Devuelve el resultado de cada fila
+// y los departamentos/equipos que habría que crear.
+async function validarFilasCsv(empresaId, filas) {
+  // Catálogo actual de la empresa
+  const { data: departamentos, error: errDep } = await db
+    .from('departments')
+    .select('id, name, is_active')
+    .eq('company_id', empresaId);
+  if (errDep) throw errDep;
+
+  const { data: equipos, error: errEq } = await db
+    .from('teams')
+    .select('id, name, is_active, department_id')
+    .eq('company_id', empresaId);
+  if (errEq) throw errEq;
+
+  const departamentoPorClave = new Map(departamentos.map((d) => [normalizarClave(d.name), d]));
+  const equipoPorClave = new Map(equipos.map((t) => [`${t.department_id}|${normalizarClave(t.name)}`, t]));
+
+  // Emails que ya existen en RetUp (se consultan de 100 en 100)
+  const emails = [
+    ...new Set(
+      filas
+        .map((f) => (typeof f.email === 'string' ? f.email.trim().toLowerCase() : ''))
+        .filter(Boolean),
+    ),
+  ];
+  const emailsExistentes = new Set();
+  for (let i = 0; i < emails.length; i += 100) {
+    const { data, error } = await db.from('users').select('email').in('email', emails.slice(i, i + 100));
+    if (error) throw error;
+    data.forEach((u) => emailsExistentes.add(String(u.email).toLowerCase()));
+  }
+
+  const emailsVistos = new Set();
+  const departamentosNuevos = new Map(); // clave -> nombre tal como viene en el CSV
+  const equiposNuevos = new Map(); // "claveDep|claveEq" -> { claveDep, nombre }
+
+  const resultados = filas.map((fila, indice) => {
+    const errores = [];
+    const first_name = textoLimpio(fila.nombre, 60);
+    const last_name_1 = textoLimpio(fila.apellido1, 60);
+    const last_name_2 = textoLimpio(fila.apellido2, 60);
+    const job_title = textoLimpio(fila.cargo, 120);
+    const email = typeof fila.email === 'string' ? fila.email.trim().toLowerCase() : '';
+    const nombreDepartamento = textoLimpio(fila.departamento, 80);
+    const nombreEquipo = textoLimpio(fila.equipo, 80);
+    const hire_date = leerFechaCsv(fila.fecha_ingreso);
+
+    if (!first_name) errores.push('Falta el nombre');
+    if (!last_name_1) errores.push('Falta el primer apellido');
+    if (!FORMATO_EMAIL.test(email)) {
+      errores.push('Email no válido');
+    } else if (emailsVistos.has(email)) {
+      errores.push('Email repetido en el archivo');
+    } else if (emailsExistentes.has(email)) {
+      errores.push('Ya existe una persona con ese email');
+    }
+    if (FORMATO_EMAIL.test(email)) emailsVistos.add(email);
+    if (hire_date === false) errores.push('Fecha de ingreso no válida (usa DD/MM/AAAA)');
+    if (nombreEquipo && !nombreDepartamento) errores.push('Tiene equipo pero falta el departamento');
+
+    let departamento = null;
+    let equipo = null;
+
+    if (nombreDepartamento) {
+      const claveDep = normalizarClave(nombreDepartamento);
+      const existente = departamentoPorClave.get(claveDep);
+      if (existente) {
+        if (!existente.is_active) errores.push(`El departamento "${existente.name}" está desactivado`);
+        departamento = { id: existente.id, nombre: existente.name, clave: claveDep, nuevo: false };
+      } else {
+        if (!departamentosNuevos.has(claveDep)) departamentosNuevos.set(claveDep, nombreDepartamento);
+        departamento = { id: null, nombre: departamentosNuevos.get(claveDep), clave: claveDep, nuevo: true };
+      }
+
+      if (nombreEquipo) {
+        const claveEq = normalizarClave(nombreEquipo);
+        const existenteEq = departamento.id ? equipoPorClave.get(`${departamento.id}|${claveEq}`) : null;
+        if (existenteEq) {
+          if (!existenteEq.is_active) errores.push(`El equipo "${existenteEq.name}" está desactivado`);
+          equipo = { id: existenteEq.id, nombre: existenteEq.name, clave: null, nuevo: false };
+        } else {
+          const claveCompleta = `${claveDep}|${claveEq}`;
+                  if (!equiposNuevos.has(claveCompleta)) {
+            equiposNuevos.set(claveCompleta, { claveDep, nombre: nombreEquipo, departamento: departamento.nombre });
+          }
+          equipo = { id: null, nombre: equiposNuevos.get(claveCompleta).nombre, clave: claveCompleta, nuevo: true };
+        }
+      }
+    }
+
+    return {
+      fila: indice + 2, // la fila 1 del archivo son los títulos
+      datos: { first_name, last_name_1, last_name_2, email, job_title, hire_date: hire_date || null },
+      departamento,
+      equipo,
+      errores,
+    };
+  });
+
+  return { resultados, departamentosNuevos, equiposNuevos };
+}
+
+// Crea la cuenta (Auth) y la fila (users) de una persona invitada.
+// Si la fila falla, borra la cuenta para no dejarla huérfana.
+async function crearPersonaInvitada(empresaId, p) {
+  const password = generarPasswordTemporal();
+  const { data: creado, error: errAuth } = await db.auth.admin.createUser({
+    email: p.email,
+    password,
+    email_confirm: true,
+  });
+  if (errAuth) {
+    if (/already|registered|exists/i.test(errAuth.message)) throw new Error('Ya existe una cuenta con ese email');
+    throw errAuth;
+  }
+
+  const id = creado.user.id;
+  const { error: errFila } = await db.from('users').insert([{
+    id,
+    company_id: empresaId,
+    email: p.email,
+    full_name: [p.first_name, p.last_name_1, p.last_name_2].filter(Boolean).join(' '),
+    first_name: p.first_name,
+    last_name_1: p.last_name_1,
+    last_name_2: p.last_name_2,
+    department: p.department_name,
+    department_id: p.department_id,
+    team_id: p.team_id,
+    job_title: p.job_title,
+    hire_date: p.hire_date,
+    role: 'collaborator',
+    is_active: true,
+    status: 'invitado',
+  }]);
+  if (errFila) {
+    await db.auth.admin.deleteUser(id);
+    throw errFila;
+  }
+  return { id, password };
+}
+
+router.post('/mantenimiento/usuarios/csv', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const cuerpo = req.body || {};
+    const filas = cuerpo.filas;
+    // Por seguridad, si no se dice lo contrario, SOLO se simula
+    const simular = cuerpo.simular !== false;
+
+    if (!Array.isArray(filas) || filas.length === 0) return errorDatos(res, 'El archivo no tiene filas.');
+    if (filas.length > MAX_FILAS_CSV) {
+      return errorDatos(res, `Máximo ${MAX_FILAS_CSV} personas por archivo. Divide el archivo en partes.`);
+    }
+
+    // 1) Revisar todo (en simulación y también antes de importar)
+    const revision = await validarFilasCsv(empresaId, filas);
+    const conErrores = revision.resultados.filter((r) => r.errores.length > 0).length;
+
+    const resumen = {
+      total: filas.length,
+      validas: filas.length - conErrores,
+      con_errores: conErrores,
+      departamentos_nuevos: [...revision.departamentosNuevos.values()],
+           equipos_nuevos: [...revision.equiposNuevos.values()].map((eq) => `${eq.departamento} / ${eq.nombre}`),
+    };
+
+    const nombreCompleto = (d) => [d.first_name, d.last_name_1, d.last_name_2].filter(Boolean).join(' ');
+
+    const vistaPrevia = revision.resultados.map((r) => ({
+      fila: r.fila,
+      nombre: nombreCompleto(r.datos),
+      email: r.datos.email,
+      departamento: r.departamento ? r.departamento.nombre : null,
+      departamento_nuevo: Boolean(r.departamento && r.departamento.nuevo),
+      equipo: r.equipo ? r.equipo.nombre : null,
+      equipo_nuevo: Boolean(r.equipo && r.equipo.nuevo),
+      errores: r.errores,
+    }));
+
+    if (simular) {
+      return res.json({ success: true, simulacion: true, resumen, filas: vistaPrevia });
+    }
+    if (conErrores > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'El archivo tiene errores. Corrígelos antes de importar.',
+        resumen,
+        filas: vistaPrevia,
+      });
+    }
+
+    // 2) Crear departamentos nuevos
+    const idDepartamento = new Map(); // claveDep -> id
+    revision.resultados.forEach((r) => {
+      if (r.departamento && !r.departamento.nuevo) idDepartamento.set(r.departamento.clave, r.departamento.id);
+    });
+    for (const [clave, nombre] of revision.departamentosNuevos) {
+      const { data, error } = await db
+        .from('departments')
+        .insert([{ company_id: empresaId, name: nombre }])
+        .select('id')
+        .single();
+      if (error) throw error;
+      idDepartamento.set(clave, data.id);
+    }
+
+    // 3) Crear equipos nuevos
+    const idEquipo = new Map(); // "claveDep|claveEq" -> id
+    for (const [clave, eq] of revision.equiposNuevos) {
+      const { data, error } = await db
+        .from('teams')
+        .insert([{ company_id: empresaId, department_id: idDepartamento.get(eq.claveDep), name: eq.nombre }])
+        .select('id')
+        .single();
+      if (error) throw error;
+      idEquipo.set(clave, data.id);
+    }
+
+    // 4) Crear a las personas, de una en una (si una falla, las demás siguen)
+    const resultado = [];
+    for (const r of revision.resultados) {
+      const base = { fila: r.fila, nombre: nombreCompleto(r.datos), email: r.datos.email };
+      try {
+        const { password } = await crearPersonaInvitada(empresaId, {
+          ...r.datos,
+          department_id: r.departamento ? idDepartamento.get(r.departamento.clave) : null,
+          department_name: r.departamento ? r.departamento.nombre : null,
+          team_id: r.equipo ? (r.equipo.nuevo ? idEquipo.get(r.equipo.clave) : r.equipo.id) : null,
+        });
+        resultado.push({ ...base, estado: 'creada', password_temporal: password });
+      } catch (errFila) {
+        resultado.push({ ...base, estado: 'error', error: errFila.message });
+      }
+    }
+
+    const creadas = resultado.filter((r) => r.estado === 'creada').length;
+    console.log(`Importación CSV por ${req.user.id}: ${creadas} de ${filas.length} personas creadas`);
+
+    res.set('Cache-Control', 'no-store');
+    res.status(201).json({
+      success: true,
+      simulacion: false,
+      resumen: { ...resumen, creadas, fallidas: filas.length - creadas },
+      filas: resultado,
+    });
+  } catch (err) {
+    console.error('Error en importación CSV:', err.message);
+    res.status(500).json({ success: false, error: `No se pudo procesar el archivo: ${err.message}` });
+  }
+});
+
 module.exports = router;
