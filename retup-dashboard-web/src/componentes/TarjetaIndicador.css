@@ -1,0 +1,138 @@
+/* ═══════════════════════════════════════════════════════════════════
+   TARJETA DE INDICADOR
+   ═══════════════════════════════════════════════════════════════════ */
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  background: var(--rt-superficie);
+  border-radius: var(--rt-radio);
+  box-shadow: var(--rt-sombra);
+}
+
+.tarjeta__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tarjeta__titulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--rt-texto-suave);
+}
+
+/* ── Icono (i) con su burbuja de ayuda ── */
+.tarjeta__ayuda {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--rt-texto-suave);
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 50%;
+  cursor: help;
+  outline: none;
+}
+
+.tarjeta__ayuda:focus-visible {
+  border-color: var(--rt-indigo);
+}
+
+.tarjeta__burbuja {
+  position: absolute;
+  top: 26px;
+  right: -8px;
+  z-index: 5;
+  width: 260px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.5;
+  color: #fff;
+  background: var(--rt-tinta);
+  border-radius: 8px;
+  box-shadow: var(--rt-sombra);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.tarjeta__ayuda:hover .tarjeta__burbuja,
+.tarjeta__ayuda:focus .tarjeta__burbuja {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ── Valor ── */
+.tarjeta__valor {
+  margin: 4px 0 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--rt-indigo);
+  font-variant-numeric: tabular-nums;
+}
+
+.tarjeta__barra {
+  height: 6px;
+  margin: 4px 0 2px;
+  overflow: hidden;
+  background: var(--rt-fondo);
+  border-radius: 999px;
+}
+
+.tarjeta__barra > div {
+  height: 100%;
+  background: var(--rt-indigo);
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+
+.tarjeta__detalle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--rt-texto-suave);
+}
+
+/* ── Comparación ▲▼ (símbolo + texto, nunca solo color) ── */
+.tarjeta__comparacion {
+  align-self: flex-start;
+  margin: 6px 0 0;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+}
+
+.tarjeta__comparacion span {
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.tarjeta__comparacion--bueno {
+  color: #0b6e65;
+  background: rgba(18, 181, 166, 0.12);
+}
+
+.tarjeta__comparacion--malo {
+  color: #b3261e;
+  background: rgba(214, 69, 69, 0.1);
+}
+
+.tarjeta__comparacion--igual {
+  color: var(--rt-texto-suave);
+  background: var(--rt-fondo);
+}

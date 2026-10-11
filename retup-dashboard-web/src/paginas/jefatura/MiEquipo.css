@@ -1,0 +1,176 @@
+/* ═══════════════════════════════════════════════════════════════════
+   JEFATURA · MI EQUIPO
+   ═══════════════════════════════════════════════════════════════════ */
+.mi-equipo {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: opacity 0.2s;
+}
+
+/* Mientras se recalculan los datos tras cambiar un filtro */
+.mi-equipo--actualizando {
+  opacity: 0.6;
+}
+
+.mi-equipo__estado {
+  padding: 24px;
+  color: var(--rt-texto-suave);
+  background: var(--rt-superficie);
+  border-radius: var(--rt-radio);
+  box-shadow: var(--rt-sombra);
+}
+
+.mi-equipo__estado--error {
+  color: var(--rt-error);
+}
+
+/* ── Cabecera de la pantalla ── */
+.mi-equipo__miga {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--rt-texto-suave);
+}
+
+.mi-equipo__titulo {
+  margin: 4px 0 0;
+  font-size: 26px;
+  color: var(--rt-indigo);
+}
+
+.mi-equipo__equipos {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--rt-texto-suave);
+}
+
+/* ── Tarjetas: 4 columnas en escritorio ── */
+.mi-equipo__tarjetas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1280px) {
+  .mi-equipo__tarjetas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Paneles (gráfico y tabla de retos) ── */
+.mi-equipo__panel {
+  padding: 20px 24px;
+  background: var(--rt-superficie);
+  border-radius: var(--rt-radio);
+  box-shadow: var(--rt-sombra);
+}
+
+.mi-equipo__panel-cabecera h2 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--rt-texto);
+}
+
+.mi-equipo__panel-cabecera p {
+  margin: 4px 0 12px;
+  font-size: 13px;
+  color: var(--rt-texto-suave);
+}
+
+.mi-equipo__vacio {
+  margin: 0;
+  color: var(--rt-texto-suave);
+}
+
+/* ── Tabla de datos (desplegable) ── */
+.mi-equipo__tabla-datos {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.mi-equipo__tabla-datos summary {
+  font-weight: 600;
+  color: var(--rt-indigo);
+  cursor: pointer;
+}
+
+.mi-equipo__tabla-datos table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+}
+
+.mi-equipo__tabla-datos th,
+.mi-equipo__tabla-datos td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--rt-borde);
+  font-variant-numeric: tabular-nums;
+}
+
+.mi-equipo__tabla-datos th {
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+/* ── Finalización por reto (barras horizontales) ── */
+.mi-equipo__retos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mi-equipo__reto {
+  display: grid;
+  grid-template-columns: 240px 1fr 120px;
+  align-items: center;
+  gap: 16px;
+}
+
+.mi-equipo__reto-nombre,
+.mi-equipo__reto-valor {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.mi-equipo__reto-nombre strong {
+  font-size: 14px;
+  color: var(--rt-texto);
+}
+
+.mi-equipo__reto-nombre span,
+.mi-equipo__reto-valor span {
+  font-size: 12px;
+  color: var(--rt-texto-suave);
+}
+
+.mi-equipo__reto-valor {
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.mi-equipo__reto-valor strong {
+  font-size: 15px;
+  color: var(--rt-texto);
+}
+
+.mi-equipo__reto-barra {
+  height: 10px;
+  overflow: hidden;
+  background: var(--rt-fondo);
+  border-radius: 999px;
+}
+
+.mi-equipo__reto-barra > div {
+  height: 100%;
+  background: var(--rt-indigo);
+  border-radius: 999px;
+  transition: width 0.3s;
+}

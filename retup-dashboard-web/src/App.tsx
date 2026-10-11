@@ -7,6 +7,7 @@ import Marco from './componentes/Marco';
 import Login from './paginas/Login';
 import RedireccionInicial from './paginas/RedireccionInicial';
 import PantallaDashboard from './paginas/PantallaDashboard';
+import MiEquipo from './paginas/jefatura/MiEquipo';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/" element={<RedireccionInicial />} />
           {/* Cualquier pantalla del menú. Las pantallas reales se añadirán
               ENCIMA de esta línea con su ruta exacta (ej. /rrhh/mapa-calor) */}
+                    <Route path="/jefatura/mi-equipo" element={<MiEquipo />} />
           <Route path="/:nivel/:pantalla" element={<PantallaDashboard />} />
         </Route>
       </Route>
