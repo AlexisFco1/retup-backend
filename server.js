@@ -84,6 +84,42 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+// ===== SOLICITAR RESTABLECER CONTRASEÑA (desde la app, sin sesión) =====
+// Responde SIEMPRE lo mismo, exista o no el email, para no revelar quién usa RetUp.
+// El aviso aparece en el dashboard de Mantenimiento ("Requiere atención").
+app.post('/api/auth/solicitar-restablecimiento', async (req, res) => {
+  try {
+    const email = req.body && typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'Escribe un email válido.' });
+    }
+
+    const { data: usuario, error } = await supabase
+      .from('users')
+      .select('id, status, is_active, password_reset_requested_at')
+      .eq('email', email)
+      .maybeSingle();
+    if (error) throw error;
+
+    // Solo si existe, no está de baja y no tenía ya una solicitud pendiente
+    if (usuario && usuario.is_active !== false && usuario.status !== 'baja' && !usuario.password_reset_requested_at) {
+      const { error: errorMarca } = await supabase
+        .from('users')
+        .update({ password_reset_requested_at: new Date().toISOString() })
+        .eq('id', usuario.id);
+      if (errorMarca) throw errorMarca;
+    }
+
+    res.json({
+      success: true,
+      message: 'Si el email está registrado, el administrador de tu empresa recibirá tu solicitud y te dará una contraseña temporal.',
+    });
+  } catch (error) {
+    console.error('Error en solicitud de restablecimiento:', error.message);
+    res.status(500).json({ success: false, error: 'No se pudo enviar la solicitud. Inténtalo de nuevo en unos minutos.' });
+  }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     console.log('DEBUG - req.body:', req.body);
