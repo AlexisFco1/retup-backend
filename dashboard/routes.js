@@ -142,12 +142,18 @@ router.get(
         return res.status(400).json({ success: false, error: rango.error });
       }
 
+         // Frecuencia del gráfico de evolución: dia | semana | mes (por defecto, semana)
+      const frecuencia = ['dia', 'semana', 'mes'].includes(req.query.frecuencia)
+        ? req.query.frecuencia
+        : 'semana';
+
       const { data, error } = await db.rpc('dash_jefatura_mi_equipo', {
         p_lider: req.user.id, // ← del token, nunca del navegador
         p_desde: rango.desde,
         p_hasta: rango.hasta,
         p_comp_desde: rango.comp_desde,
         p_comp_hasta: rango.comp_hasta,
+        p_frecuencia: frecuencia,
       });
       if (error) throw error;
 
