@@ -11,6 +11,7 @@ import 'providers/practicalo_provider.dart';
 import 'providers/planificacion_provider.dart';
 import 'providers/social_provider.dart';
 import 'screens/login_screen.dart';
+import 'screens/crear_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/inicio_screen.dart';
 import 'screens/profile_screen.dart';
@@ -74,6 +75,10 @@ class MyApp extends StatelessWidget {
                 builder: (context, authProvider, _) {
                   if (!authProvider.isAuthenticated) {
                     return const LoginScreen();
+                  }
+                  // Entró con una contraseña temporal: primero debe crear la suya
+                  if (authProvider.debeCambiarPassword) {
+                    return const CrearPasswordScreen();
                   }
                   return const InicioScreen();
                 },

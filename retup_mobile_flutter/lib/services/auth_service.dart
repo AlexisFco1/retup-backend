@@ -147,6 +147,43 @@ class AuthService {
     }
   }
 
+  // CAMBIAR LA CONTRASEÑA TEMPORAL (requiere la sesión iniciada con la temporal)
+  Future<Map<String, dynamic>> cambiarPasswordTemporal(
+      String token, String passwordNueva) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/dashboard/cuenta/cambiar-password-temporal'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'password_nueva': passwordNueva}),
+          )
+          .timeout(const Duration(seconds: 60));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Contraseña actualizada'
+        };
+      }
+      return {
+        'success': false,
+        'message': data['error'] ??
+            data['message'] ??
+            'No se pudo cambiar la contraseña',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message':
+            'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.',
+      };
+    }
+  }
+
   // LOGOUT
   Future<void> logout() async {
     try {

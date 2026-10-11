@@ -57,14 +57,23 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await context.read<AuthProvider>().login(
-            _emailController.text,
-            _passwordController.text,
-          );
+      final auth = context.read<AuthProvider>();
+      final entro = await auth.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
 
-      // Si el login fue exitoso, verificar racha
-      if (context.read<AuthProvider>().isAuthenticated) {
-        await context.read<AuthProvider>().verificarRachaAlLogin();
+      if (entro) {
+        // Si el login fue exitoso, verificar racha
+        await auth.verificarRachaAlLogin();
+      } else if (mounted) {
+        // Antes no se mostraba nada: ahora sale el motivo (contraseña incorrecta, cuenta desactivada…)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(auth.errorMessage ?? 'No se pudo iniciar sesión'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

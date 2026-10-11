@@ -15,8 +15,10 @@ class AuthProvider extends ChangeNotifier {
   String? _token;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _debeCambiarPassword = false;
 
   bool get isAuthenticated => _isAuthenticated;
+  bool get debeCambiarPassword => _debeCambiarPassword;
   String? get userId => _userId;
   String? get userName => _userName;
   String? get userEmail => _userEmail;
@@ -58,6 +60,9 @@ class AuthProvider extends ChangeNotifier {
         _userId = response['userId']?.toString();
         _userEmail = email;
         _userName = _nombreCompleto(response['user'], email);
+        // Entró con una contraseña temporal: la app le pedirá crear una propia
+        _debeCambiarPassword = response['user'] is Map &&
+            response['user']['debe_cambiar_password'] == true;
 
         // 🆕 REGISTRAR LOGIN EN RACHA para todos los retos
         await _registrarLoginEnRachas();
@@ -166,11 +171,45 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // CAMBIAR LA CONTRASEÑA TEMPORAL
+  // Al cambiarla, Supabase cierra las sesiones abiertas: por eso se vuelve
+  // a iniciar sesión automáticamente con la contraseña nueva.
+  Future<bool> cambiarPasswordTemporal(String passwordNueva) async {
+    if (_token == null || _userEmail == null) return false;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final respuesta =
+        await _authService.cambiarPasswordTemporal(_token!, passwordNueva);
+    if (respuesta['success'] != true) {
+      _errorMessage =
+          respuesta['message'] ?? 'No se pudo cambiar la contraseña';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+
+    // Nueva sesión con la contraseña nueva (debe_cambiar_password ya es false)
+    final email = _userEmail!;
+    final entro = await login(email, passwordNueva);
+    if (!entro) {
+      // Caso raro: la contraseña sí se cambió; que entre de nuevo a mano
+      await logout();
+      _errorMessage =
+          'Tu contraseña se ha cambiado. Inicia sesión con la nueva.';
+      notifyListeners();
+    }
+    return entro;
+  }
+
   // LOGOUT
   Future<void> logout() async {
     try {
       await _authService.logout();
       _isAuthenticated = false;
+      _debeCambiarPassword = false;
       _userId = null;
       _userName = null;
       _userEmail = null;
