@@ -310,9 +310,29 @@ app.post('/api/companies', authenticateToken, authorizeRole(['super_admin']), as
 // ===== ENDPOINTS DE USERS (PROTEGIDOS) =====
 app.get('/api/users', authenticateToken, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    // 1) Averiguar la empresa y el rol de quien hace la consulta
+    const { data: yo, error: errorYo } = await supabase
       .from('users')
-      .select('*');
+      .select('company_id, role')
+      .eq('id', req.user.id)
+      .single();
+
+    if (errorYo) throw errorYo;
+
+    // 2) Armar la consulta de usuarios
+    let query = supabase.from('users').select('*');
+
+    // 3) Solo el super_admin de RetUp ve usuarios de todas las empresas.
+    //    Cualquier otro rol ve únicamente los de SU empresa.
+    if (yo.role !== 'super_admin') {
+      if (!yo.company_id) {
+        // Usuario sin empresa asignada: no ve a nadie
+        return res.json({ success: true, data: [] });
+      }
+      query = query.eq('company_id', yo.company_id);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     res.json({ success: true, data });
