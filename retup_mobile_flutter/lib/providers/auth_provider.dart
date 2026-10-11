@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/racha_service.dart';
+import '../services/eventos_service.dart';
 import '../models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -60,6 +61,9 @@ class AuthProvider extends ChangeNotifier {
 
         // 🆕 REGISTRAR LOGIN EN RACHA para todos los retos
         await _registrarLoginEnRachas();
+
+        // Dashboard: inicio de sesión = apertura de la app (sin await, no bloquea)
+        EventosService().registrarActividad('login');
 
         _isLoading = false;
         notifyListeners();

@@ -18,9 +18,16 @@ import 'screens/social_screen.dart';
 import 'screens/rachas_screen.dart';
 import 'screens/practicalo_screen.dart';
 import 'utils/colors.dart';
+import 'utils/observador_actividad.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 Future<void> main() async {
+  // Necesario para registrar el observador antes de runApp
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Dashboard: registra cuando la app vuelve a primer plano
+  WidgetsBinding.instance.addObserver(ObservadorActividad());
+
   // Inicializar Supabase con credenciales directas
   await Supabase.initialize(
     url: 'https://ebysbsefkfjjndklgkpk.supabase.co',
