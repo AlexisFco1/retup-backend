@@ -9,6 +9,7 @@ import RedireccionInicial from './paginas/RedireccionInicial';
 import PantallaDashboard from './paginas/PantallaDashboard';
 import MiEquipo from './paginas/jefatura/MiEquipo';
 import Directorio from './paginas/mantenimiento/Directorio';
+import RequiereAtencion from './paginas/mantenimiento/RequiereAtencion';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
               ENCIMA de esta línea con su ruta exacta (ej. /rrhh/mapa-calor) */}
                     <Route path="/jefatura/mi-equipo" element={<MiEquipo />} />
                     <Route path="/mantenimiento/directorio" element={<Directorio />} />
+                    <Route path="/mantenimiento/atencion" element={<RequiereAtencion />} />
           <Route path="/:nivel/:pantalla" element={<PantallaDashboard />} />
         </Route>
       </Route>
