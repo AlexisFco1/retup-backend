@@ -12,6 +12,7 @@ import { useSesion } from '../../auth/sesion';
 import type { NivelAcceso } from '../../auth/sesion';
 import FormularioAlta from './FormularioAlta';
 import GestionPersona from './GestionPersona';
+import DepartamentosEquipos from './DepartamentosEquipos';
 import './Directorio.css';
 
 // ───────────── Forma de la respuesta del backend ─────────────
@@ -191,7 +192,8 @@ export default function Directorio() {
   const [orden, setOrden] = useState<Orden>({ columna: 'nombre', asc: true });
   const [pagina, setPagina] = useState(1);
     const [altaAbierta, setAltaAbierta] = useState(false);
-  const [gestionando, setGestionando] = useState<PersonaDirectorio | null>(null);
+   const [gestionando, setGestionando] = useState<PersonaDirectorio | null>(null);
+  const [departamentosAbierto, setDepartamentosAbierto] = useState(false);
 
   // Opciones de los desplegables, sacadas de los propios datos
   const opciones = useMemo(() => {
@@ -305,12 +307,24 @@ export default function Directorio() {
             {nombreEmpresa ? ` en ${nombreEmpresa}` : ''}
           </p>
         </div>
-        <button type="button" className="directorio__alta" onClick={() => setAltaAbierta(true)}>
-          + Dar de alta
-        </button>
+                <div className="directorio__botones-cabecera">
+          <button
+            type="button"
+            className="directorio__secundario"
+            onClick={() => setDepartamentosAbierto(true)}
+          >
+            Departamentos y equipos
+          </button>
+          <button type="button" className="directorio__alta" onClick={() => setAltaAbierta(true)}>
+            + Dar de alta
+          </button>
+        </div>
       </header>
 
-            {altaAbierta && <FormularioAlta alCerrar={() => setAltaAbierta(false)} />}
+                {altaAbierta && <FormularioAlta alCerrar={() => setAltaAbierta(false)} />}
+      {departamentosAbierto && (
+        <DepartamentosEquipos alCerrar={() => setDepartamentosAbierto(false)} />
+      )}
       {gestionando && (
         <GestionPersona persona={gestionando} alCerrar={() => setGestionando(null)} />
       )}

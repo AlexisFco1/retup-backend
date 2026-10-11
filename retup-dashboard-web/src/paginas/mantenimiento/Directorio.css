@@ -393,3 +393,27 @@
   border-color: #2e2a72;
   background: #f3f2fb;
 }
+
+/* ── Botones de la cabecera (Departamentos y equipos · Dar de alta) ── */
+.directorio__botones-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.directorio__secundario {
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid #2e2a72;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2e2a72;
+  cursor: pointer;
+}
+
+.directorio__secundario:hover {
+  background: #f3f2fb;
+}

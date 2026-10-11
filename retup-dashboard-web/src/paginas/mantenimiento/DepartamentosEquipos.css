@@ -1,0 +1,187 @@
+/* ═══════════ MANTENIMIENTO · DEPARTAMENTOS Y EQUIPOS ═══════════ */
+/* (La ventana y los botones principales usan FormularioAlta.css) */
+
+.deq {
+  width: min(820px, calc(100vw - 32px));
+}
+
+/* Campo + botones en una línea (crear departamento, renombrar, nuevo equipo) */
+.deq__editor {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  align-items: center;
+}
+
+.deq__editor input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d4d4e0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  color: #0e0f17;
+}
+
+.deq__editor input:focus {
+  outline: 2px solid #2e2a72;
+  outline-offset: 1px;
+}
+
+/* ── Lista ── */
+.deq__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transition: opacity 0.2s;
+}
+
+.deq__lista--ocupada {
+  opacity: 0.6;
+}
+
+.deq__departamento {
+  padding: 14px 16px;
+  border: 1px solid #e3e3ec;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.deq__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+}
+
+.deq__nombre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.deq__nombre strong {
+  font-size: 15px;
+  color: #0e0f17;
+}
+
+.deq__fila--equipo .deq__nombre strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.deq__detalle {
+  font-size: 12px;
+  color: #5b5d6b;
+}
+
+.deq__etiqueta {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #f0f0f3;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5b5d6b;
+}
+
+.deq__botones {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.deq__boton {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid #d4d4e0;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2e2a72;
+  cursor: pointer;
+}
+
+.deq__boton:hover:not(:disabled) {
+  border-color: #2e2a72;
+  background: #f3f2fb;
+}
+
+.deq__boton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Equipos ── */
+.deq__equipos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0 0 0 16px;
+  border-left: 2px solid #eeedf8;
+  list-style: none;
+}
+
+.deq__fila--equipo {
+  padding: 4px 0;
+}
+
+.deq__anadir {
+  margin: 10px 0 0 18px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2e2a72;
+  cursor: pointer;
+}
+
+.deq__anadir:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.deq__nuevo-equipo {
+  margin: 10px 0 0 18px;
+}
+
+/* Elementos desactivados: en gris */
+.deq--inactivo .deq__nombre strong,
+.deq--inactivo .deq__detalle {
+  color: #a0a1ad;
+}
+
+.deq__mensaje {
+  margin: 0;
+  font-size: 13px;
+  color: #a0a1ad;
+}
+
+/* ── Pie ── */
+.deq__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.deq__casilla {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #5b5d6b;
+  cursor: pointer;
+}
