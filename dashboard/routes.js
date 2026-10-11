@@ -3,7 +3,7 @@
 // =====================================================================
 const express = require('express');
 const { authenticateToken } = require('../middleware');
-const { crearClienteAuth } = require('./db');
+const { db, crearClienteAuth } = require('./db');
 const {
   cargarPerfilDashboard,
   motivoSinAcceso,
@@ -93,5 +93,70 @@ router.post('/auth/refresh', async (req, res) => {
 router.get('/me', authenticateToken, exigirAccesoDashboard(), (req, res) => {
   res.json({ success: true, perfil: perfilPublico(req.dashboard) });
 });
+
+// ---------------------------------------------------------------------
+// UTILIDAD: lee y valida el rango de fechas de los filtros
+// Query: ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&comp_desde=...&comp_hasta=...
+// ---------------------------------------------------------------------
+const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_DIAS_RANGO = 400;
+
+function leerRango(query) {
+  const { desde, hasta, comp_desde, comp_hasta } = query;
+
+  if (!FECHA_RE.test(desde || '') || !FECHA_RE.test(hasta || '')) {
+    return { error: 'Las fechas "desde" y "hasta" son obligatorias (formato AAAA-MM-DD)' };
+  }
+  if (desde > hasta) {
+    return { error: 'La fecha "desde" no puede ser posterior a "hasta"' };
+  }
+  const dias = (Date.parse(hasta) - Date.parse(desde)) / 86400000;
+  if (dias > MAX_DIAS_RANGO) {
+    return { error: `El rango máximo es de ${MAX_DIAS_RANGO} días` };
+  }
+
+  // La comparación es opcional: si no viene completa y válida, no se compara
+  const hayComparacion =
+    FECHA_RE.test(comp_desde || '') && FECHA_RE.test(comp_hasta || '') && comp_desde <= comp_hasta;
+
+  return {
+    desde,
+    hasta,
+    comp_desde: hayComparacion ? comp_desde : null,
+    comp_hasta: hayComparacion ? comp_hasta : null,
+  };
+}
+
+// ---------------------------------------------------------------------
+// GET /api/dashboard/jefatura/mi-equipo
+// Indicadores del equipo del jefe conectado. El jefe SIEMPRE sale del token.
+// ---------------------------------------------------------------------
+router.get(
+  '/jefatura/mi-equipo',
+  authenticateToken,
+  exigirAccesoDashboard(['jefatura']),
+  async (req, res) => {
+    try {
+      const rango = leerRango(req.query);
+      if (rango.error) {
+        return res.status(400).json({ success: false, error: rango.error });
+      }
+
+      const { data, error } = await db.rpc('dash_jefatura_mi_equipo', {
+        p_lider: req.user.id, // ← del token, nunca del navegador
+        p_desde: rango.desde,
+        p_hasta: rango.hasta,
+        p_comp_desde: rango.comp_desde,
+        p_comp_hasta: rango.comp_hasta,
+      });
+      if (error) throw error;
+
+      res.json({ success: true, datos: data });
+    } catch (error) {
+      console.error('❌ Error en /dashboard/jefatura/mi-equipo:', error.message);
+      res.status(500).json({ success: false, error: 'No se pudieron calcular los indicadores del equipo' });
+    }
+  },
+);
 
 module.exports = router;
