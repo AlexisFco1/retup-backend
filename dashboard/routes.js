@@ -165,4 +165,37 @@ router.get(
   },
 );
 
+// ===================== MANTENIMIENTO · LECTURA =====================
+// La empresa SIEMPRE sale del perfil del usuario conectado (nunca del navegador).
+function empresaDelPerfil(req, res) {
+  const empresaId = req.dashboard && req.dashboard.empresa && req.dashboard.empresa.id;
+  if (!empresaId) {
+        res.status(403).json({ success: false, error: 'Tu usuario no tiene una empresa asignada.' });
+    return null;
+  }
+  return empresaId;
+}
+
+// Fabrica una ruta que llama a una función SQL de Mantenimiento con la empresa del perfil
+function rutaLecturaMantenimiento(funcionSql) {
+  return async (req, res) => {
+    try {
+      const empresaId = empresaDelPerfil(req, res);
+      if (!empresaId) return;
+
+      const { data, error } = await db.rpc(funcionSql, { p_empresa: empresaId });
+      if (error) throw error;
+
+      res.json({ success: true, datos: data });
+    } catch (err) {
+      console.error(`Error en ${funcionSql}:`, err.message);
+            res.status(500).json({ success: false, error: 'No se pudieron cargar los datos.' });
+    }
+  };
+}
+
+router.get('/mantenimiento/directorio', authenticateToken, exigirAccesoDashboard(['mantenimiento']), rutaLecturaMantenimiento('dash_mant_directorio'));
+router.get('/mantenimiento/alertas', authenticateToken, exigirAccesoDashboard(['mantenimiento']), rutaLecturaMantenimiento('dash_mant_alertas'));
+router.get('/mantenimiento/catalogo', authenticateToken, exigirAccesoDashboard(['mantenimiento']), rutaLecturaMantenimiento('dash_mant_catalogo'));
+
 module.exports = router;
