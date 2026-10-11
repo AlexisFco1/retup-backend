@@ -4,7 +4,7 @@
 // <Outlet /> = aquí se pinta la pantalla que corresponda a la URL.
 // ═══════════════════════════════════════════════════════════════════
 import { useEffect } from 'react';
-import { Outlet } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api/cliente';
 import { useSesion } from '../auth/sesion';
@@ -19,8 +19,20 @@ interface RespuestaMe {
   perfil: PerfilDashboard;
 }
 
+/**
+ * Pantallas que NO usan los filtros globales (periodo, frecuencia, comparar):
+ * muestran el estado actual, no datos de un periodo. Ahí no se pinta la barra.
+ * (Los filtros elegidos se conservan para cuando se vuelva a otra pantalla.)
+ */
+const RUTAS_SIN_FILTROS = ['/mantenimiento'];
+
+function usaFiltros(ruta: string): boolean {
+  return !RUTAS_SIN_FILTROS.some((prefijo) => ruta === prefijo || ruta.startsWith(`${prefijo}/`));
+}
+
 export default function Marco() {
   const actualizarPerfil = useSesion((estado) => estado.actualizarPerfil);
+  const { pathname } = useLocation();
 
   // Al entrar, se pide el perfil actualizado (por si cambiaron sus niveles o su menú)
   const consultaPerfil = useQuery({
@@ -41,7 +53,7 @@ export default function Marco() {
       <div className="marco__cuerpo">
         <MenuLateral />
         <div className="marco__contenido">
-          <BarraFiltros />
+                    {usaFiltros(pathname) && <BarraFiltros />}
           <main className="marco__pagina">
             <Outlet />
           </main>
