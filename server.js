@@ -125,14 +125,21 @@ app.post('/api/auth/login', async (req, res) => {
       console.error('⚠️ Error registrando login automático:', err.message);
     });
 
-    res.json({
+       res.json({
       success: true,
       message: 'Login exitoso',
       token: data.session.access_token,
       user: userData,
     });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    // Mensajes claros en español para la app
+    let mensaje = error.message;
+    if (/banned/i.test(mensaje)) {
+      mensaje = 'Tu cuenta está desactivada. Si crees que es un error, contacta con Recursos Humanos de tu empresa.';
+    } else if (/invalid login credentials/i.test(mensaje)) {
+      mensaje = 'Email o contraseña incorrectos.';
+    }
+    res.status(400).json({ success: false, error: mensaje });
   }
 });
 
