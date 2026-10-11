@@ -1,0 +1,191 @@
+/* ═══════════════════════════════════════════════════════════════════
+   CABECERA
+   ═══════════════════════════════════════════════════════════════════ */
+.cabecera {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: 64px;
+  padding: 0 24px;
+  background: var(--rt-superficie);
+  border-bottom: 1px solid var(--rt-borde);
+}
+
+/* ── Marca ── */
+.cabecera__marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cabecera__icono {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.cabecera__logo {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--rt-indigo);
+  letter-spacing: -0.3px;
+}
+
+.cabecera__logo span {
+  color: var(--rt-turquesa);
+}
+
+.cabecera__empresa {
+  margin-left: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rt-indigo);
+  background: rgba(46, 42, 114, 0.08);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ── Acciones ── */
+.cabecera__acciones {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cabecera__actualizacion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--rt-texto-suave);
+  white-space: nowrap;
+}
+
+.cabecera__boton-icono {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  color: var(--rt-indigo);
+  background: transparent;
+  border: 1px solid var(--rt-borde);
+  border-radius: 8px;
+}
+
+.cabecera__boton-icono:hover:not(:disabled) {
+  background: var(--rt-fondo);
+}
+
+.cabecera__boton-icono:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* ── Configuración (desplegable) ── */
+.cabecera__config {
+  position: relative;
+}
+
+.cabecera__panel-config {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  width: 240px;
+  padding: 16px;
+  font-size: 14px;
+  background: var(--rt-superficie);
+  border: 1px solid var(--rt-borde);
+  border-radius: var(--rt-radio);
+  box-shadow: var(--rt-sombra);
+}
+
+.cabecera__panel-config strong {
+  color: var(--rt-indigo);
+}
+
+.cabecera__panel-config p {
+  margin: 8px 0 4px;
+  color: var(--rt-texto-suave);
+}
+
+.cabecera__panel-config ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--rt-texto);
+  line-height: 1.7;
+}
+
+/* ── Ayuda ── */
+.cabecera__ayuda {
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rt-indigo);
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+.cabecera__ayuda:hover {
+  background: var(--rt-fondo);
+}
+
+/* ── Usuario conectado ── */
+.cabecera__usuario {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 16px;
+  border-left: 1px solid var(--rt-borde);
+}
+
+.cabecera__avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--rt-turquesa), var(--rt-indigo));
+  border-radius: 50%;
+}
+
+.cabecera__datos-usuario {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.cabecera__nombre {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--rt-texto);
+}
+
+.cabecera__cargo {
+  font-size: 12px;
+  color: var(--rt-texto-suave);
+}
+
+/* ── Salir ── */
+.cabecera__salir {
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rt-indigo);
+  background: transparent;
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 8px;
+}
+
+.cabecera__salir:hover {
+  color: var(--rt-error);
+  border-color: var(--rt-error);
+}

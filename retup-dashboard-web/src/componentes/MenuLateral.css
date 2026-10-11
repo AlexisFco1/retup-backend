@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MENÚ LATERAL (fondo índigo de la marca)
+   ═══════════════════════════════════════════════════════════════════ */
+.menu {
+  position: sticky;
+  top: 64px; /* justo debajo de la cabecera */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 248px;
+  height: calc(100vh - 64px);
+  padding: 20px 12px;
+  overflow-y: auto;
+  background: var(--rt-indigo);
+}
+
+.menu__seccion {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Botón del nivel (desplegable) ── */
+.menu__nivel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+}
+
+.menu__nivel:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menu__nivel--actual {
+  color: #fff;
+}
+
+.menu__flecha {
+  font-size: 12px;
+}
+
+/* ── Lista de pantallas ── */
+.menu__pantallas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.menu__enlace {
+  position: relative;
+  display: block;
+  padding: 9px 12px 9px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.menu__enlace:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Sombreado de "dónde estoy" ── */
+.menu__enlace--activo {
+  font-weight: 700;
+  color: #fff;
+  background: rgba(18, 181, 166, 0.22);
+}
+
+.menu__enlace--activo::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 6px;
+  width: 4px;
+  background: var(--rt-turquesa);
+  border-radius: 4px;
+}

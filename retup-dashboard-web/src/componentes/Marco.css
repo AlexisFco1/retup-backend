@@ -1,0 +1,23 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MARCO (estructura general de todas las pantallas)
+   ═══════════════════════════════════════════════════════════════════ */
+.marco {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.marco__cuerpo {
+  display: flex;
+  flex: 1;
+  align-items: flex-start; /* necesario para que el menú lateral quede fijo */
+}
+
+.marco__contenido {
+  flex: 1;
+  min-width: 0; /* evita que tablas o gráficos anchos desborden el marco */
+}
+
+.marco__pagina {
+  padding: 28px;
+}

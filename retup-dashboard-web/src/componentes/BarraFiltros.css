@@ -1,0 +1,109 @@
+/* ═══════════════════════════════════════════════════════════════════
+   BARRA DE FILTROS
+   ═══════════════════════════════════════════════════════════════════ */
+.filtros {
+  position: sticky;
+  top: 64px; /* debajo de la cabecera */
+  z-index: 10;
+  padding: 14px 28px 10px;
+  background: var(--rt-superficie);
+  border-bottom: 1px solid var(--rt-borde);
+}
+
+.filtros__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.filtros__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+.filtros__campo select,
+.filtros__campo input {
+  height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--rt-texto);
+  background: var(--rt-superficie);
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 8px;
+  outline: none;
+}
+
+.filtros__campo select:focus,
+.filtros__campo input:focus {
+  border-color: var(--rt-turquesa);
+}
+
+/* ── Botones segmentados (Día / Semana / Mes) ── */
+.filtros__segmentado {
+  display: flex;
+  height: 36px;
+  padding: 3px;
+  background: var(--rt-fondo);
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 8px;
+}
+
+.filtros__segmentado button {
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+}
+
+.filtros__segmentado button.activo {
+  color: #fff;
+  background: var(--rt-indigo);
+}
+
+/* ── Acciones ── */
+.filtros__acciones {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.filtros__boton {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rt-indigo);
+  background: transparent;
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 8px;
+}
+
+.filtros__boton:hover:not(:disabled) {
+  background: var(--rt-fondo);
+}
+
+.filtros__boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Resumen ── */
+.filtros__resumen {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--rt-texto-suave);
+}
+
+.filtros__resumen strong {
+  color: var(--rt-texto);
+}
