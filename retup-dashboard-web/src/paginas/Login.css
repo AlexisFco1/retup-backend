@@ -1,0 +1,183 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LOGIN · todos los colores salen de las variables de index.css
+   ═══════════════════════════════════════════════════════════════════ */
+.login {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  min-height: 100vh;
+}
+
+/* ── Panel de marca (izquierda) ── */
+.login__marca {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+  padding: 64px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--rt-indigo) 0%, var(--rt-indigo) 45%, var(--rt-morado) 100%);
+}
+
+.login__logo {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.login__logo span {
+  color: var(--rt-turquesa);
+}
+
+.login__lema {
+  max-width: 520px;
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.login__lema span {
+  color: var(--rt-turquesa);
+}
+
+.login__descripcion {
+  max-width: 460px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  opacity: 0.85;
+}
+
+/* ── Panel del formulario (derecha) ── */
+.login__panel {
+  display: grid;
+  place-items: center;
+  padding: 48px;
+  background: var(--rt-fondo);
+}
+
+.login__formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 380px;
+  padding: 40px;
+  background: var(--rt-superficie);
+  border-radius: var(--rt-radio);
+  box-shadow: var(--rt-sombra);
+}
+
+.login__titulo {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--rt-indigo);
+}
+
+.login__subtitulo {
+  margin: -10px 0 4px;
+  font-size: 14px;
+  color: var(--rt-texto-suave);
+}
+
+.login__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rt-texto);
+}
+
+.login__campo input {
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  font-weight: 400;
+  color: var(--rt-texto);
+  background: var(--rt-superficie);
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.login__campo input:focus {
+  border-color: var(--rt-turquesa);
+  box-shadow: 0 0 0 3px rgba(18, 181, 166, 0.18);
+}
+
+.login__campo input:disabled {
+  opacity: 0.6;
+}
+
+.login__clave {
+  position: relative;
+}
+
+.login__clave input {
+  padding-right: 84px;
+}
+
+.login__ver-clave {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rt-indigo);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+}
+
+.login__ver-clave:hover {
+  background: var(--rt-fondo);
+}
+
+.login__mensaje {
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  border-radius: 8px;
+}
+
+.login__mensaje--error {
+  color: var(--rt-error);
+  background: rgba(214, 69, 69, 0.08);
+  border: 1px solid rgba(214, 69, 69, 0.25);
+}
+
+.login__mensaje--aviso {
+  color: #8a5a00;
+  background: rgba(232, 163, 23, 0.1);
+  border: 1px solid rgba(232, 163, 23, 0.3);
+}
+
+.login__boton {
+  margin-top: 6px;
+  padding: 13px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--rt-turquesa);
+  border: none;
+  border-radius: 10px;
+  transition: filter 0.15s, transform 0.05s;
+}
+
+.login__boton:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+
+.login__boton:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login__boton:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
