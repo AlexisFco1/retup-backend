@@ -1,0 +1,345 @@
+/* ═══════════ MANTENIMIENTO · DIRECTORIO DE USUARIOS ═══════════ */
+.directorio {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: opacity 0.2s;
+}
+
+.directorio--actualizando {
+  opacity: 0.7;
+}
+
+/* ── Cabecera ── */
+.directorio__miga {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5b5d6b;
+}
+
+.directorio__titulo {
+  margin: 4px 0 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #0e0f17;
+}
+
+.directorio__subtitulo {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #5b5d6b;
+}
+
+/* ── Pastillas de estado ── */
+.directorio__pastillas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.directorio__pastilla {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid #e3e3ec;
+  border-radius: 12px;
+  background: #ffffff;
+  font: inherit;
+  color: #0e0f17;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.directorio__pastilla strong {
+  font-size: 20px;
+}
+
+.directorio__pastilla span {
+  font-size: 13px;
+  color: #5b5d6b;
+}
+
+.directorio__pastilla:hover {
+  border-color: #2e2a72;
+}
+
+.directorio__pastilla--elegida {
+  border-color: #2e2a72;
+  box-shadow: 0 0 0 2px rgba(46, 42, 114, 0.18);
+}
+
+.directorio__pastilla--activo strong { color: #0b6b62; }
+.directorio__pastilla--invitado strong { color: #2e2a72; }
+.directorio__pastilla--bloqueado strong { color: #a12828; }
+.directorio__pastilla--baja strong { color: #5b5d6b; }
+
+/* ── Buscador y filtros ── */
+.directorio__herramientas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e3e3ec;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.directorio__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.directorio__campo--busqueda {
+  flex: 1 1 240px;
+}
+
+.directorio__campo span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b5d6b;
+}
+
+.directorio__campo input,
+.directorio__campo select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #d4d4e0;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  color: #0e0f17;
+}
+
+.directorio__campo input:focus,
+.directorio__campo select:focus {
+  outline: 2px solid #2e2a72;
+  outline-offset: 1px;
+}
+
+.directorio__limpiar {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #2e2a72;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  color: #2e2a72;
+  cursor: pointer;
+}
+
+.directorio__limpiar:disabled {
+  border-color: #d4d4e0;
+  color: #a0a1ad;
+  cursor: default;
+}
+
+/* ── Tabla ── */
+.directorio__tabla-marco {
+  overflow-x: auto;
+  border: 1px solid #e3e3ec;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.directorio__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.directorio__tabla th {
+  position: sticky;
+  top: 0;
+  padding: 0;
+  border-bottom: 1px solid #e3e3ec;
+  background: #f7f7fb;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b5d6b;
+  white-space: nowrap;
+}
+
+/* Columna sin orden ("Acceso al dashboard") */
+.directorio__tabla th:not([aria-sort]) {
+  padding: 10px 14px;
+}
+
+.directorio__orden {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.directorio__orden:hover,
+.directorio__orden--activo {
+  color: #2e2a72;
+}
+
+.directorio__flecha {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.directorio__orden--activo .directorio__flecha {
+  opacity: 1;
+}
+
+.directorio__tabla td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #efeff4;
+  vertical-align: top;
+  color: #0e0f17;
+}
+
+.directorio__tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.directorio__tabla tbody tr:hover td {
+  background: #fafafd;
+}
+
+.directorio__persona {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.directorio__persona span {
+  font-size: 12px;
+  color: #5b5d6b;
+}
+
+.directorio__vacio {
+  color: #a0a1ad;
+}
+
+.directorio__niveles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.directorio__nivel {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eeedf8;
+  font-size: 12px;
+  color: #2e2a72;
+  white-space: nowrap;
+}
+
+.directorio__jefe-de {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #5b5d6b;
+}
+
+/* Estado de la persona */
+.directorio__estado {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.directorio__estado--activo { background: #e3f6f4; color: #0b6b62; }
+.directorio__estado--invitado { background: #eeedf8; color: #2e2a72; }
+.directorio__estado--bloqueado { background: #fdecec; color: #a12828; }
+.directorio__estado--baja { background: #f0f0f3; color: #5b5d6b; }
+
+.directorio__aviso {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a12828;
+}
+
+.directorio__sin-resultados {
+  padding: 32px 14px !important;
+  text-align: center;
+  color: #5b5d6b !important;
+}
+
+/* ── Pie y paginación ── */
+.directorio__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: #5b5d6b;
+}
+
+.directorio__pie p {
+  margin: 0;
+}
+
+.directorio__paginas {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.directorio__paginas button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #d4d4e0;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  color: #2e2a72;
+  cursor: pointer;
+}
+
+.directorio__paginas button:disabled {
+  color: #a0a1ad;
+  cursor: default;
+}
+
+.directorio__nota {
+  margin: 0;
+  font-size: 12px;
+  color: #a0a1ad;
+}
+
+/* ── Estados de carga ── */
+.directorio__estado-carga {
+  padding: 24px;
+  color: #5b5d6b;
+}
+
+.directorio__estado-carga--error {
+  color: #a12828;
+}
+
+/* Texto solo para lectores de pantalla (accesibilidad) */
+.directorio__solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
