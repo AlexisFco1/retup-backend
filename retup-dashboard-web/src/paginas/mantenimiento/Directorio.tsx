@@ -10,12 +10,14 @@ import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../../api/cliente';
 import { useSesion } from '../../auth/sesion';
 import type { NivelAcceso } from '../../auth/sesion';
+import FormularioAlta from './FormularioAlta';
+import GestionPersona from './GestionPersona';
 import './Directorio.css';
 
 // ───────────── Forma de la respuesta del backend ─────────────
-type EstadoUsuario = 'activo' | 'invitado' | 'bloqueado' | 'baja';
+export type EstadoUsuario = 'activo' | 'invitado' | 'bloqueado' | 'baja';
 
-interface PersonaDirectorio {
+export interface PersonaDirectorio {
   id: string;
   email: string;
   nombre: string;
@@ -188,6 +190,8 @@ export default function Directorio() {
   const [nivel, setNivel] = useState(TODOS);
   const [orden, setOrden] = useState<Orden>({ columna: 'nombre', asc: true });
   const [pagina, setPagina] = useState(1);
+    const [altaAbierta, setAltaAbierta] = useState(false);
+  const [gestionando, setGestionando] = useState<PersonaDirectorio | null>(null);
 
   // Opciones de los desplegables, sacadas de los propios datos
   const opciones = useMemo(() => {
@@ -292,14 +296,24 @@ export default function Directorio() {
 
   return (
     <div className={`directorio${consulta.isFetching ? ' directorio--actualizando' : ''}`}>
-      <header className="directorio__cabecera">
-        <p className="directorio__miga">Mantenimiento</p>
-        <h1 className="directorio__titulo">Directorio de usuarios</h1>
-        <p className="directorio__subtitulo">
-          {personas.length} {personas.length === 1 ? 'persona' : 'personas'}
-          {nombreEmpresa ? ` en ${nombreEmpresa}` : ''}
-        </p>
+            <header className="directorio__cabecera">
+        <div>
+          <p className="directorio__miga">Mantenimiento</p>
+          <h1 className="directorio__titulo">Directorio de usuarios</h1>
+          <p className="directorio__subtitulo">
+            {personas.length} {personas.length === 1 ? 'persona' : 'personas'}
+            {nombreEmpresa ? ` en ${nombreEmpresa}` : ''}
+          </p>
+        </div>
+        <button type="button" className="directorio__alta" onClick={() => setAltaAbierta(true)}>
+          + Dar de alta
+        </button>
       </header>
+
+            {altaAbierta && <FormularioAlta alCerrar={() => setAltaAbierta(false)} />}
+      {gestionando && (
+        <GestionPersona persona={gestionando} alCerrar={() => setGestionando(null)} />
+      )}
 
       {/* ── Pastillas de estado (clic = filtrar por ese estado) ── */}
       <div className="directorio__pastillas" role="group" aria-label="Filtrar por estado">
@@ -434,13 +448,16 @@ export default function Directorio() {
               <Encabezado columna="cargo" titulo="Cargo" orden={orden} alOrdenar={ordenarPor} />
               <th>Acceso al dashboard</th>
               <Encabezado columna="estado" titulo="Estado" orden={orden} alOrdenar={ordenarPor} />
-              <Encabezado columna="ultimo_acceso" titulo="Último acceso" orden={orden} alOrdenar={ordenarPor} />
+                            <Encabezado columna="ultimo_acceso" titulo="Último acceso" orden={orden} alOrdenar={ordenarPor} />
+              <th>
+                <span className="directorio__solo-lectores">Acciones</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {visibles.length === 0 ? (
               <tr>
-                <td colSpan={7} className="directorio__sin-resultados">
+                                <td colSpan={8} className="directorio__sin-resultados">
                   {personas.length === 0
                     ? 'Todavía no hay personas dadas de alta en tu empresa.'
                     : 'Ninguna persona coincide con la búsqueda o los filtros.'}
@@ -486,8 +503,18 @@ export default function Directorio() {
                       <p className="directorio__aviso">Pidió restablecer contraseña</p>
                     )}
                   </td>
-                  <td className={p.ultimo_acceso ? undefined : 'directorio__vacio'}>
+                                    <td className={p.ultimo_acceso ? undefined : 'directorio__vacio'}>
                     {textoUltimoAcceso(p.ultimo_acceso)}
+                  </td>
+                  <td className="directorio__celda-acciones">
+                    <button
+                      type="button"
+                      className="directorio__gestionar"
+                      onClick={() => setGestionando(p)}
+                      aria-label={`Gestionar a ${p.nombre}`}
+                    >
+                      Gestionar
+                    </button>
                   </td>
                 </tr>
               ))

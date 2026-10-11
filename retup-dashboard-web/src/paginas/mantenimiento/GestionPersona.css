@@ -1,0 +1,73 @@
+/* ═══════════ MANTENIMIENTO · FICHA Y ACCIONES DE UNA PERSONA ═══════════ */
+/* (La ventana, los campos y los botones usan los estilos de FormularioAlta.css) */
+
+.gestion__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.gestion__datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  margin: 0;
+}
+
+.gestion__datos div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gestion__datos dt {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b5d6b;
+}
+
+.gestion__datos dd {
+  margin: 0;
+  font-size: 14px;
+  color: #0e0f17;
+  overflow-wrap: anywhere;
+}
+
+.gestion__aviso {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fdecec;
+  font-size: 14px;
+  font-weight: 600;
+  color: #a12828;
+}
+
+.gestion__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #efeff4;
+}
+
+/* Botón secundario de una acción delicada (bloquear, dar de baja) */
+.gestion__boton--secundario-peligro {
+  border-color: #a12828;
+  color: #a12828;
+}
+
+.gestion__boton--secundario-peligro:hover:not(:disabled) {
+  background: #fdecec;
+}
+
+/* Botón principal de confirmación de una acción delicada */
+.gestion__boton--peligro {
+  border-color: #a12828;
+  background: #a12828;
+}
+
+.gestion__boton--peligro:hover:not(:disabled) {
+  background: #8a1f1f;
+}

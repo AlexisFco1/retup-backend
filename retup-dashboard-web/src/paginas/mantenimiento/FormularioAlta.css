@@ -1,0 +1,157 @@
+/* ═══════════ MANTENIMIENTO · FORMULARIO DE ALTA ═══════════ */
+.alta {
+  width: min(680px, calc(100vw - 32px));
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0e0f17;
+  box-shadow: 0 24px 64px rgba(14, 15, 23, 0.25);
+}
+
+/* Fondo oscurecido detrás de la ventana */
+.alta::backdrop {
+  background: rgba(14, 15, 23, 0.45);
+}
+
+.alta__contenido {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 28px;
+}
+
+.alta__titulo {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.alta__explicacion {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #5b5d6b;
+}
+
+/* ── Campos en dos columnas ── */
+.alta__rejilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.alta__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alta__campo span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b5d6b;
+}
+
+.alta__campo input,
+.alta__campo select {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d4d4e0;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  color: #0e0f17;
+}
+
+.alta__campo input:focus,
+.alta__campo select:focus {
+  outline: 2px solid #2e2a72;
+  outline-offset: 1px;
+}
+
+.alta__campo select:disabled {
+  background: #f7f7fb;
+  color: #a0a1ad;
+}
+
+.alta__error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fdecec;
+  font-size: 14px;
+  color: #a12828;
+}
+
+/* ── Botones ── */
+.alta__acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.alta__boton {
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid #2e2a72;
+  border-radius: 8px;
+  background: #2e2a72;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.alta__boton:hover:not(:disabled) {
+  background: #3b3690;
+}
+
+.alta__boton--secundario {
+  background: #ffffff;
+  color: #2e2a72;
+}
+
+.alta__boton--secundario:hover:not(:disabled) {
+  background: #f3f2fb;
+}
+
+.alta__boton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ── Resultado ── */
+.alta__persona {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.alta__persona span {
+  font-size: 13px;
+  color: #5b5d6b;
+}
+
+.alta__password {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px dashed #2e2a72;
+  border-radius: 10px;
+  background: #f7f7fb;
+}
+
+.alta__password code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #2e2a72;
+}

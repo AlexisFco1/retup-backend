@@ -1,0 +1,225 @@
+/* ═══════════ MANTENIMIENTO · REQUIERE ATENCIÓN ═══════════ */
+.atencion {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 960px;
+  transition: opacity 0.2s;
+}
+
+.atencion--actualizando {
+  opacity: 0.7;
+}
+
+/* ── Cabecera ── */
+.atencion__miga {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5b5d6b;
+}
+
+.atencion__titulo {
+  margin: 4px 0 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #0e0f17;
+}
+
+.atencion__subtitulo {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #5b5d6b;
+}
+
+/* ── Resumen ── */
+.atencion__resumen {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.atencion__contador {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px;
+  border: 1px solid #e3e3ec;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.atencion__contador strong {
+  font-size: 28px;
+  color: #2e2a72;
+}
+
+.atencion__contador--alta strong {
+  color: #a12828;
+}
+
+.atencion__contador span {
+  font-size: 13px;
+  color: #5b5d6b;
+}
+
+/* ── Todo en orden ── */
+.atencion__todo-bien {
+  padding: 32px;
+  border: 1px solid #e3e3ec;
+  border-radius: 12px;
+  background: #ffffff;
+  text-align: center;
+  color: #5b5d6b;
+}
+
+.atencion__todo-bien p {
+  margin: 0 0 8px;
+}
+
+.atencion__todo-bien-titulo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0b6b62;
+}
+
+.atencion__todo-bien a {
+  font-weight: 600;
+  color: #2e2a72;
+}
+
+/* ── Grupos ── */
+.atencion__grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.atencion__grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0e0f17;
+}
+
+.atencion__grupo-titulo span {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eeedf8;
+  font-size: 12px;
+  color: #2e2a72;
+}
+
+.atencion__grupo-titulo--alta span {
+  background: #fdecec;
+  color: #a12828;
+}
+
+/* ── Avisos ── */
+.atencion__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.atencion__alerta {
+  display: grid;
+    grid-template-columns: 220px 1fr auto;
+  gap: 4px 20px;
+  padding: 14px 16px;
+  border: 1px solid #e3e3ec;
+  border-left: 4px solid #2e2a72;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.atencion__alerta--restablecer,
+.atencion__alerta--bloqueado {
+  border-left-color: #a12828;
+}
+
+.atencion__alerta-tipo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.atencion__alerta-tipo strong {
+  font-size: 13px;
+  color: #0e0f17;
+}
+
+.atencion__alerta-tipo span {
+  font-size: 12px;
+  color: #5b5d6b;
+}
+
+.atencion__alerta-persona {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.atencion__alerta-persona strong {
+  font-size: 14px;
+  color: #0e0f17;
+}
+
+.atencion__alerta-persona span {
+  font-size: 12px;
+  color: #5b5d6b;
+}
+
+.atencion__alerta-accion {
+  grid-column: 2;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #2e2a72;
+}
+
+/* ── Estados de carga ── */
+.atencion__estado-carga {
+  padding: 24px;
+  color: #5b5d6b;
+}
+
+.atencion__estado-carga--error {
+  color: #a12828;
+}
+
+/* ── Botón "Atender" (columna derecha del aviso) ── */
+.atencion__alerta-boton {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.atencion__alerta-boton button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #2e2a72;
+  border-radius: 8px;
+  background: #2e2a72;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.atencion__alerta-boton button:hover:not(:disabled) {
+  background: #3b3690;
+}
+
+.atencion__alerta-boton button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

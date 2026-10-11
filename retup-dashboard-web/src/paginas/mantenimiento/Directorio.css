@@ -343,3 +343,53 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* ── Cabecera con botón de alta ── */
+.directorio__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.directorio__alta {
+  height: 40px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 8px;
+  background: #2e2a72;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.directorio__alta:hover {
+  background: #3b3690;
+}
+
+/* ── Botón "Gestionar" de cada fila ── */
+.directorio__celda-acciones {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.directorio__gestionar {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid #d4d4e0;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2e2a72;
+  cursor: pointer;
+}
+
+.directorio__gestionar:hover {
+  border-color: #2e2a72;
+  background: #f3f2fb;
+}
