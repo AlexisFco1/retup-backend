@@ -13,6 +13,7 @@ import type { NivelAcceso } from '../../auth/sesion';
 import FormularioAlta from './FormularioAlta';
 import GestionPersona from './GestionPersona';
 import DepartamentosEquipos from './DepartamentosEquipos';
+import ImportarCsv from './ImportarCsv';
 import './Directorio.css';
 
 // ───────────── Forma de la respuesta del backend ─────────────
@@ -193,7 +194,8 @@ export default function Directorio() {
   const [pagina, setPagina] = useState(1);
     const [altaAbierta, setAltaAbierta] = useState(false);
    const [gestionando, setGestionando] = useState<PersonaDirectorio | null>(null);
-  const [departamentosAbierto, setDepartamentosAbierto] = useState(false);
+    const [departamentosAbierto, setDepartamentosAbierto] = useState(false);
+  const [importarAbierto, setImportarAbierto] = useState(false);
 
   // Opciones de los desplegables, sacadas de los propios datos
   const opciones = useMemo(() => {
@@ -313,7 +315,10 @@ export default function Directorio() {
             className="directorio__secundario"
             onClick={() => setDepartamentosAbierto(true)}
           >
-            Departamentos y equipos
+                        Departamentos y equipos
+          </button>
+          <button type="button" className="directorio__secundario" onClick={() => setImportarAbierto(true)}>
+            Importar CSV
           </button>
           <button type="button" className="directorio__alta" onClick={() => setAltaAbierta(true)}>
             + Dar de alta
@@ -323,8 +328,9 @@ export default function Directorio() {
 
                 {altaAbierta && <FormularioAlta alCerrar={() => setAltaAbierta(false)} />}
       {departamentosAbierto && (
-        <DepartamentosEquipos alCerrar={() => setDepartamentosAbierto(false)} />
+               <DepartamentosEquipos alCerrar={() => setDepartamentosAbierto(false)} />
       )}
+      {importarAbierto && <ImportarCsv alCerrar={() => setImportarAbierto(false)} />}
       {gestionando && (
         <GestionPersona persona={gestionando} alCerrar={() => setGestionando(null)} />
       )}
