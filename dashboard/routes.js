@@ -589,4 +589,254 @@ router.put('/mantenimiento/usuarios/:id', authenticateToken, exigirAccesoDashboa
   }
 });
 
+// ===================== MANTENIMIENTO · DEPARTAMENTOS Y EQUIPOS =====================
+
+// Departamento SOLO si es de la empresa (o null)
+async function departamentoDeMiEmpresa(id, empresaId) {
+  const { data, error } = await db
+    .from('departments')
+    .select('id, name, is_active')
+    .eq('id', id)
+    .eq('company_id', empresaId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// Equipo SOLO si es de la empresa (o null)
+async function equipoDeMiEmpresa(id, empresaId) {
+  const { data, error } = await db
+    .from('teams')
+    .select('id, name, is_active, department_id')
+    .eq('id', id)
+    .eq('company_id', empresaId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// ¿Ya existe ese nombre entre los "hermanos"? (sin distinguir mayúsculas)
+async function nombreRepetido(tabla, campoPadre, idPadre, nombre, idExcluido) {
+  const { data, error } = await db.from(tabla).select('id, name').eq(campoPadre, idPadre);
+  if (error) throw error;
+  const buscado = nombre.toLocaleLowerCase('es');
+  return data.some((fila) => fila.id !== idExcluido && fila.name.toLocaleLowerCase('es') === buscado);
+}
+
+// Personas que NO están de baja asignadas a un departamento o equipo
+async function contarPersonasActivas(campo, id) {
+  const { count, error } = await db
+    .from('users')
+    .select('id', { count: 'exact', head: true })
+    .eq(campo, id)
+    .eq('is_active', true)
+    .neq('status', 'baja');
+  if (error) throw error;
+  return count || 0;
+}
+
+function textoPersonas(n) {
+  return n === 1 ? '1 persona activa' : `${n} personas activas`;
+}
+
+function respuestaNombreRepetido(res, que) {
+  return res.status(409).json({ success: false, error: `Ya existe ${que} con ese nombre.` });
+}
+
+// ── Crear departamento ──
+router.post('/mantenimiento/departamentos', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const nombre = textoLimpio((req.body || {}).nombre, 80);
+    if (!nombre) return errorDatos(res, 'El nombre del departamento es obligatorio.');
+    if (await nombreRepetido('departments', 'company_id', empresaId, nombre, null)) {
+      return respuestaNombreRepetido(res, 'un departamento');
+    }
+
+    const { data, error } = await db
+      .from('departments')
+      .insert([{ company_id: empresaId, name: nombre }])
+      .select('id, name, is_active')
+      .single();
+    if (error) {
+      if (error.code === '23505') return respuestaNombreRepetido(res, 'un departamento');
+      throw error;
+    }
+
+    console.log(`Departamento "${nombre}" creado por ${req.user.id}`);
+    res.status(201).json({ success: true, departamento: data });
+  } catch (err) {
+    console.error('Error al crear departamento:', err.message);
+    res.status(500).json({ success: false, error: `No se pudo crear el departamento: ${err.message}` });
+  }
+});
+
+// ── Renombrar / desactivar / reactivar departamento ──
+router.put('/mantenimiento/departamentos/:id', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+    if (!FORMATO_UUID.test(req.params.id)) return errorDatos(res, 'Departamento no válido.');
+
+    const dep = await departamentoDeMiEmpresa(req.params.id, empresaId);
+    if (!dep) return res.status(404).json({ success: false, error: 'Ese departamento no existe en tu empresa.' });
+
+    const cuerpo = req.body || {};
+    const cambios = {};
+
+    if (cuerpo.nombre !== undefined) {
+      const nombre = textoLimpio(cuerpo.nombre, 80);
+      if (!nombre) return errorDatos(res, 'El nombre no puede estar vacío.');
+      if (await nombreRepetido('departments', 'company_id', empresaId, nombre, dep.id)) {
+        return respuestaNombreRepetido(res, 'un departamento');
+      }
+      cambios.name = nombre;
+    }
+
+    if (cuerpo.activo !== undefined) {
+      if (typeof cuerpo.activo !== 'boolean') return errorDatos(res, 'Valor de "activo" no válido.');
+      if (cuerpo.activo === false && dep.is_active) {
+        const personas = await contarPersonasActivas('department_id', dep.id);
+        if (personas > 0) {
+          return errorDatos(res, `No se puede desactivar: tiene ${textoPersonas(personas)}. Muévelas antes a otro departamento.`);
+        }
+        const { count: equiposActivos, error: errEq } = await db
+          .from('teams')
+          .select('id', { count: 'exact', head: true })
+          .eq('department_id', dep.id)
+          .eq('is_active', true);
+        if (errEq) throw errEq;
+        if (equiposActivos > 0) {
+          return errorDatos(res, `No se puede desactivar: tiene ${equiposActivos} ${equiposActivos === 1 ? 'equipo activo' : 'equipos activos'}. Desactívalos antes.`);
+        }
+      }
+      cambios.is_active = cuerpo.activo;
+    }
+
+    if (Object.keys(cambios).length === 0) return errorDatos(res, 'No hay cambios que guardar.');
+
+    const { data, error } = await db
+      .from('departments')
+      .update(cambios)
+      .eq('id', dep.id)
+      .select('id, name, is_active')
+      .single();
+    if (error) {
+      if (error.code === '23505') return respuestaNombreRepetido(res, 'un departamento');
+      throw error;
+    }
+
+    // La app móvil muestra users.department (texto): se mantiene igual al nombre nuevo
+    if (cambios.name && cambios.name !== dep.name) {
+      const { error: errUsu } = await db.from('users').update({ department: cambios.name }).eq('department_id', dep.id);
+      if (errUsu) throw errUsu;
+    }
+
+    console.log(`Departamento "${dep.name}" modificado por ${req.user.id}:`, cambios);
+    res.json({ success: true, departamento: data });
+  } catch (err) {
+    console.error('Error al modificar departamento:', err.message);
+    res.status(500).json({ success: false, error: `No se pudo modificar el departamento: ${err.message}` });
+  }
+});
+
+// ── Crear equipo ──
+router.post('/mantenimiento/equipos', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const cuerpo = req.body || {};
+    const nombre = textoLimpio(cuerpo.nombre, 80);
+    if (!nombre) return errorDatos(res, 'El nombre del equipo es obligatorio.');
+    if (!FORMATO_UUID.test(cuerpo.department_id || '')) return errorDatos(res, 'Elige un departamento válido.');
+
+    const dep = await departamentoDeMiEmpresa(cuerpo.department_id, empresaId);
+    if (!dep) return errorDatos(res, 'Ese departamento no existe en tu empresa.');
+    if (!dep.is_active) return errorDatos(res, 'Ese departamento está desactivado. Reactívalo antes de crear equipos.');
+
+    if (await nombreRepetido('teams', 'department_id', dep.id, nombre, null)) {
+      return respuestaNombreRepetido(res, 'un equipo en ese departamento');
+    }
+
+    const { data, error } = await db
+      .from('teams')
+      .insert([{ company_id: empresaId, department_id: dep.id, name: nombre }])
+      .select('id, name, is_active, department_id')
+      .single();
+    if (error) {
+      if (error.code === '23505') return respuestaNombreRepetido(res, 'un equipo en ese departamento');
+      throw error;
+    }
+
+    console.log(`Equipo "${nombre}" creado en "${dep.name}" por ${req.user.id}`);
+    res.status(201).json({ success: true, equipo: data });
+  } catch (err) {
+    console.error('Error al crear equipo:', err.message);
+    res.status(500).json({ success: false, error: `No se pudo crear el equipo: ${err.message}` });
+  }
+});
+
+// ── Renombrar / desactivar / reactivar equipo ──
+router.put('/mantenimiento/equipos/:id', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+    if (!FORMATO_UUID.test(req.params.id)) return errorDatos(res, 'Equipo no válido.');
+
+    const equipo = await equipoDeMiEmpresa(req.params.id, empresaId);
+    if (!equipo) return res.status(404).json({ success: false, error: 'Ese equipo no existe en tu empresa.' });
+
+    const cuerpo = req.body || {};
+    const cambios = {};
+
+    if (cuerpo.nombre !== undefined) {
+      const nombre = textoLimpio(cuerpo.nombre, 80);
+      if (!nombre) return errorDatos(res, 'El nombre no puede estar vacío.');
+      if (await nombreRepetido('teams', 'department_id', equipo.department_id, nombre, equipo.id)) {
+        return respuestaNombreRepetido(res, 'un equipo en ese departamento');
+      }
+      cambios.name = nombre;
+    }
+
+    if (cuerpo.activo !== undefined) {
+      if (typeof cuerpo.activo !== 'boolean') return errorDatos(res, 'Valor de "activo" no válido.');
+      if (cuerpo.activo === false && equipo.is_active) {
+        const personas = await contarPersonasActivas('team_id', equipo.id);
+        if (personas > 0) {
+          return errorDatos(res, `No se puede desactivar: tiene ${textoPersonas(personas)}. Muévelas antes a otro equipo.`);
+        }
+      }
+      if (cuerpo.activo === true && !equipo.is_active) {
+        const dep = await departamentoDeMiEmpresa(equipo.department_id, empresaId);
+        if (!dep || !dep.is_active) {
+          return errorDatos(res, 'Su departamento está desactivado. Reactiva antes el departamento.');
+        }
+      }
+      cambios.is_active = cuerpo.activo;
+    }
+
+    if (Object.keys(cambios).length === 0) return errorDatos(res, 'No hay cambios que guardar.');
+
+    const { data, error } = await db
+      .from('teams')
+      .update(cambios)
+      .eq('id', equipo.id)
+      .select('id, name, is_active, department_id')
+      .single();
+    if (error) {
+      if (error.code === '23505') return respuestaNombreRepetido(res, 'un equipo en ese departamento');
+      throw error;
+    }
+
+    console.log(`Equipo "${equipo.name}" modificado por ${req.user.id}:`, cambios);
+    res.json({ success: true, equipo: data });
+  } catch (err) {
+    console.error('Error al modificar equipo:', err.message);
+    res.status(500).json({ success: false, error: `No se pudo modificar el equipo: ${err.message}` });
+  }
+});
+
 module.exports = router;
