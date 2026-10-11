@@ -2576,7 +2576,7 @@ leaderboardRacha = leaderboardRacha.filter(u => u.mejor_racha > 0);
   }
 });
 // ===== ENDPOINTS DE TEST (SOLO PARA DESARROLLO) =====
-app.get('/api/racha/test-cron', async (req, res) => {
+app.get('/api/racha/test-cron', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
   try {
     console.log('🧪 TEST: Ejecutando verificación manual de rachas...');
     await _verificarYResetearRachas();
@@ -2593,7 +2593,7 @@ app.get('/api/racha/test-cron', async (req, res) => {
     });
   }
 });
-app.get('/api/racha/test-user/:user_id/:reto_id', async (req, res) => {
+app.get('/api/racha/test-user/:user_id/:reto_id', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
   try {
     const { user_id, reto_id } = req.params;
     const hoy = new Date().toISOString().split('T')[0];
