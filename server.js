@@ -150,19 +150,9 @@ app.post('/api/auth/login', async (req, res) => {
 
        if (userError) throw userError;
 
-    // Primer acceso de una persona dada de alta desde el dashboard: invitado -> activo
-    if (userData.status === 'invitado') {
-      const { error: errorEstado } = await supabase
-        .from('users')
-        .update({ status: 'activo' })
-        .eq('id', data.user.id);
-
-      if (errorEstado) {
-        console.error('⚠️ No se pudo pasar a activo al usuario:', errorEstado.message);
-      } else {
-        userData.status = 'activo';
-      }
-    }
+       // Si entra con una contraseña temporal, userData.debe_cambiar_password = true:
+    // la app le pedirá crear una nueva y entonces pasará a activo
+    // (ruta /api/dashboard/cuenta/cambiar-password-temporal)
 
     // ✅ NUEVO: Registrar login automáticamente para todos los retos
     registrarLoginAutomatico(data.user.id, userData.company_id).catch(err => {

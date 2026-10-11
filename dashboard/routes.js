@@ -344,9 +344,10 @@ router.post('/mantenimiento/usuarios', authenticateToken, exigirAccesoDashboard(
         team_id,
         job_title,
         hire_date,
-        role: 'collaborator',
+                role: 'collaborator',
         is_active: true,
         status: 'invitado',
+        debe_cambiar_password: true,
       }])
       .select('id, email, full_name, status')
       .single();
@@ -468,7 +469,7 @@ router.post('/mantenimiento/usuarios/:id/restablecer-password', authenticateToke
     // Ya está atendido: se quita el aviso de "Pidió restablecer contraseña"
     const { error: errFila } = await db
       .from('users')
-      .update({ password_reset_requested_at: null })
+            .update({ password_reset_requested_at: null, debe_cambiar_password: true })
       .eq('id', persona.id);
     if (errFila) throw errFila;
 
@@ -1004,9 +1005,10 @@ async function crearPersonaInvitada(empresaId, p) {
     team_id: p.team_id,
     job_title: p.job_title,
     hire_date: p.hire_date,
-    role: 'collaborator',
+        role: 'collaborator',
     is_active: true,
     status: 'invitado',
+    debe_cambiar_password: true,
   }]);
   if (errFila) {
     await db.auth.admin.deleteUser(id);
@@ -1124,6 +1126,56 @@ router.post('/mantenimiento/usuarios/csv', authenticateToken, exigirAccesoDashbo
   } catch (err) {
     console.error('Error en importación CSV:', err.message);
     res.status(500).json({ success: false, error: `No se pudo procesar el archivo: ${err.message}` });
+  }
+});
+
+// ===================== CUENTA · CAMBIAR LA CONTRASEÑA TEMPORAL =====================
+// La usa la APP (cualquier persona con sesión, no hace falta nivel de dashboard)
+// tras entrar con una contraseña temporal: alta nueva o restablecimiento.
+router.post('/cuenta/cambiar-password-temporal', authenticateToken, async (req, res) => {
+  try {
+    const passwordNueva =
+      req.body && typeof req.body.password_nueva === 'string' ? req.body.password_nueva : '';
+    if (!passwordNueva) {
+      return res.status(400).json({ success: false, error: 'Escribe tu nueva contraseña.' });
+    }
+
+    const { data: usuario, error } = await db
+      .from('users')
+      .select('id, email, status, debe_cambiar_password')
+      .eq('id', req.user.id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!usuario) return res.status(404).json({ success: false, error: 'Usuario no encontrado.' });
+
+    // Solo si tiene un cambio pendiente: no sirve para cambiar la contraseña sin conocer la actual
+    if (!usuario.debe_cambiar_password) {
+      return res.status(400).json({ success: false, error: 'No tienes ningún cambio de contraseña pendiente.' });
+    }
+
+    const { error: errAuth } = await db.auth.admin.updateUserById(usuario.id, { password: passwordNueva });
+    if (errAuth) {
+      if (/at least/i.test(errAuth.message)) {
+        return res.status(400).json({ success: false, error: 'La contraseña es demasiado corta (mínimo 6 caracteres).' });
+      }
+      if (/same|different/i.test(errAuth.message)) {
+        return res.status(400).json({ success: false, error: 'La contraseña nueva debe ser distinta de la temporal.' });
+      }
+      throw errAuth;
+    }
+
+    // Ya tiene su propia contraseña: si era invitado, pasa a activo
+    const cambios = { debe_cambiar_password: false };
+    if (usuario.status === 'invitado') cambios.status = 'activo';
+
+    const { error: errFila } = await db.from('users').update(cambios).eq('id', usuario.id);
+    if (errFila) throw errFila;
+
+    console.log(`Contraseña temporal cambiada por ${usuario.email}`);
+    res.json({ success: true, message: 'Contraseña actualizada.', status: cambios.status || usuario.status });
+  } catch (err) {
+    console.error('Error al cambiar la contraseña temporal:', err.message);
+    res.status(500).json({ success: false, error: 'No se pudo cambiar la contraseña. Inténtalo de nuevo.' });
   }
 });
 
