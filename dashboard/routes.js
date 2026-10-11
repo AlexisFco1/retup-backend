@@ -371,4 +371,222 @@ router.post('/mantenimiento/usuarios', authenticateToken, exigirAccesoDashboard(
   }
 });
 
+// ===================== MANTENIMIENTO · ACCIONES SOBRE UNA PERSONA =====================
+
+// Carga a la persona SOLO si es de la empresa del administrador.
+// Devuelve { empresaId, persona } o null (y ya ha respondido con el error).
+async function personaDeMiEmpresa(req, res) {
+  const empresaId = empresaDelPerfil(req, res);
+  if (!empresaId) return null;
+
+  const id = req.params.id;
+  if (!FORMATO_UUID.test(id)) {
+    errorDatos(res, 'Usuario no válido.');
+    return null;
+  }
+
+  const { data, error } = await db
+    .from('users')
+    .select('id, email, full_name, status, is_active')
+    .eq('id', id)
+    .eq('company_id', empresaId)
+    .maybeSingle();
+  if (error) throw error;
+
+  if (!data) {
+    res.status(404).json({ success: false, error: 'Esa persona no existe en tu empresa.' });
+    return null;
+  }
+  return { empresaId, persona: data };
+}
+
+// Estado "real" de una persona (igual que en el directorio)
+function estadoActual(persona) {
+  return persona.is_active === false ? 'baja' : persona.status;
+}
+
+// Comprueba que departamento y equipo sean de la empresa. Si solo llega el equipo,
+// el departamento se toma del equipo. Devuelve { departamento } o { error }.
+async function resolverDepartamentoEquipo(empresaId, department_id, team_id) {
+  let departamento = null;
+
+  if (department_id) {
+    const { data, error } = await db
+      .from('departments')
+      .select('id, name')
+      .eq('id', department_id)
+      .eq('company_id', empresaId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { error: 'Ese departamento no existe en tu empresa.' };
+    departamento = data;
+  }
+
+  if (team_id) {
+    const { data: equipo, error } = await db
+      .from('teams')
+      .select('id, department_id')
+      .eq('id', team_id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!equipo) return { error: 'Ese equipo no existe.' };
+
+    if (departamento && equipo.department_id !== departamento.id) {
+      return { error: 'El equipo elegido no pertenece a ese departamento.' };
+    }
+    if (!departamento) {
+      const { data: depEquipo, error: errDep } = await db
+        .from('departments')
+        .select('id, name')
+        .eq('id', equipo.department_id)
+        .eq('company_id', empresaId)
+        .maybeSingle();
+      if (errDep) throw errDep;
+      if (!depEquipo) return { error: 'Ese equipo no existe en tu empresa.' };
+      departamento = depEquipo;
+    }
+  }
+
+  return { departamento };
+}
+
+// ── 1) Restablecer contraseña (contraseña temporal nueva, se muestra una vez) ──
+router.post('/mantenimiento/usuarios/:id/restablecer-password', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const encontrado = await personaDeMiEmpresa(req, res);
+    if (!encontrado) return;
+    const { persona } = encontrado;
+
+    if (estadoActual(persona) === 'baja') {
+      return errorDatos(res, 'Esta persona está de baja. Reactívala antes de restablecer su contraseña.');
+    }
+
+    const passwordTemporal = generarPasswordTemporal();
+    const { error: errAuth } = await db.auth.admin.updateUserById(persona.id, { password: passwordTemporal });
+    if (errAuth) throw errAuth;
+
+    // Ya está atendido: se quita el aviso de "Pidió restablecer contraseña"
+    const { error: errFila } = await db
+      .from('users')
+      .update({ password_reset_requested_at: null })
+      .eq('id', persona.id);
+    if (errFila) throw errFila;
+
+    console.log(`Contraseña restablecida para ${persona.email} por el administrador ${req.user.id}`);
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      usuario: { id: persona.id, email: persona.email, nombre: persona.full_name },
+      password_temporal: passwordTemporal,
+    });
+  } catch (err) {
+    console.error('Error al restablecer contraseña:', err.message);
+    res.status(500).json({ success: false, error: `No se pudo restablecer la contraseña: ${err.message}` });
+  }
+});
+
+// ── 2) Cambiar estado: bloquear / desbloquear / baja / reactivar ──
+// "desde": estados en los que se permite la acción. "ban": bloqueo en Supabase Auth.
+const ACCIONES_ESTADO = {
+  bloquear: { desde: ['activo', 'invitado'], status: 'bloqueado', is_active: true, ban: '876000h' },
+  desbloquear: { desde: ['bloqueado'], status: 'activo', is_active: true, ban: 'none' },
+  baja: { desde: ['activo', 'invitado', 'bloqueado'], status: 'baja', is_active: false, ban: '876000h' },
+  reactivar: { desde: ['baja'], status: 'activo', is_active: true, ban: 'none' },
+};
+
+router.post('/mantenimiento/usuarios/:id/estado', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const accion = req.body && req.body.accion;
+    const cambio = ACCIONES_ESTADO[accion];
+    if (!cambio) return errorDatos(res, 'Acción no válida.');
+
+    const encontrado = await personaDeMiEmpresa(req, res);
+    if (!encontrado) return;
+    const { persona } = encontrado;
+
+    if (persona.id === req.user.id) {
+      return errorDatos(res, 'No puedes cambiar tu propio estado.');
+    }
+
+    const actual = estadoActual(persona);
+    if (!cambio.desde.includes(actual)) {
+      return errorDatos(res, `No se puede ${accion === 'baja' ? 'dar de baja' : accion} a una persona en estado "${actual}".`);
+    }
+
+    // a) Fila en users
+    const { error: errFila } = await db
+      .from('users')
+      .update({ status: cambio.status, is_active: cambio.is_active })
+      .eq('id', persona.id);
+    if (errFila) throw errFila;
+
+    // b) Supabase Auth: impedir (o volver a permitir) el inicio de sesión
+    const { error: errAuth } = await db.auth.admin.updateUserById(persona.id, { ban_duration: cambio.ban });
+    if (errAuth) {
+      // Si Auth falla, la fila vuelve a como estaba para que no se contradigan
+      await db.from('users').update({ status: persona.status, is_active: persona.is_active }).eq('id', persona.id);
+      throw errAuth;
+    }
+
+    console.log(`Estado de ${persona.email}: ${actual} -> ${cambio.status} (acción "${accion}") por ${req.user.id}`);
+    res.json({ success: true, usuario: { id: persona.id, email: persona.email, estado: cambio.status } });
+  } catch (err) {
+    console.error('Error al cambiar estado:', err.message);
+    res.status(500).json({ success: false, error: `No se pudo cambiar el estado: ${err.message}` });
+  }
+});
+
+// ── 3) Editar datos de una persona ──
+router.put('/mantenimiento/usuarios/:id', authenticateToken, exigirAccesoDashboard(['mantenimiento']), async (req, res) => {
+  try {
+    const encontrado = await personaDeMiEmpresa(req, res);
+    if (!encontrado) return;
+    const { empresaId, persona } = encontrado;
+
+    const cuerpo = req.body || {};
+    const first_name = textoLimpio(cuerpo.first_name, 60);
+    const last_name_1 = textoLimpio(cuerpo.last_name_1, 60);
+    const last_name_2 = textoLimpio(cuerpo.last_name_2, 60);
+    const job_title = textoLimpio(cuerpo.job_title, 120);
+    const department_id = cuerpo.department_id || null;
+    const team_id = cuerpo.team_id || null;
+    const hire_date = cuerpo.hire_date || null;
+
+    if (!first_name || !last_name_1) return errorDatos(res, 'El nombre y el primer apellido son obligatorios.');
+    if (department_id && !FORMATO_UUID.test(department_id)) return errorDatos(res, 'Departamento no válido.');
+    if (team_id && !FORMATO_UUID.test(team_id)) return errorDatos(res, 'Equipo no válido.');
+    if (hire_date && (!FORMATO_FECHA.test(hire_date) || Number.isNaN(Date.parse(hire_date)))) {
+      return errorDatos(res, 'La fecha de ingreso debe tener el formato AAAA-MM-DD.');
+    }
+
+    const resuelto = await resolverDepartamentoEquipo(empresaId, department_id, team_id);
+    if (resuelto.error) return errorDatos(res, resuelto.error);
+    const departamento = resuelto.departamento;
+
+    const { data: fila, error } = await db
+      .from('users')
+      .update({
+        first_name,
+        last_name_1,
+        last_name_2,
+        full_name: [first_name, last_name_1, last_name_2].filter(Boolean).join(' '),
+        job_title,
+        hire_date,
+        department: departamento ? departamento.name : null,
+        department_id: departamento ? departamento.id : null,
+        team_id,
+      })
+      .eq('id', persona.id)
+      .select('id, email, full_name, job_title, department_id, team_id, hire_date')
+      .single();
+    if (error) throw error;
+
+    console.log(`Datos de ${persona.email} editados por ${req.user.id}`);
+    res.json({ success: true, usuario: fila });
+  } catch (err) {
+    console.error('Error al editar usuario:', err.message);
+    res.status(500).json({ success: false, error: `No se pudieron guardar los cambios: ${err.message}` });
+  }
+});
+
 module.exports = router;
