@@ -12,6 +12,9 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// ===== DASHBOARD WEB (módulo separado en la carpeta /dashboard) =====
+app.use('/api/dashboard', require('./dashboard/routes'));
+
 // Rutas básicas (SIN protección)
 app.get('/', (req, res) => {
   res.json({ message: 'RetUp API funcionando ✓' });
