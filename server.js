@@ -15,6 +15,9 @@ app.use(express.json());
 // ===== DASHBOARD WEB (módulo separado en la carpeta /dashboard) =====
 app.use('/api/dashboard', require('./dashboard/routes'));
 
+// ===== EVENTOS DE ACTIVIDAD DE LA APP (módulo separado en la carpeta /eventos) =====
+app.use('/api/eventos', require('./eventos/routes'));
+
 // Rutas básicas (SIN protección)
 app.get('/', (req, res) => {
   res.json({ message: 'RetUp API funcionando ✓' });
