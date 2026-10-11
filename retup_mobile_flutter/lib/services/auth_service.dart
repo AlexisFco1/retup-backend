@@ -40,7 +40,8 @@ class AuthService {
         final errorData = jsonDecode(response.body);
         return {
           'success': false,
-          'message': errorData['message'] ?? 'Error en login',
+          'message':
+              errorData['error'] ?? errorData['message'] ?? 'Error en login',
         };
       }
     } catch (e) {
@@ -107,6 +108,41 @@ class AuthService {
       return {
         'success': false,
         'message': 'Error de conexión: $e',
+      };
+    }
+  }
+
+  // SOLICITAR RESTABLECER CONTRASEÑA (sin sesión)
+  // El backend responde siempre lo mismo, exista o no el email.
+  Future<Map<String, dynamic>> solicitarRestablecimiento(String email) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/solicitar-restablecimiento'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email}),
+          )
+          // Render (plan gratuito) puede tardar en "despertar"
+          .timeout(const Duration(seconds: 60));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Solicitud enviada',
+        };
+      }
+      return {
+        'success': false,
+        'message': data['error'] ??
+            data['message'] ??
+            'No se pudo enviar la solicitud',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message':
+            'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.',
       };
     }
   }

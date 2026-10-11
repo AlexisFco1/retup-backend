@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/colors.dart';
-import './signup/signup_screen.dart';
+import './recuperar_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -292,39 +292,41 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 28),
+          // Enlace "¿Olvidaste tu contraseña?" (lleva el email ya escrito)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RecuperarPasswordScreen(
+                      emailInicial: _emailController.text,
+                    ),
+                  ),
+                );
+              },
+              child: const Text(
+                '¿Olvidaste tu contraseña?',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _indigo,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           // Botón Iniciar sesión (turquesa, como "Solicita una demo")
           _buildBotonLogin(),
           const SizedBox(height: 20),
 
-          // Enlace a registro
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                '¿No tienes cuenta?',
-                style: TextStyle(fontSize: 13.5, color: _textoSuave),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SignupScreen(),
-                    ),
-                  );
-                },
-                child: const Text(
-                  'Regístrate',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: _turquesa,
-                  ),
-                ),
-              ),
-            ],
+          // Sin registro libre: las altas las hace el administrador de cada empresa
+          const Text(
+            '¿No tienes cuenta? Pide el alta al responsable de RetUp de tu empresa.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13.5, color: _textoSuave),
           ),
         ],
       ),

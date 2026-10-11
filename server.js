@@ -28,10 +28,18 @@ app.get('/health', (req, res) => {
 });
 
 // ===== ENDPOINTS DE AUTENTICACIÓN =====
+// Registro libre DESACTIVADO: las altas las hace el administrador de cada empresa
+// desde el dashboard (Mantenimiento). Para volver a activarlo, poner true.
+const REGISTRO_LIBRE_ACTIVO = false;
+
 app.post('/api/auth/register', async (req, res) => {
+  if (!REGISTRO_LIBRE_ACTIVO) {
+    return res.status(403).json({
+      success: false,
+      error: 'El registro está desactivado. Pide el alta al administrador de RetUp de tu empresa.',
+    });
+  }
   try {
-    console.log('DEBUG REGISTER - req.body:', req.body);
-    console.log('DEBUG REGISTER - Headers:', req.headers);
         const { email, password, first_name, last_name_1, last_name_2, age, gender, department, company_id, role } = req.body;
     const full_name = [first_name, last_name_1, last_name_2].filter(Boolean).join(' ');
 
