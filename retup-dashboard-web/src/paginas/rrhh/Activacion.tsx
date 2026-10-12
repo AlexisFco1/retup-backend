@@ -12,6 +12,14 @@ import { rangoComparacion, useFiltros } from '../../filtros/filtros';
 import TarjetaIndicador from '../../componentes/TarjetaIndicador';
 import Grafico from '../../graficos/Grafico';
 import { BASE_GRAFICO, COLOR, EJE_DISCRETO } from '../../graficos/tema';
+import {
+  etiquetaTramo,
+  mensajeSinScore,
+  TarjetaPendiente,
+  textoScore,
+  textoTramo,
+  useScoresRrhh,
+} from './scores';
 import './Resumen.css';
 import './Activacion.css';
 
@@ -74,7 +82,54 @@ export default function ActivacionPorArea() {
     placeholderData: (anteriores) => anteriores,
   });
 
-  const datos = consulta.data?.datos;
+    const datos = consulta.data?.datos;
+
+  // Scores (los mismos datos que usa Resumen: se reutilizan si ya se pidieron)
+  const scores = useScoresRrhh();
+  const datosScores = scores.data?.datos;
+
+  // Evolución del score medio de la empresa (un punto por tramo según la frecuencia)
+  const opcionesEvolucion = useMemo<EChartsCoreOption | null>(() => {
+    if (!datosScores || !datosScores.serie.some((t) => t.score !== null)) return null;
+    const serie = datosScores.serie;
+    const frecuencia = datosScores.frecuencia;
+
+    return {
+      ...BASE_GRAFICO,
+      grid: { left: 44, right: 16, top: 16, bottom: 36 },
+      tooltip: {
+        ...BASE_GRAFICO.tooltip,
+        trigger: 'axis',
+        formatter: (params: { dataIndex: number }[]) => {
+          const tramo = serie[params[0].dataIndex];
+          const titulo = textoTramo(tramo, frecuencia);
+          if (tramo.score === null) {
+            return `<b>${titulo}</b><br/>${mensajeSinScore(tramo.evaluados, datosScores.umbral_n)}`;
+          }
+          return `<b>${titulo}</b><br/>Score medio: <b>${textoScore(tramo.score)}</b><br/>${tramo.evaluados} evaluados`;
+        },
+      },
+      xAxis: {
+        type: 'category',
+        data: serie.map((t) => etiquetaTramo(t, frecuencia)),
+        ...EJE_DISCRETO,
+        splitLine: { show: false },
+      },
+      yAxis: { type: 'value', min: 0, max: 100, interval: 25, ...EJE_DISCRETO },
+      series: [
+        {
+          name: 'Score medio',
+          type: 'line',
+          data: serie.map((t) => t.score),
+          connectNulls: false,
+          symbol: 'circle',
+          symbolSize: 7,
+          lineStyle: { color: COLOR.indigo, width: 2 },
+          itemStyle: { color: COLOR.indigo },
+        },
+      ],
+    };
+  }, [datosScores]);
 
   // Áreas ordenadas de mayor a menor activación
   const areas = useMemo(
@@ -209,16 +264,43 @@ export default function ActivacionPorArea() {
           detalle={`${actual.finalizacion.retos_completados} de ${actual.finalizacion.retos_iniciados} retos iniciados`}
           valorAnterior={anterior?.finalizacion.finalizacion_pct}
         />
-        <article className="rrhh-resumen__reservada">
-          <h3>Evolución del score</h3>
-          <p className="rrhh-resumen__reservada-valor">—</p>
-          <p>Disponible pronto: puntos ganados por la empresa desde la primera semana.</p>
-        </article>
-        <article className="rrhh-resumen__reservada">
-          <h3>Celdas sobre el umbral</h3>
-          <p className="rrhh-resumen__reservada-valor">—</p>
-          <p>Disponible pronto: % de combinaciones área-habilidad con datos suficientes (n ≥ 5).</p>
-        </article>
+                {datosScores && datosScores.empresa.evolucion_pts !== null ? (
+          <TarjetaIndicador
+            titulo="Evolución del score (pts)"
+            ayuda="Diferencia entre el score medio de la empresa al final y al inicio del periodo elegido."
+            valor={datosScores.empresa.evolucion_pts}
+            formato="decimal"
+            detalle={`De ${textoScore(datosScores.empresa.score_inicio)} a ${textoScore(datosScores.empresa.score)} en el periodo`}
+          />
+        ) : (
+          <TarjetaPendiente
+            titulo="Evolución del score (pts)"
+            mensaje={
+              scores.isPending
+                ? 'Calculando…'
+                : scores.isError
+                  ? 'No se pudo calcular el score.'
+                  : datosScores && datosScores.empresa.score !== null
+                    ? `Al inicio del periodo había ${datosScores.empresa.evaluados_inicio} evaluados (mínimo ${datosScores.umbral_n}). Elige un periodo que empiece más tarde para poder comparar.`
+                    : mensajeSinScore(datosScores?.empresa.evaluados ?? 0, datosScores?.umbral_n ?? 5)
+            }
+          />
+        )}
+        {datosScores ? (
+          <TarjetaIndicador
+            titulo="Celdas sobre el umbral"
+            ayuda="Combinaciones departamento × habilidad del mapa de calor con suficientes evaluados para mostrar su score sin comprometer la privacidad."
+            valor={datosScores.celdas_sobre_umbral.pct}
+            formato="porcentaje"
+            conBarra
+            detalle={`${datosScores.celdas_sobre_umbral.sobre_umbral} de ${datosScores.celdas_sobre_umbral.total} combinaciones con ${datosScores.umbral_n} o más evaluados`}
+          />
+        ) : (
+          <TarjetaPendiente
+            titulo="Celdas sobre el umbral"
+            mensaje={scores.isError ? 'No se pudo calcular el score.' : 'Calculando…'}
+          />
+        )}
       </section>
 
       {/* ── Activación por área ── */}
@@ -270,15 +352,29 @@ export default function ActivacionPorArea() {
         )}
       </section>
 
-      {/* ── Evolución del score (reservado) ── */}
-      <section className="rrhh-resumen__panel rrhh-resumen__panel--reservado">
+            {/* ── Evolución del score medio ── */}
+      <section className="rrhh-resumen__panel">
         <header className="rrhh-resumen__panel-cabecera">
           <h2>Evolución del score medio de la empresa</h2>
-          <p>Score medio semana a semana (S1–S8).</p>
+          <p>
+            Un punto por {datosScores?.frecuencia === 'dia' ? 'día laboral' : datosScores?.frecuencia === 'mes' ? 'mes' : 'semana'}.
+            Cambia la frecuencia en la barra de filtros. Los huecos son tramos sin datos suficientes.
+          </p>
         </header>
-        <p className="rrhh-resumen__vacio">
-          Se mostrará cuando esté listo el cálculo del score de habilidades.
-        </p>
+
+        {scores.isPending ? (
+          <p className="rrhh-resumen__vacio">⏳ Calculando los scores…</p>
+        ) : opcionesEvolucion ? (
+          <Grafico
+            opciones={opcionesEvolucion}
+            alto={260}
+            descripcion="Gráfico de líneas: evolución del score medio de la empresa en el periodo"
+          />
+        ) : (
+          <p className="rrhh-resumen__vacio">
+            Todavía no hay datos suficientes para mostrar la evolución del score.
+          </p>
+        )}
       </section>
     </div>
   );

@@ -124,3 +124,10 @@
 .rrhh-resumen__estado--error {
   color: #a12828;
 }
+
+/* Nota bajo un gráfico (ej. habilidades ocultas por privacidad) */
+.rrhh-resumen__nota {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #5b5d6b;
+}

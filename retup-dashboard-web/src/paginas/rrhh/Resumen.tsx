@@ -13,6 +13,7 @@ import { rangoComparacion, useFiltros } from '../../filtros/filtros';
 import TarjetaIndicador from '../../componentes/TarjetaIndicador';
 import Grafico from '../../graficos/Grafico';
 import { BASE_GRAFICO, COLOR, EJE_DISCRETO } from '../../graficos/tema';
+import { mensajeSinScore, TarjetaPendiente, textoScore, useScoresRrhh } from './scores';
 import './Resumen.css';
 
 // ───────────── Forma de la respuesta del backend ─────────────
@@ -76,7 +77,86 @@ export default function Resumen() {
     placeholderData: (anteriores) => anteriores,
   });
 
-  const datos = consulta.data?.datos;
+   const datos = consulta.data?.datos;
+
+  // Scores (se piden aparte porque su cálculo es más lento)
+  const scores = useScoresRrhh();
+  const datosScores = scores.data?.datos;
+
+  // Avance por habilidad: inicio del periodo (índigo claro) frente a actual (índigo)
+  const opcionesAvance = useMemo<EChartsCoreOption | null>(() => {
+    const visibles = (datosScores?.habilidades ?? []).filter((h) => h.score !== null);
+    if (visibles.length === 0) return null;
+    // Barras horizontales: el primer dato va abajo -> de menor a mayor para que la mejor quede arriba
+    const filas = [...visibles].sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
+    const hayInicio = filas.some((h) => h.score_inicio !== null);
+
+    const series: Record<string, unknown>[] = [];
+    if (hayInicio) {
+      series.push({
+        name: 'Inicio del periodo',
+        type: 'bar',
+        barMaxWidth: 14,
+        itemStyle: { color: INDIGO_CLARO, borderRadius: [0, 3, 3, 0] },
+        data: filas.map((h) => h.score_inicio),
+      });
+    }
+    series.push({
+      name: 'Actual',
+      type: 'bar',
+      barMaxWidth: 14,
+      itemStyle: { color: COLOR.indigo, borderRadius: [0, 3, 3, 0] },
+      data: filas.map((h) => h.score),
+      label: {
+        show: true,
+        position: 'right',
+        color: COLOR.texto,
+        fontSize: 12,
+        formatter: (p: { value: number }) => textoScore(p.value),
+      },
+    });
+
+    return {
+      ...BASE_GRAFICO,
+      grid: { left: 8, right: 48, top: hayInicio ? 36 : 8, bottom: 8, containLabel: true },
+      ...(hayInicio
+        ? {
+            legend: {
+              top: 0,
+              left: 0,
+              itemWidth: 12,
+              itemHeight: 12,
+              textStyle: { color: COLOR.textoSuave, fontSize: 12 },
+              data: ['Inicio del periodo', 'Actual'],
+            },
+          }
+        : {}),
+      tooltip: {
+        ...BASE_GRAFICO.tooltip,
+        trigger: 'axis',
+        axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(46,42,114,0.06)' } },
+        formatter: (params: { dataIndex: number }[]) => {
+          const h = filas[params[0].dataIndex];
+          let texto = `<b>${h.habilidad}</b><br/>Actual: <b>${textoScore(h.score)}</b> (${h.evaluados} evaluados)`;
+          if (h.score_inicio !== null) {
+            const diferencia = Math.round((h.score! - h.score_inicio) * 10) / 10;
+            texto += `<br/>Inicio del periodo: ${textoScore(h.score_inicio)}`;
+            texto += `<br/>Avance: ${diferencia > 0 ? '+' : ''}${textoScore(diferencia)} pts`;
+          }
+          return texto;
+        },
+      },
+      xAxis: { type: 'value', min: 0, max: 100, interval: 25, ...EJE_DISCRETO },
+      yAxis: {
+        type: 'category',
+        data: filas.map((h) => h.habilidad),
+        ...EJE_DISCRETO,
+        splitLine: { show: false },
+        axisLabel: { ...EJE_DISCRETO.axisLabel, color: COLOR.texto, fontSize: 13 },
+      },
+      series,
+    };
+  }, [datosScores]);
 
   // Gráfico de retos más elegidos (barras horizontales apiladas)
   const opcionesRetos = useMemo<EChartsCoreOption | null>(() => {
@@ -197,11 +277,26 @@ export default function Resumen() {
           detalle={`${actual.retos_completados} de ${actual.retos_iniciados} retos iniciados`}
           valorAnterior={anterior?.finalizacion_pct}
         />
-        <article className="rrhh-resumen__reservada">
-          <h3>Score medio de la empresa</h3>
-          <p className="rrhh-resumen__reservada-valor">—</p>
-          <p>Disponible pronto: se activará cuando esté listo el cálculo del score de habilidades.</p>
-        </article>
+                {datosScores && datosScores.empresa.score !== null ? (
+          <TarjetaIndicador
+            titulo="Score medio de la empresa"
+            ayuda="Media del score de habilidades (0–100) de los colaboradores evaluados, con el mismo cálculo que ven en la app (feedback, asistencia y práctica). Cada persona pesa lo mismo."
+            valor={datosScores.empresa.score}
+            formato="decimal"
+            detalle={`${datosScores.empresa.evaluados} colaboradores evaluados · escala 0–100`}
+          />
+        ) : (
+          <TarjetaPendiente
+            titulo="Score medio de la empresa"
+            mensaje={
+              scores.isPending
+                ? 'Calculando…'
+                : scores.isError
+                  ? 'No se pudo calcular el score.'
+                  : mensajeSinScore(datosScores?.empresa.evaluados ?? 0, datosScores?.umbral_n ?? 5)
+            }
+          />
+        )}
         <TarjetaIndicador
           titulo="Inscritos próximo mes"
           ayuda="Colaboradores que ya eligieron voluntariamente su reto para el mes siguiente. Se calcula respecto a hoy, no al periodo filtrado."
@@ -231,15 +326,39 @@ export default function Resumen() {
         )}
       </section>
 
-      {/* ── Avance por habilidad (reservado para el score) ── */}
-      <section className="rrhh-resumen__panel rrhh-resumen__panel--reservado">
+           {/* ── Avance por habilidad ── */}
+      <section className="rrhh-resumen__panel">
         <header className="rrhh-resumen__panel-cabecera">
           <h2>Avance por habilidad</h2>
-          <p>Score inicial frente a score actual en cada habilidad.</p>
+          <p>
+            Score medio de cada habilidad al final del periodo y, si había datos suficientes, al
+            inicio del periodo.
+          </p>
         </header>
-        <p className="rrhh-resumen__vacio">
-          Se mostrará cuando esté listo el cálculo del score de habilidades.
-        </p>
+
+        {scores.isPending ? (
+          <p className="rrhh-resumen__vacio">⏳ Calculando los scores…</p>
+        ) : opcionesAvance ? (
+          <Grafico
+            opciones={opcionesAvance}
+            alto={60 + (datosScores?.habilidades.filter((h) => h.score !== null).length ?? 0) * 40}
+            descripcion="Gráfico de barras: score medio de cada habilidad al inicio y al final del periodo"
+          />
+        ) : (
+          <p className="rrhh-resumen__vacio">
+            Todavía no hay ninguna habilidad con datos suficientes para mostrarse.
+          </p>
+        )}
+
+        {datosScores && datosScores.habilidades.some((h) => h.score === null) && (
+          <p className="rrhh-resumen__nota">
+            Sin datos suficientes (menos de {datosScores.umbral_n} evaluados):{' '}
+            {datosScores.habilidades
+              .filter((h) => h.score === null)
+              .map((h) => `${h.habilidad} (${h.evaluados})`)
+              .join(' · ')}
+          </p>
+        )}
       </section>
     </div>
   );
