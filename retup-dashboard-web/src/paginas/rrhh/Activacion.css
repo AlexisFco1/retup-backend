@@ -1,0 +1,37 @@
+/* ═══════════ RRHH · ACTIVACIÓN POR ÁREA ═══════════ */
+/* (Cabecera, tarjetas y paneles usan los estilos de Resumen.css) */
+
+.activacion__tabla-datos {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #5b5d6b;
+}
+
+.activacion__tabla-datos summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #2e2a72;
+}
+
+.activacion__tabla-datos table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+}
+
+.activacion__tabla-datos th,
+.activacion__tabla-datos td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #efeff4;
+  text-align: left;
+}
+
+.activacion__tabla-datos th {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b5d6b;
+}
+
+.activacion__tabla-datos td {
+  color: #0e0f17;
+}

@@ -1,0 +1,126 @@
+/* ═══════════ RRHH · GERENCIA · RESUMEN ═══════════ */
+.rrhh-resumen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: opacity 0.2s;
+}
+
+.rrhh-resumen--actualizando {
+  opacity: 0.7;
+}
+
+/* ── Cabecera ── */
+.rrhh-resumen__miga {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5b5d6b;
+}
+
+.rrhh-resumen__titulo {
+  margin: 4px 0 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #0e0f17;
+}
+
+.rrhh-resumen__subtitulo {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #5b5d6b;
+}
+
+/* ── Tarjetas ── */
+.rrhh-resumen__tarjetas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .rrhh-resumen__tarjetas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Tarjeta reservada (score, aún no disponible) */
+.rrhh-resumen__reservada {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border: 1px dashed #d4d4e0;
+  border-radius: 12px;
+  background: #fafafd;
+}
+
+.rrhh-resumen__reservada h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b5d6b;
+}
+
+.rrhh-resumen__reservada p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #a0a1ad;
+}
+
+.rrhh-resumen__reservada .rrhh-resumen__reservada-valor {
+  font-size: 30px;
+  font-weight: 700;
+  color: #d4d4e0;
+}
+
+/* ── Paneles ── */
+.rrhh-resumen__panel {
+  padding: 20px;
+  border: 1px solid #e3e3ec;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.rrhh-resumen__panel--reservado {
+  border-style: dashed;
+  background: #fafafd;
+}
+
+.rrhh-resumen__panel-cabecera {
+  margin-bottom: 12px;
+}
+
+.rrhh-resumen__panel-cabecera h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0e0f17;
+}
+
+.rrhh-resumen__panel-cabecera p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #5b5d6b;
+}
+
+.rrhh-resumen__vacio {
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  font-size: 14px;
+  color: #a0a1ad;
+}
+
+/* ── Estados de carga ── */
+.rrhh-resumen__estado {
+  padding: 24px;
+  color: #5b5d6b;
+}
+
+.rrhh-resumen__estado--error {
+  color: #a12828;
+}
