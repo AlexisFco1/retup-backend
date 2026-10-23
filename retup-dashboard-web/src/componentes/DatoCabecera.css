@@ -1,0 +1,96 @@
+/* ═══════════ BANDA DE CABECERA + DATOS (compartido) ═══════════ */
+
+/* Banda blanca a todo el ancho: título a la izquierda, datos a la derecha */
+.banda-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 24px;
+  background: var(--rt-superficie);
+  border-radius: var(--rt-radio);
+  box-shadow: var(--rt-sombra);
+}
+
+.datos-cabecera {
+  display: flex;
+  align-items: stretch;
+}
+
+.dato-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 250px;
+  padding: 4px 28px;
+}
+
+/* Línea fina entre datos */
+.dato-cabecera + .dato-cabecera {
+  border-left: 1px solid var(--rt-borde);
+}
+
+.dato-cabecera:last-child {
+  padding-right: 0;
+}
+
+.dato-cabecera__icono {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  color: var(--rt-indigo);
+  background: rgba(46, 42, 114, 0.08);
+  border-radius: 12px;
+}
+
+.dato-cabecera__texto p {
+  margin: 0;
+}
+
+.dato-cabecera__titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--rt-texto-suave);
+}
+
+/* La (i) y su burbuja no heredan las mayúsculas del título */
+.dato-cabecera__titulo .tarjeta__ayuda {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.dato-cabecera__titulo .tarjeta__burbuja {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.dato-cabecera__texto .dato-cabecera__valor {
+  margin-top: 2px;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--rt-indigo);
+  font-variant-numeric: tabular-nums;
+}
+
+.dato-cabecera__valor span {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+.dato-cabecera__detalle {
+  font-size: 12px;
+  color: var(--rt-texto-suave);
+}

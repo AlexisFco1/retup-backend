@@ -1,0 +1,156 @@
+/* ═══════════ RRHH · MAPA DE CALOR ═══════════ */
+
+/* Matriz a la izquierda, notas a la derecha */
+.mapa-calor__cuerpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+.mapa-calor__scroll {
+  overflow-x: auto;
+}
+
+/* ── Tabla ── */
+.mapa-calor__tabla {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+}
+
+.mapa-calor__tabla thead th {
+  padding: 0 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  vertical-align: bottom;
+  color: var(--rt-texto-suave);
+}
+
+.mapa-calor__tabla tbody th {
+  padding-right: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--rt-texto);
+}
+
+.mapa-calor__celda {
+  min-width: 72px;
+  height: 52px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 6px;
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
+
+.mapa-calor__celda--insuficiente {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+  background: #f3f4f6;
+}
+
+.mapa-calor__celda--vacia {
+  font-weight: 400;
+  color: #c4c6d0;
+  background: #fafafd;
+}
+
+/* ── Leyenda ── */
+.mapa-calor__leyenda {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--rt-texto-suave);
+}
+
+.mapa-calor__leyenda > span:first-child {
+  margin-right: 6px;
+}
+
+.mapa-calor__muestra {
+  width: 28px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.mapa-calor__muestra + span:not(.mapa-calor__muestra) {
+  margin-left: 6px;
+}
+
+.mapa-calor__muestra--insuficiente {
+  display: grid;
+  place-items: center;
+  width: auto;
+  height: auto;
+  margin-left: 18px;
+  padding: 1px 8px;
+  font-size: 11px;
+  background: #f3f4f6;
+}
+
+/* ── Notas laterales ── */
+.mapa-calor__lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mapa-calor__nota {
+  padding: 16px 18px;
+  border: 1px solid;
+  border-radius: var(--rt-radio);
+}
+
+.mapa-calor__nota h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mapa-calor__nota p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rt-texto);
+}
+
+.mapa-calor__nota p:last-child {
+  margin-bottom: 0;
+}
+
+.mapa-calor__nota--leer {
+  background: rgba(114, 9, 183, 0.05);
+  border-color: rgba(114, 9, 183, 0.25);
+}
+
+.mapa-calor__nota--leer h3 {
+  color: var(--rt-morado);
+}
+
+.mapa-calor__nota--brechas {
+  background: rgba(214, 69, 69, 0.05);
+  border-color: rgba(214, 69, 69, 0.3);
+}
+
+.mapa-calor__nota--brechas h3 {
+  color: #b3261e;
+}
+
+.mapa-calor__nota--fortalezas {
+  background: rgba(18, 181, 166, 0.06);
+  border-color: rgba(18, 181, 166, 0.35);
+}
+
+.mapa-calor__nota--fortalezas h3 {
+  color: #0b6e65;
+}

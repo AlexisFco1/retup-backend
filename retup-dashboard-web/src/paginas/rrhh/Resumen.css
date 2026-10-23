@@ -46,6 +46,16 @@
   }
 }
 
+/* Variante de 3 tarjetas (Activación) */
+.rrhh-resumen__tarjetas--tres {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Variante de 2 tarjetas anchas (Resumen) */
+.rrhh-resumen__tarjetas--dos {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 /* Tarjeta reservada (score, aún no disponible) */
 .rrhh-resumen__reservada {
   display: flex;
