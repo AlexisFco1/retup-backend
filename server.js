@@ -2259,22 +2259,29 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
 
     if (errorProgreso) throw errorProgreso;
 
-    // Obtener racha_maxima y racha_actual de user_racha_stats
-        const { data: rachaStats, error: errorRachaStats } = await supabase
-      .from('user_racha_stats')
-      .select('racha_maxima, racha_actual')
-      .eq('user_id', user_id)
-      .eq('reto_id', reto_id)
-      .eq('mes', mesNum)
-      .eq('año', anoNum)
-      .single();
+        // Recalcular la racha al leer, para que nunca quede desactualizada
+    // (si el usuario no entró varios días, aquí se refleja)
+    let rachaCalculada = await _actualizarRacha(user_id, reto_id, mesNum, anoNum);
 
-    if (errorRachaStats && errorRachaStats.code !== 'PGRST116') {
-      throw errorRachaStats;
+    // Si el recálculo falló, usamos lo que ya estaba guardado
+    if (!rachaCalculada) {
+      const { data: rachaStats, error: errorRachaStats } = await supabase
+        .from('user_racha_stats')
+        .select('racha_maxima, racha_actual')
+        .eq('user_id', user_id)
+        .eq('reto_id', reto_id)
+        .eq('mes', mesNum)
+        .eq('año', anoNum)
+        .single();
+
+      if (errorRachaStats && errorRachaStats.code !== 'PGRST116') {
+        throw errorRachaStats;
+      }
+      rachaCalculada = rachaStats;
     }
 
-    const racha_maxima = rachaStats?.racha_maxima || 0;
-    const racha_actual = rachaStats?.racha_actual || 0;
+    const racha_maxima = rachaCalculada?.racha_maxima || 0;
+    const racha_actual = rachaCalculada?.racha_actual || 0;
 
     // ============================================
     // 1. DIA PILDORA: Número secuencial del día laboral actual
