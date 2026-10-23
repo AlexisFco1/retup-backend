@@ -25,7 +25,101 @@
   color: var(--rt-error);
 }
 
-/* ── Cabecera de la pantalla ── */
+/* ── Cabecera: una sola banda blanca con el título y 2 datos ── */
+.mi-equipo__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 24px;
+  background: var(--rt-superficie);
+  border-radius: var(--rt-radio);
+  box-shadow: var(--rt-sombra);
+}
+
+.mi-equipo__datos {
+  display: flex;
+  align-items: stretch;
+}
+
+.mi-equipo__dato {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 250px;
+  padding: 4px 28px;
+}
+
+/* Línea fina entre los dos datos */
+.mi-equipo__dato + .mi-equipo__dato {
+  border-left: 1px solid var(--rt-borde);
+}
+
+.mi-equipo__dato:last-child {
+  padding-right: 0;
+}
+
+.mi-equipo__dato-icono {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  color: var(--rt-indigo);
+  background: rgba(46, 42, 114, 0.08);
+  border-radius: 12px;
+}
+
+.mi-equipo__dato-texto p {
+  margin: 0;
+}
+
+.mi-equipo__dato-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--rt-texto-suave);
+}
+
+/* La (i) y su burbuja no heredan las mayúsculas del título */
+.mi-equipo__dato-titulo .tarjeta__ayuda {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.mi-equipo__dato-titulo .tarjeta__burbuja {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.mi-equipo__dato-texto .mi-equipo__dato-valor {
+  margin-top: 2px;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--rt-indigo);
+  font-variant-numeric: tabular-nums;
+}
+
+.mi-equipo__dato-valor span {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+.mi-equipo__dato-detalle {
+  font-size: 12px;
+  color: var(--rt-texto-suave);
+}
+
 .mi-equipo__miga {
   margin: 0;
   font-size: 13px;
@@ -47,20 +141,14 @@
   color: var(--rt-texto-suave);
 }
 
-/* ── Tarjetas: 4 columnas en escritorio ── */
+/* ── Tarjetas del periodo: 2 columnas ── */
 .mi-equipo__tarjetas {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
-@media (max-width: 1280px) {
-  .mi-equipo__tarjetas {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* ── Paneles (gráfico y tabla de retos) ── */
+/* ── Paneles ── */
 .mi-equipo__panel {
   padding: 20px 24px;
   background: var(--rt-superficie);
@@ -85,9 +173,91 @@
   color: var(--rt-texto-suave);
 }
 
+/* ── Franja de comparación bajo el gráfico ── */
+.mi-equipo__comparativa {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  padding: 12px 16px;
+  background: var(--rt-fondo);
+  border-radius: 10px;
+}
+
+.mi-equipo__comparativa-lado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mi-equipo__comparativa-lado--derecha {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.mi-equipo__comparativa-lado div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.mi-equipo__comparativa-lado strong {
+  font-size: 13px;
+  color: var(--rt-texto);
+}
+
+.mi-equipo__comparativa-lado span {
+  font-size: 12px;
+  color: var(--rt-texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.mi-equipo__muestra {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.mi-equipo__muestra--anterior {
+  background: #b7b4dd;
+}
+
+.mi-equipo__muestra--actual {
+  background: var(--rt-indigo);
+}
+
+.mi-equipo__comparativa-centro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mi-equipo__comparativa-centro span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+.mi-equipo__comparativa-centro--sube {
+  color: #10b981;
+}
+
+.mi-equipo__comparativa-centro--baja {
+  color: var(--rt-error);
+}
+
+.mi-equipo__comparativa-centro--igual {
+  color: var(--rt-texto-suave);
+}
+
 /* ── Tabla de datos (desplegable) ── */
 .mi-equipo__tabla-datos {
-  margin-top: 8px;
+  margin-top: 12px;
   font-size: 13px;
 }
 
@@ -116,61 +286,125 @@
   color: var(--rt-texto-suave);
 }
 
-/* ── Finalización por reto (barras horizontales) ── */
-.mi-equipo__retos {
+/* ── Avance por persona ── */
+.mi-equipo__personas {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.mi-equipo__reto {
+.mi-equipo__persona {
   display: grid;
-  grid-template-columns: 240px 1fr 120px;
+  grid-template-columns: 36px 260px 1fr 70px;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
-.mi-equipo__reto-nombre,
-.mi-equipo__reto-valor {
+.mi-equipo__persona-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rt-indigo);
+  background: rgba(46, 42, 114, 0.08);
+  border-radius: 50%;
+}
+
+.mi-equipo__persona-nombre {
   display: flex;
   flex-direction: column;
   line-height: 1.3;
+  min-width: 0;
 }
 
-.mi-equipo__reto-nombre strong {
+.mi-equipo__persona-nombre strong {
+  overflow: hidden;
   font-size: 14px;
   color: var(--rt-texto);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.mi-equipo__reto-nombre span,
-.mi-equipo__reto-valor span {
+.mi-equipo__persona-nombre span {
   font-size: 12px;
   color: var(--rt-texto-suave);
 }
 
-.mi-equipo__reto-valor {
-  align-items: flex-end;
-  font-variant-numeric: tabular-nums;
-}
-
-.mi-equipo__reto-valor strong {
-  font-size: 15px;
-  color: var(--rt-texto);
-}
-
-.mi-equipo__reto-barra {
+.mi-equipo__persona-barra {
   height: 10px;
   overflow: hidden;
   background: var(--rt-fondo);
   border-radius: 999px;
 }
 
-.mi-equipo__reto-barra > div {
+.mi-equipo__persona-barra > div {
   height: 100%;
   background: var(--rt-indigo);
   border-radius: 999px;
   transition: width 0.3s;
+}
+
+.mi-equipo__persona-valor {
+  font-size: 15px;
+  text-align: right;
+  color: var(--rt-texto);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Tarjetas seleccionables (deciden qué muestran los gráficos) ── */
+.mi-equipo__opcion {
+  position: relative;
+  border-radius: var(--rt-radio);
+  cursor: pointer;
+  outline: none;
+}
+
+.mi-equipo__opcion > .tarjeta {
+  height: 100%;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.mi-equipo__opcion:hover > .tarjeta {
+  border-color: rgba(46, 42, 114, 0.25);
+  transform: translateY(-1px);
+}
+
+.mi-equipo__opcion:focus-visible > .tarjeta {
+  border-color: var(--rt-turquesa);
+}
+
+.mi-equipo__opcion--activa > .tarjeta,
+.mi-equipo__opcion--activa:hover > .tarjeta {
+  border-color: var(--rt-indigo);
+  transform: none;
+}
+
+/* Etiqueta sobre el borde superior de la tarjeta */
+.mi-equipo__opcion-etiqueta {
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  z-index: 1;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.mi-equipo__opcion--activa .mi-equipo__opcion-etiqueta {
+  color: #fff;
+  background: var(--rt-indigo);
+}
+
+.mi-equipo__opcion:not(.mi-equipo__opcion--activa) .mi-equipo__opcion-etiqueta {
+  color: var(--rt-indigo);
+  background: var(--rt-superficie);
+  border: 1px solid var(--rt-borde);
 }

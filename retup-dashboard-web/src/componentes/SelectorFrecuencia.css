@@ -1,0 +1,47 @@
+/* ═══════════ SELECTOR DE FRECUENCIA (dentro de los gráficos) ═══════════ */
+
+/* Cabecera de panel con título a la izquierda y selector a la derecha */
+.cabecera-con-frecuencia {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.selector-frecuencia {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.selector-frecuencia__etiqueta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+.selector-frecuencia__opciones {
+  display: flex;
+  height: 32px;
+  padding: 3px;
+  background: var(--rt-fondo);
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 8px;
+}
+
+.selector-frecuencia__opciones button {
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+}
+
+.selector-frecuencia__opciones button.activo {
+  color: #fff;
+  background: var(--rt-indigo);
+}

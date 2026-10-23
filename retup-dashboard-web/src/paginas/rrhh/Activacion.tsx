@@ -11,6 +11,7 @@ import { apiFetch } from '../../api/cliente';
 import { rangoComparacion, useFiltros } from '../../filtros/filtros';
 import TarjetaIndicador from '../../componentes/TarjetaIndicador';
 import Grafico from '../../graficos/Grafico';
+import SelectorFrecuencia from '../../componentes/SelectorFrecuencia';
 import { BASE_GRAFICO, COLOR, EJE_DISCRETO } from '../../graficos/tema';
 import {
   etiquetaTramo,
@@ -354,12 +355,15 @@ export default function ActivacionPorArea() {
 
             {/* ── Evolución del score medio ── */}
       <section className="rrhh-resumen__panel">
-        <header className="rrhh-resumen__panel-cabecera">
-          <h2>Evolución del score medio de la empresa</h2>
-          <p>
-            Un punto por {datosScores?.frecuencia === 'dia' ? 'día laboral' : datosScores?.frecuencia === 'mes' ? 'mes' : 'semana'}.
-            Cambia la frecuencia en la barra de filtros. Los huecos son tramos sin datos suficientes.
-          </p>
+                <header className="rrhh-resumen__panel-cabecera cabecera-con-frecuencia">
+          <div>
+            <h2>Evolución del score medio de la empresa</h2>
+            <p>
+              Un punto por {datosScores?.frecuencia === 'dia' ? 'día laboral' : datosScores?.frecuencia === 'mes' ? 'mes' : 'semana'}.
+              Los huecos son tramos sin datos suficientes.
+            </p>
+          </div>
+          <SelectorFrecuencia />
         </header>
 
         {scores.isPending ? (

@@ -1,24 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════
 // BARRA DE FILTROS GLOBAL (debajo de la cabecera, en todas las pantallas)
-// Cambiar un filtro aquí actualizará TODOS los gráficos de la pantalla.
+// Periodo + Comparar con. Cambiar un filtro aquí actualiza TODOS los
+// gráficos de la pantalla. La frecuencia se elige dentro de cada gráfico.
 // ═══════════════════════════════════════════════════════════════════
-import { aISO, fechaLegible, rangoComparacion, useFiltros } from '../filtros/filtros';
-import type { Comparacion, Frecuencia, PeriodoRapido } from '../filtros/filtros';
+import { fechaLegible, rangoComparacion, useFiltros } from '../filtros/filtros';
+import type { Comparacion, PeriodoRapido } from '../filtros/filtros';
 import './BarraFiltros.css';
 
 const OPCIONES_PERIODO: { valor: PeriodoRapido; texto: string }[] = [
-  { valor: '7d', texto: 'Últimos 7 días' },
-  { valor: '30d', texto: 'Últimos 30 días' },
-  { valor: '90d', texto: 'Últimos 90 días' },
+  { valor: 'hoy', texto: 'Hoy' },
+  { valor: 'semana_actual', texto: 'Semana actual (L-V)' },
   { valor: 'mes_actual', texto: 'Mes actual' },
-  { valor: 'mes_anterior', texto: 'Mes anterior' },
-  { valor: 'personalizado', texto: 'Personalizado…' },
-];
-
-const OPCIONES_FRECUENCIA: { valor: Frecuencia; texto: string }[] = [
-  { valor: 'dia', texto: 'Día' },
-  { valor: 'semana', texto: 'Semana' },
-  { valor: 'mes', texto: 'Mes' },
+  { valor: 'trimestre_actual', texto: 'Trimestre actual' },
 ];
 
 const OPCIONES_COMPARACION: { valor: Comparacion; texto: string }[] = [
@@ -29,8 +22,7 @@ const OPCIONES_COMPARACION: { valor: Comparacion; texto: string }[] = [
 
 export default function BarraFiltros() {
   const filtros = useFiltros();
-  const hoy = aISO(new Date());
-  const comparado = rangoComparacion(filtros, filtros.comparacion);
+  const comparado = rangoComparacion(filtros, filtros.comparacion, filtros.periodo);
 
   return (
     <section className="filtros" aria-label="Filtros">
@@ -49,47 +41,6 @@ export default function BarraFiltros() {
             ))}
           </select>
         </label>
-
-        {filtros.periodo === 'personalizado' && (
-          <>
-            <label className="filtros__campo">
-              <span>Desde</span>
-              <input
-                type="date"
-                value={filtros.desde}
-                max={hoy}
-                onChange={(e) => e.target.value && filtros.elegirFechas(e.target.value, filtros.hasta)}
-              />
-            </label>
-            <label className="filtros__campo">
-              <span>Hasta</span>
-              <input
-                type="date"
-                value={filtros.hasta}
-                max={hoy}
-                onChange={(e) => e.target.value && filtros.elegirFechas(filtros.desde, e.target.value)}
-              />
-            </label>
-          </>
-        )}
-
-        {/* ── Frecuencia (botones segmentados) ── */}
-        <div className="filtros__campo">
-          <span>Frecuencia</span>
-          <div className="filtros__segmentado" role="group" aria-label="Frecuencia">
-            {OPCIONES_FRECUENCIA.map((opcion) => (
-              <button
-                key={opcion.valor}
-                type="button"
-                className={filtros.frecuencia === opcion.valor ? 'activo' : ''}
-                aria-pressed={filtros.frecuencia === opcion.valor}
-                onClick={() => filtros.elegirFrecuencia(opcion.valor)}
-              >
-                {opcion.texto}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* ── Comparar con ── */}
         <label className="filtros__campo">
