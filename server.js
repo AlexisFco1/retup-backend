@@ -1688,173 +1688,91 @@ function _esDialaboral(fecha) {
 }
 
 async function _actualizarRacha(user_id, reto_id, mes, ano) {
-  console.log(`🔄 Actualizando racha para user: ${user_id}, reto: ${reto_id}`);
+  mes = Number(mes);
+  ano = Number(ano);
+  console.log(`🔄 Actualizando racha para user: ${user_id}, reto: ${reto_id}, mes: ${mes}/${ano}`);
 
   try {
-    // ========== PASO 1: Calcular rango de fechas del mes ==========
-    const primerDiaDelMes = `${ano}-${String(mes).padStart(2, '0')}-01`;
+    // ========== PASO 1: Rango de fechas del mes ==========
+    const mm = String(mes).padStart(2, '0');
+    const primerDiaDelMes = `${ano}-${mm}-01`;
     const proximoMes = mes === 12 ? 1 : mes + 1;
     const proximoAno = mes === 12 ? ano + 1 : ano;
     const primerDiaProximoMes = `${proximoAno}-${String(proximoMes).padStart(2, '0')}-01`;
 
-    // ========== PASO 2: Obtener racha_maxima anterior ==========
-    const { data: rachaActual, error: errorRachaActual } = await supabase
-      .from('user_racha_stats')
-      .select('racha_maxima')
-      .eq('user_id', user_id)
-      .eq('reto_id', reto_id)
-      .eq('mes', mes)
-      .eq('año', ano)
-      .single();
-
-    if (errorRachaActual && errorRachaActual.code !== 'PGRST116') {
-      console.error('❌ Error en SELECT racha_maxima:', errorRachaActual);
-      throw errorRachaActual;
-    }
-
-    // ========== PASO 3: Obtener todos los días del mes con sus datos ==========
+    // ========== PASO 2: Filas registradas del mes (solo de ESTE reto) ==========
     const { data: diasDelMes, error: errorDias } = await supabase
       .from('racha_daily_progress')
-      .select('fecha, login_hecho, pildora_completada, es_dia_laboral')
+      .select('fecha, login_hecho, pildora_completada')
       .eq('user_id', user_id)
       .eq('reto_id', reto_id)
       .gte('fecha', primerDiaDelMes)
-      .lt('fecha', primerDiaProximoMes)
-      .order('fecha', { ascending: true });
+      .lt('fecha', primerDiaProximoMes);
 
     if (errorDias) {
       console.error('❌ Error en SELECT racha_daily_progress:', errorDias);
       throw errorDias;
     }
 
-    // ========== PASO 4: Filtrar solo días laborales ==========
-    const diasLaborales = diasDelMes.filter(d => d.es_dia_laboral === true);
-    console.log(`📅 Días laborales encontrados: ${diasLaborales.length}`);
-
-    // ========== HELPER: Verificar si hueco es solo fin de semana ==========
-    const esHuecoSoloFinDeSemana = (diaPrevio, diaActual, diasDelMes) => {
-      const diasEnHueco = diasDelMes.filter(d => {
-        const fecha = new Date(d.fecha);
-        return fecha > diaPrevio && fecha < diaActual && d.es_dia_laboral === true;
-      });
-      return diasEnHueco.length === 0; // Si no hay días laborales, es solo fin de semana
-    };
-
-    // ========== PASO 5: Calcular racha_actual ==========
-    let racha_actual = 0;
-    
-    if (diasLaborales && diasLaborales.length > 0) {
-      const hoy = new Date();
-      const hoyString = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-      
-      // Buscar el índice de hoy en la lista de días laborales
-      let indicioHoy = -1;
-      for (let i = 0; i < diasLaborales.length; i++) {
-        if (diasLaborales[i].fecha === hoyString) {
-          indicioHoy = i;
-          break;
-        }
-      }
-
-      // Si hoy no es un día laboral, se rompe la racha
-      if (indicioHoy === -1) {
-        racha_actual = 0;
-        console.log(`🔴 Racha rota - Hoy (${hoyString}) no es día laboral`);
-      } else {
-        // Contar consecutivos desde hoy hacia atrás verificando AMBAS condiciones
-        for (let i = indicioHoy; i >= 0; i--) {
-          const registro = diasLaborales[i];
-          
-          // Verificar si hay un hueco con el registro siguiente (hacia el futuro)
-          if (i < indicioHoy) {
-            const diaActual = new Date(registro.fecha);
-            const diaSiguiente = new Date(diasLaborales[i + 1].fecha);
-            const diffDias = (diaSiguiente - diaActual) / (1000 * 60 * 60 * 24);
-            
-            if (diffDias > 1) {
-              // Verificar si es solo fin de semana
-              if (esHuecoSoloFinDeSemana(diaActual, diaSiguiente, diasDelMes)) {
-                console.log(`⏭️ Fin de semana entre ${registro.fecha} y ${diasLaborales[i + 1].fecha} - racha continúa`);
-              } else {
-                console.log(`🔴 Hueco con días laborales faltantes entre ${registro.fecha} y ${diasLaborales[i + 1].fecha}`);
-                break;
-              }
-            }
-          }
-          
-          // ✅ VERIFICAR QUE AMBAS CONDICIONES SEAN TRUE
-          if (registro.login_hecho === true && registro.pildora_completada === true) {
-            racha_actual++;
-            console.log(`✅ Día ${registro.fecha}: login ✓ + píldora ✓ → racha_actual = ${racha_actual}`);
-          } else {
-            // ❌ Si no cumple AMBAS condiciones, se rompe la racha
-            console.log(`🔴 Racha rota en ${registro.fecha}: login = ${registro.login_hecho}, píldora = ${registro.pildora_completada}`);
-            break;
-          }
-        }
-      }
-    } else {
-      racha_actual = 0;
-      console.log(`🔴 No hay días laborales registrados este mes`);
+    // Mapa fecha -> cumplió (login + píldora de este reto)
+    const cumplioPorFecha = {};
+    for (const d of diasDelMes || []) {
+      const fechaStr = String(d.fecha).split('T')[0];
+      cumplioPorFecha[fechaStr] = d.login_hecho === true && d.pildora_completada === true;
     }
 
-    // ========== PASO 6: NUEVO - Buscar MÁXIMA secuencia verificando huecos (ignorando fines de semana) ==========
-    let racha_maxima_mes = 0;
+    // ========== PASO 3: Calendario teórico L-V del mes, hasta hoy ==========
+    // Se recorren TODOS los días laborales, existan o no en la tabla.
+    // Un día sin fila = no entró = no cumplido.
+    const hoyString = new Date().toISOString().split('T')[0];
+    const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+    const diasLaborales = [];
+
+    for (let dia = 1; dia <= ultimoDia; dia++) {
+      const fecha = new Date(Date.UTC(ano, mes - 1, dia));
+      const diaSemana = fecha.getUTCDay(); // 0 = domingo, 6 = sábado
+      const fechaStr = fecha.toISOString().split('T')[0];
+      if (diaSemana >= 1 && diaSemana <= 5 && fechaStr <= hoyString) {
+        diasLaborales.push(fechaStr);
+      }
+    }
+
+    // ========== PASO 4: Racha máxima del mes ==========
+    // Mayor secuencia de días laborales seguidos cumplidos.
+    let racha_maxima = 0;
     let racha_temporal = 0;
 
-    for (let i = 0; i < diasLaborales.length; i++) {
-      const registro = diasLaborales[i];
-      
-      // Verificar si hay un hueco con el registro anterior
-      if (i > 0) {
-        const diaActual = new Date(registro.fecha);
-        const diaPrevio = new Date(diasLaborales[i - 1].fecha);
-        const diffDias = (diaActual - diaPrevio) / (1000 * 60 * 60 * 24);
-        
-        // Si hay más de 1 día de diferencia, verificar si son todos no-laborales
-        if (diffDias > 1) {
-          // Verificar si es solo fin de semana
-          if (esHuecoSoloFinDeSemana(diaPrevio, diaActual, diasDelMes)) {
-            console.log(`⏭️ Fin de semana entre ${diasLaborales[i - 1].fecha} y ${registro.fecha} - racha continúa`);
-          } else {
-            // Hay días laborales faltantes, se rompe la secuencia
-            console.log(`🔴 Hueco con días laborales faltantes entre ${diasLaborales[i - 1].fecha} y ${registro.fecha}`);
-            if (racha_temporal > racha_maxima_mes) {
-              racha_maxima_mes = racha_temporal;
-              console.log(`🏆 Nueva máxima encontrada: ${racha_maxima_mes}`);
-            }
-            racha_temporal = 0;
-          }
-        }
-      }
-      
-      // Si ambas condiciones son true, sumamos a la racha temporal
-      if (registro.login_hecho === true && registro.pildora_completada === true) {
+    for (const fechaStr of diasLaborales) {
+      if (cumplioPorFecha[fechaStr] === true) {
         racha_temporal++;
-        console.log(`📈 Secuencia en ${registro.fecha}: racha_temporal = ${racha_temporal}`);
+        if (racha_temporal > racha_maxima) racha_maxima = racha_temporal;
       } else {
-        // Si se rompe, comparamos si es la máxima
-        if (racha_temporal > racha_maxima_mes) {
-          racha_maxima_mes = racha_temporal;
-          console.log(`🏆 Nueva máxima encontrada: ${racha_maxima_mes}`);
-        }
         racha_temporal = 0;
       }
     }
-    
-    // Verificar la última secuencia (si termina el mes con racha)
-    if (racha_temporal > racha_maxima_mes) {
-      racha_maxima_mes = racha_temporal;
-      console.log(`🏆 Nueva máxima al final del mes: ${racha_maxima_mes}`);
+
+    // ========== PASO 5: Racha actual ==========
+    // Si hoy es laboral y aún no cumplió, hoy está "pendiente": no rompe,
+    // se cuenta desde el día laboral anterior.
+    // Sábado/domingo no están en la lista, así que se mantiene la racha del viernes.
+    let racha_actual = 0;
+    let i = diasLaborales.length - 1;
+
+    if (i >= 0 && diasLaborales[i] === hoyString && cumplioPorFecha[hoyString] !== true) {
+      i--;
     }
 
-    // ========== PASO 7: Calcular racha_maxima final (nunca disminuye) ==========
-    const racha_maxima_anterior = rachaActual?.racha_maxima || 0;
-    const racha_maxima_nueva = Math.max(racha_maxima_anterior, racha_maxima_mes);
-    
-    console.log(`📊 Racha anterior: ${racha_maxima_anterior}, Máxima del mes: ${racha_maxima_mes}, Final: ${racha_maxima_nueva}`);
+    for (; i >= 0; i--) {
+      if (cumplioPorFecha[diasLaborales[i]] === true) {
+        racha_actual++;
+      } else {
+        break;
+      }
+    }
 
-    // ========== PASO 8: Verificar si el registro ya existe ==========
+    console.log(`📊 Días laborales evaluados: ${diasLaborales.length} | Racha actual: ${racha_actual} | Racha máxima mes: ${racha_maxima}`);
+
+    // ========== PASO 6: Guardar (actualizar o insertar) ==========
     const { data: existente, error: errorExistente } = await supabase
       .from('user_racha_stats')
       .select('id')
@@ -1869,14 +1787,12 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       throw errorExistente;
     }
 
-    // ========== PASO 9: Actualizar o insertar el registro ==========
     if (existente) {
-      // Actualizar registro existente
       const { error: updateError } = await supabase
         .from('user_racha_stats')
         .update({
           racha_actual,
-          racha_maxima: racha_maxima_nueva,
+          racha_maxima,
           updated_at: new Date().toISOString()
         })
         .eq('id', existente.id);
@@ -1885,10 +1801,7 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
         console.error('❌ Error en UPDATE user_racha_stats:', updateError);
         throw updateError;
       }
-      
-      console.log(`✅ Registro actualizado: racha_actual = ${racha_actual}, racha_maxima = ${racha_maxima_nueva}`);
     } else {
-      // Insertar nuevo registro
       const { error: insertError } = await supabase
         .from('user_racha_stats')
         .insert([{
@@ -1897,20 +1810,20 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
           mes,
           año: ano,
           racha_actual,
-          racha_maxima: racha_maxima_nueva
+          racha_maxima
         }]);
 
       if (insertError) {
         console.error('❌ Error en INSERT user_racha_stats:', insertError);
         throw insertError;
       }
-      
-      console.log(`✅ Registro insertado: racha_actual = ${racha_actual}, racha_maxima = ${racha_maxima_nueva}`);
     }
 
-    console.log(`🎯 Racha finalizada - Actual: ${racha_actual}, Máxima: ${racha_maxima_nueva}`);
+    console.log(`🎯 Racha guardada - Actual: ${racha_actual}, Máxima: ${racha_maxima}`);
+    return { racha_actual, racha_maxima };
   } catch (error) {
     console.error('❌ Error en _actualizarRacha:', error.message);
+    return null;
   }
 }
 // ========== CRON JOB: Verificar y resetear rachas rotas diariamente ==========
