@@ -1179,4 +1179,93 @@ router.post('/cuenta/cambiar-password-temporal', authenticateToken, async (req, 
   }
 });
 
+// ===================== RRHH · GERENCIA =====================
+// Siempre la empresa del perfil conectado y SOLO datos agregados
+// (nunca datos de una persona concreta).
+
+// ── Resumen: activos, finalización de retos, inscritos y retos del mes ──
+router.get('/rrhh/resumen', authenticateToken, exigirAccesoDashboard(['rrhh_gerencia']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const rango = leerRango(req.query);
+    if (rango.error) {
+      return res.status(400).json({ success: false, error: rango.error });
+    }
+
+    const { data, error } = await db.rpc('dash_rrhh_resumen', {
+      p_empresa: empresaId, // ← del perfil, nunca del navegador
+      p_desde: rango.desde,
+      p_hasta: rango.hasta,
+      p_comp_desde: rango.comp_desde,
+      p_comp_hasta: rango.comp_hasta,
+    });
+    if (error) throw error;
+
+    res.json({ success: true, datos: data });
+  } catch (err) {
+    console.error('❌ Error en /dashboard/rrhh/resumen:', err.message);
+    res.status(500).json({ success: false, error: 'No se pudieron calcular los indicadores' });
+  }
+});
+
+// ── Activación por área: activación global y por departamento, finalización ──
+router.get('/rrhh/activacion', authenticateToken, exigirAccesoDashboard(['rrhh_gerencia']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const rango = leerRango(req.query);
+    if (rango.error) {
+      return res.status(400).json({ success: false, error: rango.error });
+    }
+
+    const { data, error } = await db.rpc('dash_rrhh_activacion', {
+      p_empresa: empresaId,
+      p_desde: rango.desde,
+      p_hasta: rango.hasta,
+      p_comp_desde: rango.comp_desde,
+      p_comp_hasta: rango.comp_hasta,
+    });
+    if (error) throw error;
+
+    res.json({ success: true, datos: data });
+  } catch (err) {
+    console.error('❌ Error en /dashboard/rrhh/activacion:', err.message);
+    res.status(500).json({ success: false, error: 'No se pudieron calcular los indicadores' });
+  }
+});
+
+// ── Scores (siempre agregados y con umbral de privacidad): empresa, habilidades,
+//    matriz departamento × habilidad, celdas sobre el umbral y evolución ──
+router.get('/rrhh/scores', authenticateToken, exigirAccesoDashboard(['rrhh_gerencia']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const rango = leerRango(req.query);
+    if (rango.error) {
+      return res.status(400).json({ success: false, error: rango.error });
+    }
+
+    const frecuencia = ['dia', 'semana', 'mes'].includes(req.query.frecuencia)
+      ? req.query.frecuencia
+      : 'semana';
+
+    const { data, error } = await db.rpc('dash_rrhh_scores', {
+      p_empresa: empresaId,
+      p_desde: rango.desde,
+      p_hasta: rango.hasta,
+      p_frecuencia: frecuencia,
+    });
+    if (error) throw error;
+
+    res.json({ success: true, datos: data });
+  } catch (err) {
+    console.error('❌ Error en /dashboard/rrhh/scores:', err.message);
+    res.status(500).json({ success: false, error: 'No se pudieron calcular los scores' });
+  }
+});
+
 module.exports = router;
