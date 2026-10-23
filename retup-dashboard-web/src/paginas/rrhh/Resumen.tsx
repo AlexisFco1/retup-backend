@@ -11,6 +11,7 @@ import type { EChartsCoreOption } from 'echarts/core';
 import { apiFetch } from '../../api/cliente';
 import { rangoComparacion, useFiltros } from '../../filtros/filtros';
 import TarjetaIndicador from '../../componentes/TarjetaIndicador';
+import DatoCabecera from '../../componentes/DatoCabecera';
 import Grafico from '../../graficos/Grafico';
 import { BASE_GRAFICO, COLOR, EJE_DISCRETO } from '../../graficos/tema';
 import { mensajeSinScore, TarjetaPendiente, textoScore, useScoresRrhh } from './scores';
@@ -248,17 +249,43 @@ export default function Resumen() {
 
   return (
     <div className={`rrhh-resumen${consulta.isFetching ? ' rrhh-resumen--actualizando' : ''}`}>
-      <header className="rrhh-resumen__cabecera">
-        <p className="rrhh-resumen__miga">RRHH · Gerencia</p>
-        <h1 className="rrhh-resumen__titulo">Resumen</h1>
-        <p className="rrhh-resumen__subtitulo">
-          {actual.habilitados} {actual.habilitados === 1 ? 'colaborador habilitado' : 'colaboradores habilitados'}{' '}
-          en la empresa
-        </p>
+            {/* ── Cabecera: una sola banda con el título y 2 datos ── */}
+      <header className="banda-cabecera">
+        <div>
+          <p className="rrhh-resumen__miga">RRHH · Gerencia</p>
+          <h1 className="rrhh-resumen__titulo">Resumen</h1>
+          <p className="rrhh-resumen__subtitulo">
+            {actual.habilitados} {actual.habilitados === 1 ? 'colaborador habilitado' : 'colaboradores habilitados'}{' '}
+            en la empresa
+          </p>
+        </div>
+
+        <div className="datos-cabecera">
+          <DatoCabecera
+            icono="meta"
+            titulo="Retos finalizados"
+            valor={actual.retos_completados}
+            total={actual.retos_iniciados}
+            detalle={
+              actual.finalizacion_pct === null
+                ? 'sin retos iniciados en el periodo'
+                : `${String(actual.finalizacion_pct).replace('.', ',')} % de los iniciados en el periodo`
+            }
+            ayuda="Retos completados (todas sus píldoras dentro de su mes) sobre los retos iniciados (al menos una píldora) en el periodo. Los retos del mes en curso cuentan como iniciados, por eso el valor sube al terminar el mes."
+          />
+          <DatoCabecera
+            icono="calendario"
+            titulo="Inscritos próximo mes"
+            valor={proximo.voluntarios}
+            total={proximo.habilitados}
+            detalle={`para ${MESES[proximo.mes - 1]} ${proximo.anio}`}
+            ayuda="Colaboradores que ya eligieron voluntariamente su reto para el mes siguiente. Se calcula respecto a hoy, no al periodo filtrado."
+          />
+        </div>
       </header>
 
       {/* ── Tarjetas ── */}
-      <section className="rrhh-resumen__tarjetas">
+      <section className="rrhh-resumen__tarjetas rrhh-resumen__tarjetas--dos">
         <TarjetaIndicador
           titulo="Colaboradores activos"
           ayuda="Colaboradores con reto que completaron al menos una píldora de su reto en el periodo, sobre el total de colaboradores habilitados (no de baja ni bloqueados)."
@@ -268,22 +295,14 @@ export default function Resumen() {
           detalle={`${actual.activos} de ${actual.habilitados} colaboradores`}
           valorAnterior={anterior?.activos_pct}
         />
-        <TarjetaIndicador
-          titulo="Finalización de retos"
-          ayuda="Retos completados (todas sus píldoras dentro de su mes) sobre los retos iniciados (al menos una píldora) en el periodo. Los retos del mes en curso cuentan como iniciados, por eso el valor sube al terminar el mes."
-          valor={actual.finalizacion_pct}
-          formato="porcentaje"
-          conBarra
-          detalle={`${actual.retos_completados} de ${actual.retos_iniciados} retos iniciados`}
-          valorAnterior={anterior?.finalizacion_pct}
-        />
+     
                 {datosScores && datosScores.empresa.score !== null ? (
-          <TarjetaIndicador
+                   <TarjetaIndicador
             titulo="Score medio de la empresa"
-            ayuda="Media del score de habilidades (0–100) de los colaboradores evaluados, con el mismo cálculo que ven en la app (feedback, asistencia y práctica). Cada persona pesa lo mismo."
+            ayuda="Cada colaborador evaluado tiene un score de 0 a 100 (media de feedback, asistencia y práctica, igual que en la app). Se suman los scores de todos y se divide entre el número de evaluados. Cada persona pesa lo mismo."
             valor={datosScores.empresa.score}
             formato="decimal"
-            detalle={`${datosScores.empresa.evaluados} colaboradores evaluados · escala 0–100`}
+            detalle={`${Math.round((datosScores.empresa.score ?? 0) * datosScores.empresa.evaluados)} pts ÷ ${datosScores.empresa.evaluados} colaboradores evaluados (escala 0–100)`}
           />
         ) : (
           <TarjetaPendiente
@@ -297,14 +316,7 @@ export default function Resumen() {
             }
           />
         )}
-        <TarjetaIndicador
-          titulo="Inscritos próximo mes"
-          ayuda="Colaboradores que ya eligieron voluntariamente su reto para el mes siguiente. Se calcula respecto a hoy, no al periodo filtrado."
-          valor={proximo.voluntarios}
-          formato="numero"
-          detalle={`de ${proximo.habilitados} habilitados para ${MESES[proximo.mes - 1]} ${proximo.anio}`}
-        />
-      </section>
+             </section>
 
       {/* ── Retos más elegidos ── */}
       <section className="rrhh-resumen__panel">

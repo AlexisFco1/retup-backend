@@ -10,6 +10,7 @@ import type { EChartsCoreOption } from 'echarts/core';
 import { apiFetch } from '../../api/cliente';
 import { rangoComparacion, useFiltros } from '../../filtros/filtros';
 import TarjetaIndicador from '../../componentes/TarjetaIndicador';
+import DatoCabecera from '../../componentes/DatoCabecera';
 import Grafico from '../../graficos/Grafico';
 import SelectorFrecuencia from '../../componentes/SelectorFrecuencia';
 import { BASE_GRAFICO, COLOR, EJE_DISCRETO } from '../../graficos/tema';
@@ -237,16 +238,33 @@ export default function ActivacionPorArea() {
 
   return (
     <div className={`rrhh-resumen${consulta.isFetching ? ' rrhh-resumen--actualizando' : ''}`}>
-      <header className="rrhh-resumen__cabecera">
-        <p className="rrhh-resumen__miga">RRHH · Gerencia</p>
-        <h1 className="rrhh-resumen__titulo">Activación por área</h1>
-        <p className="rrhh-resumen__subtitulo">
-          Participación de los {actual.habilitados} colaboradores habilitados en la plataforma
-        </p>
+           {/* ── Cabecera: una sola banda con el título y Retos finalizados ── */}
+      <header className="banda-cabecera">
+        <div>
+          <p className="rrhh-resumen__miga">RRHH · Gerencia</p>
+          <h1 className="rrhh-resumen__titulo">Activación por área</h1>
+          <p className="rrhh-resumen__subtitulo">
+            Participación de los {actual.habilitados} colaboradores habilitados en la plataforma
+          </p>
+        </div>
+        <div className="datos-cabecera">
+          <DatoCabecera
+            icono="meta"
+            titulo="Retos finalizados"
+            valor={actual.finalizacion.retos_completados}
+            total={actual.finalizacion.retos_iniciados}
+            detalle={
+              actual.finalizacion.finalizacion_pct === null
+                ? 'sin retos iniciados en el periodo'
+                : `${textoPct(actual.finalizacion.finalizacion_pct)} de los iniciados en el periodo`
+            }
+            ayuda="Retos completados (todas sus píldoras dentro de su mes) sobre los retos iniciados en el periodo. Los retos del mes en curso cuentan como iniciados, por eso el valor sube al terminar el mes."
+          />
+        </div>
       </header>
 
       {/* ── Tarjetas ── */}
-      <section className="rrhh-resumen__tarjetas">
+      <section className="rrhh-resumen__tarjetas rrhh-resumen__tarjetas--tres">
         <TarjetaIndicador
           titulo="Activación"
           ayuda="Colaboradores habilitados que completaron al menos una píldora (de su reto o suelta) en el periodo. El objetivo se configura por empresa."
@@ -255,15 +273,6 @@ export default function ActivacionPorArea() {
           conBarra
           detalle={detalleActivacion}
           valorAnterior={anterior?.pct}
-        />
-        <TarjetaIndicador
-          titulo="Finalización de retos"
-          ayuda="Retos completados (todas sus píldoras dentro de su mes) sobre los retos iniciados en el periodo. Los retos del mes en curso cuentan como iniciados."
-          valor={actual.finalizacion.finalizacion_pct}
-          formato="porcentaje"
-          conBarra
-          detalle={`${actual.finalizacion.retos_completados} de ${actual.finalizacion.retos_iniciados} retos iniciados`}
-          valorAnterior={anterior?.finalizacion.finalizacion_pct}
         />
                 {datosScores && datosScores.empresa.evolucion_pts !== null ? (
           <TarjetaIndicador
