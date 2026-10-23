@@ -1721,18 +1721,20 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
       cumplioPorFecha[fechaStr] = d.login_hecho === true && d.pildora_completada === true;
     }
 
-    // ========== PASO 3: Calendario teórico L-V del mes, hasta hoy ==========
+       // ========== PASO 3: Calendario teórico L-V del mes, hasta hoy ==========
     // Se recorren TODOS los días laborales, existan o no en la tabla.
     // Un día sin fila = no entró = no cumplido.
+    // Los FESTIVOS (tabla dias_festivos) no son laborales: no suman ni rompen.
     const hoyString = new Date().toISOString().split('T')[0];
     const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+    const festivos = await _cargarFestivos(ano, ano);
     const diasLaborales = [];
 
     for (let dia = 1; dia <= ultimoDia; dia++) {
       const fecha = new Date(Date.UTC(ano, mes - 1, dia));
       const diaSemana = fecha.getUTCDay(); // 0 = domingo, 6 = sábado
       const fechaStr = fecha.toISOString().split('T')[0];
-      if (diaSemana >= 1 && diaSemana <= 5 && fechaStr <= hoyString) {
+      if (diaSemana >= 1 && diaSemana <= 5 && fechaStr <= hoyString && !festivos.has(fechaStr)) {
         diasLaborales.push(fechaStr);
       }
     }
@@ -2187,8 +2189,14 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
     const anoNum = parseInt(ano);
     const ultimoDiaDelMes = _obtenerUltimoDiaMes(mesNum, anoNum);
 
-    // Obtener días laborales del mes
-    const diasLaborales = _obtenerDiasLaboralesMes(mesNum, anoNum);
+        // Obtener días laborales del mes (lunes a viernes, SIN festivos)
+    const festivosAnio = await _cargarFestivos(anoNum, anoNum);
+    const diasLaborales = _obtenerDiasLaboralesMes(mesNum, anoNum)
+      .filter(fechaStr => !festivosAnio.has(fechaStr));
+
+    // Festivos de este mes (la app los pinta aparte en bolitas y calendario)
+    const prefijoMes = `${anoNum}-${String(mesNum).padStart(2, '0')}-`;
+    const festivosMes = [...festivosAnio].filter(f => f.startsWith(prefijoMes)).sort();
 
     // Obtener progreso del mes PARA ESTE RETO
     const { data: progreso, error: errorProgreso } = await supabase
@@ -2292,7 +2300,8 @@ app.get('/api/racha/estadisticas-por-reto', authenticateToken, async (req, res) 
         racha_maxima,
         dias_cumplidos: dias_cumplidos,
         dias_no_cumplidos: diasNoCumplidos,
-        dias_laborales_total: diasLaborales.length
+                dias_laborales_total: diasLaborales.length,
+        festivos: festivosMes
       }
     });
   } catch (error) {
