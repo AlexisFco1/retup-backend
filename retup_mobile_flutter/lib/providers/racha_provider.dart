@@ -86,6 +86,101 @@ class RachaProvider extends ChangeNotifier {
     }
   }
 
+  // ===== CARGA COMPLETA DE LA PANTALLA RACHAS (un solo refresco) =====
+  // Pide todo EN PARALELO y avisa a la pantalla UNA sola vez al final.
+  // El spinner de pantalla completa solo sale la primera vez (sin datos);
+  // en recargas se mantiene el contenido visible y se actualiza de golpe.
+  Future<void> cargarPantallaRachas(
+    String userId,
+    List<String> retoIds,
+    String token,
+  ) async {
+    final primeraCarga = estadisticasPorReto.isEmpty;
+    if (primeraCarga) {
+      isLoading = true;
+      errorMessage = null;
+      notifyListeners();
+    }
+
+    try {
+      final nuevasStats = <String, dynamic>{};
+      final nuevoProgreso = <String, List<Map<String, dynamic>>>{};
+      Map<String, dynamic>? nuevoLeaderboard;
+      String? nuevaPreferencia;
+      bool preferenciaCargada = false;
+
+      final tareas = <Future<void>>[];
+
+      for (final retoId in retoIds) {
+        // Estadísticas del reto (el backend recalcula la racha aquí)
+        tareas.add(() async {
+          try {
+            nuevasStats[retoId] = await _rachaService.obtenerEstadisticasMes(
+              userId,
+              retoId,
+              token,
+            );
+          } catch (e) {
+            print('⚠️ Error cargando stats para reto $retoId: $e');
+          }
+        }());
+
+        // Bolitas / calendario del reto
+        tareas.add(() async {
+          try {
+            nuevoProgreso[retoId] = await _rachaService.obtenerProgresoDiario(
+              userId,
+              retoId,
+              token,
+            );
+          } catch (e) {
+            print('⚠️ Error cargando progreso diario del reto $retoId: $e');
+          }
+        }());
+      }
+
+      // Ranking
+      tareas.add(() async {
+        try {
+          nuevoLeaderboard = await _rachaService.obtenerLeaderboard(token);
+        } catch (e) {
+          print('⚠️ Error cargando leaderboard: $e');
+        }
+      }());
+
+      // Premio elegido
+      tareas.add(() async {
+        try {
+          nuevaPreferencia =
+              await _rachaService.obtenerPreferenciaRegaloGlobal(userId, token);
+          preferenciaCargada = true;
+        } catch (e) {
+          print('⚠️ Error cargando preferencia global: $e');
+        }
+      }());
+
+      // Esperar a que TODO termine
+      await Future.wait(tareas);
+
+      // Aplicar todos los datos juntos
+      estadisticasPorReto
+        ..clear()
+        ..addAll(nuevasStats);
+      progresoDiarioPorReto.addAll(nuevoProgreso);
+      if (nuevoLeaderboard != null) leaderboard = nuevoLeaderboard!;
+      if (preferenciaCargada) preferenciaRegaloGlobal = nuevaPreferencia;
+      errorMessage = null;
+
+      print('✅ Pantalla Rachas cargada: ${estadisticasPorReto.length} retos');
+    } catch (e) {
+      print('❌ Error en cargarPantallaRachas: $e');
+      errorMessage = e.toString();
+    } finally {
+      isLoading = false;
+      notifyListeners(); // ÚNICO refresco de la pantalla
+    }
+  }
+
   // ===== LEADERBOARD =====
 
   Future<void> cargarLeaderboard(String token) async {

@@ -20,6 +20,10 @@ class RachasScreen extends StatefulWidget {
 class _RachasScreenState extends State<RachasScreen> {
   int _currentNavIndex = 3; // Rachas es el índice 3
 
+  // true mientras se hace la PRIMERA carga completa (retos + rachas).
+  // Así se muestra un único spinner y la pantalla aparece de una sola vez.
+  bool _cargandoInicial = true;
+
   // ===== Colores de marca RetUp (Paleta "Vínculo") =====
   static const Color _indigo = Color(0xFF2E2A72); // Predomina
   static const Color _indigoClaro = Color(0xFF443E9E);
@@ -55,7 +59,12 @@ class _RachasScreenState extends State<RachasScreen> {
   @override
   void initState() {
     super.initState();
-    _cargarDatos();
+    // Cuando TODO termina de cargar, se muestra la pantalla de una vez
+    _cargarDatos().whenComplete(() {
+      if (mounted) {
+        setState(() => _cargandoInicial = false);
+      }
+    });
   }
 
   Future<void> _cargarDatos() async {
@@ -74,24 +83,10 @@ class _RachasScreenState extends State<RachasScreen> {
 
     final retoIds = retosInscritos.map((r) => r.id).toList();
 
-    await rachaProvider.cargarEstadisticasMultipleRetos(
+    // Todo en paralelo y un solo refresco de pantalla
+    await rachaProvider.cargarPantallaRachas(
       authProvider.userId!,
       retoIds,
-      authProvider.token!,
-    );
-
-    await rachaProvider.cargarLeaderboard(authProvider.token!);
-
-    for (var reto in retosInscritos) {
-      await rachaProvider.cargarProgresoDiario(
-        authProvider.userId!,
-        reto.id,
-        authProvider.token!,
-      );
-    }
-
-    await rachaProvider.cargarPreferenciaRegaloGlobal(
-      authProvider.userId!,
       authProvider.token!,
     );
   }
@@ -183,7 +178,12 @@ class _RachasScreenState extends State<RachasScreen> {
       body: SafeArea(
         child: Consumer3<RachaProvider, PlanificacionProvider, AuthProvider>(
           builder: (context, rachaProvider, planProvider, authProvider, _) {
-            if (rachaProvider.isLoading || planProvider.isLoading) {
+            // Spinner SOLO en la primera carga y si aún no hay datos.
+            // Si ya había datos (volver a Rachas / deslizar para recargar),
+            // se mantiene el contenido visible y se actualiza una sola vez.
+            final sinDatos = planProvider.data == null ||
+                rachaProvider.estadisticasPorReto.isEmpty;
+            if (_cargandoInicial && sinDatos) {
               return const Center(
                 child: CircularProgressIndicator(color: _turquesa),
               );
@@ -937,6 +937,51 @@ class _RachasScreenState extends State<RachasScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    // Botón calendario de racha (estilo translúcido + texto de ayuda)
+                    Material(
+                      color: Colors.white.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        splashColor: Colors.white.withOpacity(0.2),
+                        onTap: () => _mostrarCalendarioRacha(
+                          reto: reto,
+                          rachaProvider: rachaProvider,
+                        ),
+                        child: Container(
+                          width: 78,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.15),
+                            ),
+                          ),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.calendar_month_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Toca para ver\ncalendario',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  height: 1.2,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -988,6 +1033,258 @@ class _RachasScreenState extends State<RachasScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ===================================================================
+  // CALENDARIO DE RACHA (pop-up que sube desde abajo)
+  // Mismas reglas de color que las bolitas
+  // ===================================================================
+
+  void _mostrarCalendarioRacha({
+    required Reto reto,
+    required RachaProvider rachaProvider,
+  }) {
+    const nombresMeses = [
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
+    ];
+    const diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+    final hoy = DateTime.now();
+    final mes = hoy.month;
+    final ano = hoy.year;
+    final ultimoDiaDelMes = DateTime(ano, mes + 1, 0).day;
+    final hoyString = hoy.toIso8601String().split('T')[0];
+
+    // Datos diarios del reto (los mismos que usan las bolitas)
+    final progresoDiario = rachaProvider.obtenerProgresoDiario(reto.id) ?? [];
+    final datosMap = <String, Map<String, dynamic>>{};
+    for (var registro in progresoDiario) {
+      datosMap[registro['fecha']] = registro;
+    }
+
+    final celdas = <Widget>[];
+
+    // Huecos antes del día 1 (la semana empieza en lunes)
+    final huecosIniciales = DateTime(ano, mes, 1).weekday - 1;
+    for (int i = 0; i < huecosIniciales; i++) {
+      celdas.add(const SizedBox.shrink());
+    }
+
+    int numeroDiaLaboral = 0;
+    for (int day = 1; day <= ultimoDiaDelMes; day++) {
+      final fecha = DateTime(ano, mes, day);
+      final fechaStr = fecha.toIso8601String().split('T')[0];
+      final esFinDeSemana = fecha.weekday == DateTime.saturday ||
+          fecha.weekday == DateTime.sunday;
+      final esHoy = fechaStr == hoyString;
+
+      Color fondo;
+      Color colorTexto;
+
+      if (esFinDeSemana) {
+        // Sábado y domingo no cuentan para la racha
+        fondo = Colors.transparent;
+        colorTexto = _textoSuave.withOpacity(0.6);
+      } else {
+        numeroDiaLaboral++;
+        final diaData = datosMap[fechaStr];
+        final cumple = diaData != null &&
+            diaData['login_hecho'] == true &&
+            diaData['pildora_completada'] == true;
+        final yaPaso = fechaStr.compareTo(hoyString) < 0;
+        final esDiaGracia = numeroDiaLaboral > 20;
+
+        if (cumple) {
+          fondo = _verde; // 🟢 Cumplido
+          colorTexto = Colors.white;
+        } else if (yaPaso) {
+          fondo = _rojo; // 🔴 Ya pasó sin cumplir
+          colorTexto = Colors.white;
+        } else if (esDiaGracia) {
+          fondo = _morado; // 🟣 Día de gracia
+          colorTexto = Colors.white;
+        } else {
+          fondo = _grisBolita; // ⚪ Pendiente
+          colorTexto = _texto;
+        }
+      }
+
+      celdas.add(
+        Center(
+          child: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: fondo,
+              shape: BoxShape.circle,
+              border: esHoy ? Border.all(color: _indigo, width: 2.5) : null,
+            ),
+            child: Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: esHoy ? FontWeight.w900 : FontWeight.w700,
+                color: colorTexto,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (contextSheet) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(contextSheet).size.height * 0.9,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Asa para deslizar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _grisBolita,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Cabecera: icono + reto + mes + cerrar
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: _degradadoPastel,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.calendar_month_rounded,
+                          color: _indigo,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              reto.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: _indigo,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${nombresMeses[mes - 1]} $ano',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _textoSuave,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon:
+                            const Icon(Icons.close_rounded, color: _textoSuave),
+                        onPressed: () => Navigator.of(contextSheet).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Días de la semana: L M X J V S D
+                  Row(
+                    children: diasSemana.map((d) {
+                      final esFinde = d == 'S' || d == 'D';
+                      return Expanded(
+                        child: Center(
+                          child: Text(
+                            d,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: esFinde
+                                  ? _textoSuave.withOpacity(0.6)
+                                  : _indigo,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Cuadrícula del mes
+                  GridView.count(
+                    crossAxisCount: 7,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 6,
+                    children: celdas,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Leyenda (igual que las bolitas)
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 8,
+                    children: [
+                      _leyenda(_verde, 'Cumplido'),
+                      _leyenda(_rojo, 'No cumplido'),
+                      _leyenda(_grisBolita, 'Pendiente'),
+                      _leyenda(_morado, 'Días de gracia'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Sábados y domingos no cuentan para la racha. El día de hoy aparece con borde.',
+                    style: TextStyle(fontSize: 11, color: _textoSuave),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1111,30 +1408,24 @@ class _RachasScreenState extends State<RachasScreen> {
       final diaData = datosMap[fechaStr];
 
       Color color;
-      if (esDiaGracia) {
-        // Días de gracia (después del día 20):
-        // 🟢 verde  → ese día hizo login + píldora
-        // 🔴 rojo   → el día ya pasó sin cumplir
-        // 🟣 morado → aún no llega, o es hoy y todavía está a tiempo
-        final cumple = diaData != null &&
-            diaData['login_hecho'] == true &&
-            diaData['pildora_completada'] == true;
-        if (cumple) {
-          color = _verde;
-        } else if (numeroDelDia < diaLaboralActual) {
-          color = _rojo;
-        } else {
-          color = _morado;
-        }
-      } else if (numeroDelDia <= diaLaboralActual) {
-        if (diaData != null) {
-          final cumple = diaData['login_hecho'] == true &&
-              diaData['pildora_completada'] == true;
-          color = cumple ? _verde : _rojo;
-        } else {
-          color = _rojo;
-        }
+      // ¿Ese día cumplió login + píldora?
+      final cumple = diaData != null &&
+          diaData['login_hecho'] == true &&
+          diaData['pildora_completada'] == true;
+      // ¿El día ya terminó? (estrictamente anterior a hoy)
+      final yaPaso = fechaStr.compareTo(hoyString) < 0;
+
+      if (cumple) {
+        // 🟢 Cumplido (incluye hoy si ya hizo la píldora)
+        color = _verde;
+      } else if (yaPaso) {
+        // 🔴 El día ya terminó sin cumplir
+        color = _rojo;
+      } else if (esDiaGracia) {
+        // 🟣 Día de gracia: aún no llega, o es hoy y todavía está a tiempo
+        color = _morado;
       } else {
+        // ⚪ Pendiente: hoy todavía está a tiempo, o es un día futuro
         color = _grisBolita;
       }
       bolitas.add(color);
