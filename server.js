@@ -1828,17 +1828,18 @@ async function _actualizarRacha(user_id, reto_id, mes, ano) {
 }
 // ========== CRON JOB: Verificar y resetear rachas rotas diariamente ==========
 async function _verificarYResetearRachas() {
-  console.log(`🔄 [CRON] Iniciando verificación de rachas rotas a las ${new Date().toISOString()}`);
+  console.log(`🔄 [CRON] Recalculando rachas del mes a las ${new Date().toISOString()}`);
 
   try {
-    // Obtener todos los registros de user_racha_stats del mes actual
+    // Mes y año actuales (en UTC, igual que las fechas guardadas)
     const hoy = new Date();
-    const mesActual = hoy.getMonth() + 1;
-    const anoActual = hoy.getFullYear();
+    const mesActual = hoy.getUTCMonth() + 1;
+    const anoActual = hoy.getUTCFullYear();
 
+    // Todas las rachas (usuario + reto) del mes actual
     const { data: allRachas, error: errorAllRachas } = await supabase
       .from('user_racha_stats')
-      .select('user_id, reto_id, mes, año, racha_actual, racha_maxima')
+      .select('user_id, reto_id')
       .eq('mes', mesActual)
       .eq('año', anoActual);
 
@@ -1852,76 +1853,17 @@ async function _verificarYResetearRachas() {
       return;
     }
 
-    console.log(`📊 [CRON] Verificando ${allRachas.length} registros de racha`);
+    console.log(`📊 [CRON] Recalculando ${allRachas.length} registros de racha`);
 
-    let rachasResetadas = 0;
-
-    // Para cada registro de racha, verificar si se debe resetear
+    // Recalcular cada una con la misma lógica que usa la app
+    // (días L-V del calendario; un día sin fila rompe la racha actual)
+    let recalculadas = 0;
     for (const racha of allRachas) {
-      const { user_id, reto_id, mes, año, racha_actual, racha_maxima } = racha;
-
-      // Obtener el último día laboral (anterior a hoy)
-      const primerDiaDelMes = `${año}-${String(mes).padStart(2, '0')}-01`;
-      const proximoMes = mes === 12 ? 1 : mes + 1;
-      const proximoAno = mes === 12 ? año + 1 : año;
-      const primerDiaProximoMes = `${proximoAno}-${String(proximoMes).padStart(2, '0')}-01`;
-
-      const { data: diasDelMes, error: errorDias } = await supabase
-        .from('racha_daily_progress')
-        .select('fecha, login_hecho, pildora_completada, es_dia_laboral')
-        .eq('user_id', user_id)
-        .eq('reto_id', reto_id)
-        .gte('fecha', primerDiaDelMes)
-        .lt('fecha', primerDiaProximoMes)
-        .order('fecha', { ascending: false });
-
-      if (errorDias) {
-        console.error(`❌ [CRON] Error para usuario ${user_id}:`, errorDias);
-        continue;
-      }
-
-      // Filtrar solo días laborales
-      const diasLaborales = diasDelMes.filter(d => d.es_dia_laboral === true);
-
-      if (!diasLaborales || diasLaborales.length === 0) {
-        console.log(`⚠️ [CRON] Usuario ${user_id} - No hay días laborales`);
-        continue;
-      }
-
-      // Obtener el último día laboral
-      const ultimoDiaLaboral = diasLaborales[0]; // Ya está ordenado descendente
-      const ultimoDiaLaboralFecha = new Date(ultimoDiaLaboral.fecha);
-      const hoyFecha = new Date();
-      hoyFecha.setHours(0, 0, 0, 0);
-
-      // Si el último día laboral es anterior a hoy, verificar si cumple condiciones
-      if (ultimoDiaLaboralFecha < hoyFecha) {
-        const tieneAmbas = ultimoDiaLaboral.login_hecho === true && ultimoDiaLaboral.pildora_completada === true;
-
-        if (!tieneAmbas && racha_actual > 0) {
-          // La racha se rompió, resetear racha_actual a 0
-          const { error: updateError } = await supabase
-            .from('user_racha_stats')
-            .update({
-              racha_actual: 0,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', user_id)
-            .eq('reto_id', reto_id)
-            .eq('mes', mes)
-            .eq('año', año);
-
-          if (updateError) {
-            console.error(`❌ [CRON] Error reseteando racha para ${user_id}:`, updateError);
-          } else {
-            console.log(`🔴 [CRON] Racha rota para usuario ${user_id} - Actual: 0, Máxima: ${racha_maxima}`);
-            rachasResetadas++;
-          }
-        }
-      }
+      const resultado = await _actualizarRacha(racha.user_id, racha.reto_id, mesActual, anoActual);
+      if (resultado) recalculadas++;
     }
 
-    console.log(`✅ [CRON] Verificación completada - ${rachasResetadas} rachas reseteadas`);
+    console.log(`✅ [CRON] Recálculo completado - ${recalculadas} de ${allRachas.length} rachas actualizadas`);
   } catch (error) {
     console.error('❌ [CRON] Error en _verificarYResetearRachas:', error.message);
   }
