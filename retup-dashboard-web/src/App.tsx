@@ -10,6 +10,8 @@ import PantallaDashboard from './paginas/PantallaDashboard';
 import MiEquipo from './paginas/jefatura/MiEquipo';
 import Directorio from './paginas/mantenimiento/Directorio';
 import RequiereAtencion from './paginas/mantenimiento/RequiereAtencion';
+import Resumen from './paginas/rrhh/Resumen';
+import ActivacionPorArea from './paginas/rrhh/Activacion';
 
 export default function App() {
   return (
@@ -28,6 +30,8 @@ export default function App() {
                     <Route path="/jefatura/mi-equipo" element={<MiEquipo />} />
                     <Route path="/mantenimiento/directorio" element={<Directorio />} />
                     <Route path="/mantenimiento/atencion" element={<RequiereAtencion />} />
+                    <Route path="/rrhh/resumen" element={<Resumen />} />
+                    <Route path="/rrhh/activacion" element={<ActivacionPorArea />} />
           <Route path="/:nivel/:pantalla" element={<PantallaDashboard />} />
         </Route>
       </Route>

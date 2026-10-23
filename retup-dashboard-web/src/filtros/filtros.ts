@@ -1,10 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════
 // FILTROS GLOBALES (compartidos por todos los gráficos de la pantalla)
 // Las fechas se manejan como texto 'YYYY-MM-DD' (hora local del usuario)
+// Periodos: Hoy · Semana actual (L-V) · Mes actual · Trimestre actual
+// (todos contados hasta hoy).
+// "Periodo anterior" compara el MISMO TRAMO del periodo anterior
+// (ej. 1–23 oct  vs  1–23 sep).
+// La frecuencia se elige dentro de cada gráfico, no en la barra.
 // ═══════════════════════════════════════════════════════════════════
 import { create } from 'zustand';
 
-export type PeriodoRapido = '7d' | '30d' | '90d' | 'mes_actual' | 'mes_anterior' | 'personalizado';
+export type PeriodoRapido = 'hoy' | 'semana_actual' | 'mes_actual' | 'trimestre_actual';
 export type Frecuencia = 'dia' | 'semana' | 'mes';
 export type Comparacion = 'ninguna' | 'periodo_anterior' | 'anio_anterior';
 
@@ -41,47 +46,86 @@ function sumarDias(fecha: Date, dias: number): Date {
   return copia;
 }
 
-/** Fechas de un periodo rápido, contando hasta hoy */
-export function rangoDePeriodo(periodo: Exclude<PeriodoRapido, 'personalizado'>): RangoFechas {
+/** Lunes a viernes */
+function esLaboral(fecha: Date): boolean {
+  const dia = fecha.getDay(); // 0 = domingo, 6 = sábado
+  return dia >= 1 && dia <= 5;
+}
+
+/** El mismo día N meses antes (si no existe, el último día de ese mes) */
+function restarMeses(fecha: Date, meses: number): Date {
+  const destino = new Date(fecha.getFullYear(), fecha.getMonth() - meses, 1);
+  const ultimoDia = new Date(destino.getFullYear(), destino.getMonth() + 1, 0).getDate();
+  destino.setDate(Math.min(fecha.getDate(), ultimoDia));
+  return destino;
+}
+
+function hoySinHora(): Date {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
+  return hoy;
+}
+
+/** Fechas de un periodo, contando hasta hoy */
+export function rangoDePeriodo(periodo: PeriodoRapido): RangoFechas {
+  const hoy = hoySinHora();
 
   switch (periodo) {
-    case '7d':
-      return { desde: aISO(sumarDias(hoy, -6)), hasta: aISO(hoy) };
-    case '30d':
-      return { desde: aISO(sumarDias(hoy, -29)), hasta: aISO(hoy) };
-    case '90d':
-      return { desde: aISO(sumarDias(hoy, -89)), hasta: aISO(hoy) };
+    case 'hoy':
+      return { desde: aISO(hoy), hasta: aISO(hoy) };
+
+    case 'semana_actual': {
+      // Lunes de esta semana hasta hoy (en fin de semana, hasta el viernes)
+      const lunes = sumarDias(hoy, -((hoy.getDay() + 6) % 7));
+      const viernes = sumarDias(lunes, 4);
+      return { desde: aISO(lunes), hasta: aISO(hoy < viernes ? hoy : viernes) };
+    }
+
     case 'mes_actual':
       return { desde: aISO(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: aISO(hoy) };
-    case 'mes_anterior':
-      return {
-        desde: aISO(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)),
-        hasta: aISO(new Date(hoy.getFullYear(), hoy.getMonth(), 0)), // día 0 = último del mes anterior
-      };
+
+    case 'trimestre_actual': {
+      const primerMes = Math.floor(hoy.getMonth() / 3) * 3; // 0, 3, 6 o 9
+      return { desde: aISO(new Date(hoy.getFullYear(), primerMes, 1)), hasta: aISO(hoy) };
+    }
   }
 }
 
-/** Rango con el que se compara (o null si no hay comparación) */
-export function rangoComparacion(rango: RangoFechas, comparacion: Comparacion): RangoFechas | null {
+/**
+ * Rango con el que se compara (o null si no hay comparación).
+ * "Periodo anterior" = el mismo tramo del periodo anterior:
+ *   Hoy       -> el día laboral anterior
+ *   Semana    -> los mismos días de la semana pasada
+ *   Mes       -> los mismos días del mes pasado
+ *   Trimestre -> los mismos días del trimestre pasado
+ */
+export function rangoComparacion(
+  rango: RangoFechas,
+  comparacion: Comparacion,
+  periodo: PeriodoRapido = useFiltros.getState().periodo,
+): RangoFechas | null {
   if (comparacion === 'ninguna') return null;
 
   const desde = deISO(rango.desde);
   const hasta = deISO(rango.hasta);
 
   if (comparacion === 'anio_anterior') {
-    desde.setFullYear(desde.getFullYear() - 1);
-    hasta.setFullYear(hasta.getFullYear() - 1);
-    return { desde: aISO(desde), hasta: aISO(hasta) };
+    return { desde: aISO(restarMeses(desde, 12)), hasta: aISO(restarMeses(hasta, 12)) };
   }
 
-  // Periodo anterior: los mismos días, justo antes
-  const dias = Math.round((hasta.getTime() - desde.getTime()) / 86_400_000) + 1;
-  return {
-    desde: aISO(sumarDias(desde, -dias)),
-    hasta: aISO(sumarDias(desde, -1)),
-  };
+  switch (periodo) {
+    case 'hoy': {
+      let anterior = sumarDias(desde, -1);
+      while (!esLaboral(anterior)) anterior = sumarDias(anterior, -1);
+      return { desde: aISO(anterior), hasta: aISO(anterior) };
+    }
+    case 'semana_actual':
+      return { desde: aISO(sumarDias(desde, -7)), hasta: aISO(sumarDias(hasta, -7)) };
+    case 'mes_actual':
+      return { desde: aISO(restarMeses(desde, 1)), hasta: aISO(restarMeses(hasta, 1)) };
+    case 'trimestre_actual':
+      return { desde: aISO(restarMeses(desde, 3)), hasta: aISO(restarMeses(hasta, 3)) };
+  }
 }
 
 // ───────────────────────── Almacén de filtros ─────────────────────────
@@ -91,7 +135,6 @@ interface EstadoFiltros extends RangoFechas {
   frecuencia: Frecuencia;
   comparacion: Comparacion;
   elegirPeriodo: (periodo: PeriodoRapido) => void;
-  elegirFechas: (desde: string, hasta: string) => void;
   elegirFrecuencia: (frecuencia: Frecuencia) => void;
   elegirComparacion: (comparacion: Comparacion) => void;
   restablecer: () => void;
@@ -99,8 +142,8 @@ interface EstadoFiltros extends RangoFechas {
 
 function valoresIniciales() {
   return {
-    periodo: '30d' as PeriodoRapido,
-    ...rangoDePeriodo('30d'),
+    periodo: 'mes_actual' as PeriodoRapido,
+    ...rangoDePeriodo('mes_actual'),
     frecuencia: 'semana' as Frecuencia,
     comparacion: 'periodo_anterior' as Comparacion,
   };
@@ -109,14 +152,7 @@ function valoresIniciales() {
 export const useFiltros = create<EstadoFiltros>()((set) => ({
   ...valoresIniciales(),
 
-  elegirPeriodo: (periodo) =>
-    set(periodo === 'personalizado' ? { periodo } : { periodo, ...rangoDePeriodo(periodo) }),
-
-  elegirFechas: (desde, hasta) =>
-    // Si las ponen al revés, se ordenan solas
-    set(desde <= hasta
-      ? { periodo: 'personalizado', desde, hasta }
-      : { periodo: 'personalizado', desde: hasta, hasta: desde }),
+  elegirPeriodo: (periodo) => set({ periodo, ...rangoDePeriodo(periodo) }),
 
   elegirFrecuencia: (frecuencia) => set({ frecuencia }),
 
