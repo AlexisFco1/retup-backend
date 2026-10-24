@@ -1082,6 +1082,12 @@ class _RachasScreenState extends State<RachasScreen> {
       celdas.add(const SizedBox.shrink());
     }
 
+    // Festivos del mes (vienen del backend en las estadísticas del reto)
+    final festivos =
+        ((rachaProvider.obtenerStatsReto(reto.id)?['festivos'] as List?) ?? [])
+            .map((f) => f.toString())
+            .toSet();
+
     int numeroDiaLaboral = 0;
     for (int day = 1; day <= ultimoDiaDelMes; day++) {
       final fecha = DateTime(ano, mes, day);
@@ -1089,6 +1095,7 @@ class _RachasScreenState extends State<RachasScreen> {
       final esFinDeSemana = fecha.weekday == DateTime.saturday ||
           fecha.weekday == DateTime.sunday;
       final esHoy = fechaStr == hoyString;
+      final esFestivo = festivos.contains(fechaStr);
 
       Color fondo;
       Color colorTexto;
@@ -1097,6 +1104,10 @@ class _RachasScreenState extends State<RachasScreen> {
         // Sábado y domingo no cuentan para la racha
         fondo = Colors.transparent;
         colorTexto = _textoSuave.withOpacity(0.6);
+      } else if (esFestivo) {
+        // Festivo: no es laborable, no suma ni rompe la racha
+        fondo = _turquesa.withOpacity(0.15);
+        colorTexto = _turquesaOscuro;
       } else {
         numeroDiaLaboral++;
         final diaData = datosMap[fechaStr];
@@ -1272,11 +1283,12 @@ class _RachasScreenState extends State<RachasScreen> {
                       _leyenda(_rojo, 'No cumplido'),
                       _leyenda(_grisBolita, 'Pendiente'),
                       _leyenda(_morado, 'Días de gracia'),
+                      _leyenda(_turquesa.withOpacity(0.35), 'Festivo'),
                     ],
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Sábados y domingos no cuentan para la racha. El día de hoy aparece con borde.',
+                    'Sábados, domingos y festivos no cuentan para la racha. El día de hoy aparece con borde.',
                     style: TextStyle(fontSize: 11, color: _textoSuave),
                   ),
                 ],
@@ -1371,10 +1383,20 @@ class _RachasScreenState extends State<RachasScreen> {
     final ano = hoy.year;
     final ultimoDiaDelMes = DateTime(ano, mes + 1, 0).day;
 
+    // Festivos del mes (vienen del backend en las estadísticas del reto).
+    // No son laborables: no tienen bolita, igual que sábado y domingo.
+    final festivos =
+        ((rachaProvider.obtenerStatsReto(retoId)?['festivos'] as List?) ?? [])
+            .map((f) => f.toString())
+            .toSet();
+
     final diasLaborablesTeoricos = <DateTime>[];
     for (int day = 1; day <= ultimoDiaDelMes; day++) {
       final fecha = DateTime(ano, mes, day);
-      if (fecha.weekday >= 1 && fecha.weekday <= 5) {
+      final fechaStr = fecha.toIso8601String().split('T')[0];
+      if (fecha.weekday >= 1 &&
+          fecha.weekday <= 5 &&
+          !festivos.contains(fechaStr)) {
         diasLaborablesTeoricos.add(fecha);
       }
     }
