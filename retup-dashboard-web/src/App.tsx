@@ -14,6 +14,7 @@ import Resumen from './paginas/rrhh/Resumen';
 import ActivacionPorArea from './paginas/rrhh/Activacion';
 import MapaCalor from './paginas/rrhh/MapaCalor';
 import MapaBrechas from './paginas/rrhh/MapaBrechas';
+import Exportar from './paginas/rrhh/Exportar';
 
 export default function App() {
   return (
@@ -35,7 +36,8 @@ export default function App() {
                     <Route path="/rrhh/resumen" element={<Resumen />} />
                                       <Route path="/rrhh/activacion" element={<ActivacionPorArea />} />
                                         <Route path="/rrhh/mapa-calor" element={<MapaCalor />} />
-                    <Route path="/rrhh/brechas" element={<MapaBrechas />} />
+                                       <Route path="/rrhh/brechas" element={<MapaBrechas />} />
+                    <Route path="/rrhh/exportar" element={<Exportar />} />
           <Route path="/:nivel/:pantalla" element={<PantallaDashboard />} />
         </Route>
       </Route>

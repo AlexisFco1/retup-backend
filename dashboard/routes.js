@@ -1268,4 +1268,314 @@ router.get('/rrhh/scores', authenticateToken, exigirAccesoDashboard(['rrhh_geren
   }
 });
 
+// ===================== RRHH · EXPORTAR DATOS =====================
+// Historial de reportes, configuración del envío automático y CSV.
+// Siempre la empresa del perfil conectado y SOLO datos agregados.
+
+const TIPOS_REPORTE = ['resumen_ejecutivo', 'datos_completos'];
+const FORMATOS_REPORTE = ['pdf', 'csv'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Nombre de archivo sin caracteres prohibidos y con su extensión
+function nombreArchivoSeguro(nombre, extension) {
+  const limpio = String(nombre || '')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '_')
+    .slice(0, 120);
+  const base = limpio.replace(new RegExp(`\\.${extension}$`, 'i'), '') || 'RetUp_reporte';
+  return `${base}.${extension}`;
+}
+
+// Anota un reporte en el historial
+async function registrarReporte({ empresaId, userId, tipo, formato, desde, hasta, etiqueta, nombre, estado = 'descargado', detalleError = null }) {
+  const { data, error } = await db
+    .from('reportes_historial')
+    .insert({
+      company_id: empresaId,
+      tipo,
+      formato,
+      periodo_desde: desde,
+      periodo_hasta: hasta,
+      periodo_etiqueta: etiqueta,
+      nombre_archivo: nombre,
+      estado,
+      origen: 'manual',
+      generado_por: userId,
+      detalle_error: detalleError,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ── Historial de reportes (últimos 50) ──
+router.get('/rrhh/reportes', authenticateToken, exigirAccesoDashboard(['rrhh_gerencia']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const { data, error } = await db
+      .from('reportes_historial')
+      .select('id, tipo, formato, periodo_desde, periodo_hasta, periodo_etiqueta, nombre_archivo, estado, origen, generado_por, detalle_error, created_at')
+      .eq('company_id', empresaId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+
+    // Nombres de quienes los generaron
+    const ids = [...new Set(data.map((r) => r.generado_por).filter(Boolean))];
+    let nombres = {};
+    if (ids.length > 0) {
+      const { data: usuarios, error: errorUsuarios } = await db
+        .from('users')
+        .select('id, full_name, email')
+        .in('id', ids);
+      if (errorUsuarios) throw errorUsuarios;
+      nombres = Object.fromEntries(usuarios.map((u) => [u.id, u.full_name || u.email]));
+    }
+
+    res.json({
+      success: true,
+      datos: data.map((r) => ({
+        ...r,
+        generado_por_nombre: r.origen === 'automatico' ? 'Automático' : nombres[r.generado_por] || '—',
+      })),
+    });
+  } catch (err) {
+    console.error('❌ Error en /dashboard/rrhh/reportes (GET):', err.message);
+    res.status(500).json({ success: false, error: 'No se pudo cargar el historial de reportes' });
+  }
+});
+
+// ── Registrar un reporte generado en el navegador (PDF) ──
+router.post('/rrhh/reportes', authenticateToken, exigirAccesoDashboard(['rrhh_gerencia']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const { tipo, formato, periodo_desde, periodo_hasta, periodo_etiqueta, nombre_archivo, estado, detalle_error } = req.body || {};
+
+    if (!TIPOS_REPORTE.includes(tipo) || !FORMATOS_REPORTE.includes(formato)) {
+      return res.status(400).json({ success: false, error: 'Tipo o formato de reporte no válido' });
+    }
+    if (!FECHA_RE.test(periodo_desde || '') || !FECHA_RE.test(periodo_hasta || '') || periodo_desde > periodo_hasta) {
+      return res.status(400).json({ success: false, error: 'Periodo no válido' });
+    }
+
+    const fila = await registrarReporte({
+      empresaId,
+      userId: req.user.id,
+      tipo,
+      formato,
+      desde: periodo_desde,
+      hasta: periodo_hasta,
+      etiqueta: String(periodo_etiqueta || '').slice(0, 40) || `${periodo_desde} – ${periodo_hasta}`,
+      nombre: nombreArchivoSeguro(nombre_archivo, formato),
+      estado: estado === 'error' ? 'error' : 'descargado',
+      detalleError: estado === 'error' ? String(detalle_error || '').slice(0, 300) : null,
+    });
+
+    res.json({ success: true, datos: fila });
+  } catch (err) {
+    console.error('❌ Error en /dashboard/rrhh/reportes (POST):', err.message);
+    res.status(500).json({ success: false, error: 'No se pudo registrar el reporte' });
+  }
+});
+
+// ── Configuración del envío automático: leer ──
+router.get('/rrhh/envio-config', authenticateToken, exigirAccesoDashboard(['rrhh_gerencia']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const { data, error } = await db
+      .from('reportes_envio_config')
+      .select('*')
+      .eq('company_id', empresaId)
+      .maybeSingle();
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      datos: data || {
+        company_id: empresaId,
+        tipo: 'resumen_ejecutivo',
+        formato: 'pdf',
+        destinatarios: [],
+        dia_envio: 1,
+        activo: false,
+        updated_at: null,
+      },
+    });
+  } catch (err) {
+    console.error('❌ Error en /dashboard/rrhh/envio-config (GET):', err.message);
+    res.status(500).json({ success: false, error: 'No se pudo cargar la configuración del envío' });
+  }
+});
+
+// ── Configuración del envío automático: guardar ──
+router.put('/rrhh/envio-config', authenticateToken, exigirAccesoDashboard(['rrhh_gerencia']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const { destinatarios, dia_envio, tipo = 'resumen_ejecutivo', formato = 'pdf', activo = true } = req.body || {};
+
+    // Correos: lista o texto separado por comas / punto y coma / espacios
+    const lista = (Array.isArray(destinatarios) ? destinatarios : String(destinatarios || '').split(/[,;\s]+/))
+      .map((e) => String(e).trim().toLowerCase())
+      .filter(Boolean);
+    const unicos = [...new Set(lista)];
+    const invalidos = unicos.filter((e) => !EMAIL_RE.test(e));
+
+    if (invalidos.length > 0) {
+      return res.status(400).json({ success: false, error: `Correo no válido: ${invalidos.join(', ')}` });
+    }
+    if (unicos.length > 20) {
+      return res.status(400).json({ success: false, error: 'Máximo 20 destinatarios' });
+    }
+    const dia = Number(dia_envio);
+    if (!Number.isInteger(dia) || dia < 1 || dia > 28) {
+      return res.status(400).json({ success: false, error: 'El día de envío debe estar entre 1 y 28' });
+    }
+    if (!TIPOS_REPORTE.includes(tipo) || !FORMATOS_REPORTE.includes(formato)) {
+      return res.status(400).json({ success: false, error: 'Tipo o formato de reporte no válido' });
+    }
+    if (activo && unicos.length === 0) {
+      return res.status(400).json({ success: false, error: 'Añade al menos un destinatario para activar el envío' });
+    }
+
+    const { data, error } = await db
+      .from('reportes_envio_config')
+      .upsert(
+        {
+          company_id: empresaId,
+          tipo,
+          formato,
+          destinatarios: unicos,
+          dia_envio: dia,
+          activo: Boolean(activo),
+          updated_by: req.user.id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'company_id' },
+      )
+      .select()
+      .single();
+    if (error) throw error;
+
+    res.json({ success: true, datos: data });
+  } catch (err) {
+    console.error('❌ Error en /dashboard/rrhh/envio-config (PUT):', err.message);
+    res.status(500).json({ success: false, error: 'No se pudo guardar la configuración del envío' });
+  }
+});
+
+// ── Exportar datos completos (CSV, solo agregados) ──
+// Query: ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD&etiqueta=T3 2026&nombre=RetUp_Datos_T3_2026
+router.get('/rrhh/exportar-csv', authenticateToken, exigirAccesoDashboard(['rrhh_gerencia']), async (req, res) => {
+  try {
+    const empresaId = empresaDelPerfil(req, res);
+    if (!empresaId) return;
+
+    const rango = leerRango(req.query);
+    if (rango.error) {
+      return res.status(400).json({ success: false, error: rango.error });
+    }
+    const etiqueta = String(req.query.etiqueta || '').slice(0, 40) || `${rango.desde} – ${rango.hasta}`;
+
+    // Mismos cálculos que las pantallas de Activación y Mapa de calor
+    const [activacionRes, scoresRes] = await Promise.all([
+      db.rpc('dash_rrhh_activacion', {
+        p_empresa: empresaId,
+        p_desde: rango.desde,
+        p_hasta: rango.hasta,
+        p_comp_desde: null,
+        p_comp_hasta: null,
+      }),
+      db.rpc('dash_rrhh_scores', {
+        p_empresa: empresaId,
+        p_desde: rango.desde,
+        p_hasta: rango.hasta,
+        p_frecuencia: 'mes',
+      }),
+    ]);
+    if (activacionRes.error) throw activacionRes.error;
+    if (scoresRes.error) throw scoresRes.error;
+
+    const activacion = activacionRes.data;
+    const scores = scoresRes.data;
+    const umbral = scores.umbral_n;
+    const nombreHab = new Map(scores.habilidades.map((h) => [h.reto_id, h.habilidad]));
+
+    // Formato para Excel en español: punto y coma y coma decimal
+    const num = (v) => (typeof v === 'number' ? String(Math.round(v * 10) / 10).replace('.', ',') : '');
+    const celda = (v) => {
+      const t = String(v ?? '');
+      return /[;"\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    };
+    const fijo = [etiqueta, rango.desde, rango.hasta];
+
+    const filas = [[
+      'Periodo', 'Desde', 'Hasta', 'Departamento',
+      'Colaboradores habilitados', 'Colaboradores activos', 'Activación (%)',
+      'Habilidad', 'Evaluados', 'Score medio (0-100)',
+    ]];
+
+    // 1) Toda la empresa
+    const empresa = activacion.actual;
+    const partEmpresa = [empresa.habilitados, empresa.activados, num(empresa.pct)];
+    const habEmpresa = scores.habilidades.filter((h) => h.score !== null);
+    if (habEmpresa.length === 0) {
+      filas.push([...fijo, 'Toda la empresa', ...partEmpresa, '', '', '']);
+    } else {
+      for (const h of habEmpresa) {
+        filas.push([...fijo, 'Toda la empresa', ...partEmpresa, h.habilidad, h.evaluados, num(h.score)]);
+      }
+    }
+
+    // 2) Cada departamento (los grupos por debajo del umbral se omiten)
+    for (const area of activacion.por_area) {
+      const a = area.actual;
+      const pequeno = a.habilitados < umbral; // sus activos permitirían identificar a alguien
+      const partArea = [a.habilitados, pequeno ? '' : a.activados, pequeno ? '' : num(a.pct)];
+      const celdas = scores.celdas.filter(
+        (c) => (c.departamento_id ?? null) === (area.departamento_id ?? null) && c.score !== null,
+      );
+      if (celdas.length === 0) {
+        filas.push([...fijo, area.departamento, ...partArea, '', '', '']);
+      } else {
+        for (const c of celdas) {
+          filas.push([...fijo, area.departamento, ...partArea, nombreHab.get(c.reto_id) || '', c.evaluados, num(c.score)]);
+        }
+      }
+    }
+
+    filas.push([]);
+    filas.push([`Privacidad: datos agregados y anónimos. Se omiten los grupos con menos de ${umbral} personas.`]);
+
+    // BOM para que Excel reconozca las tildes (UTF-8)
+    const csv = '\uFEFF' + filas.map((f) => f.map(celda).join(';')).join('\r\n');
+    const nombre = nombreArchivoSeguro(req.query.nombre || `RetUp_Datos_${etiqueta}`, 'csv');
+
+    await registrarReporte({
+      empresaId,
+      userId: req.user.id,
+      tipo: 'datos_completos',
+      formato: 'csv',
+      desde: rango.desde,
+      hasta: rango.hasta,
+      etiqueta,
+      nombre,
+    });
+
+    res.json({ success: true, nombre_archivo: nombre, csv });
+  } catch (err) {
+    console.error('❌ Error en /dashboard/rrhh/exportar-csv:', err.message);
+    res.status(500).json({ success: false, error: 'No se pudo generar el CSV' });
+  }
+});
+
 module.exports = router;

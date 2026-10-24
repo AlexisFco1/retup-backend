@@ -1,0 +1,284 @@
+/* ═══════════ RRHH · EXPORTAR DATOS ═══════════ */
+
+/* Selector de periodo en la banda de cabecera */
+.exportar__periodo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+.exportar__periodo select {
+  height: 38px;
+  min-width: 220px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rt-texto);
+  background: var(--rt-superficie);
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 8px;
+}
+
+.exportar__periodo small {
+  font-weight: 400;
+}
+
+/* ── Filas ── */
+.exportar__fila {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+
+.exportar__fila--inferior {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: start;
+}
+
+.exportar__tarjeta {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* ── Tarjeta PDF ── */
+.exportar__pdf {
+  display: flex;
+  gap: 18px;
+}
+
+.exportar__pdf-texto h2,
+.exportar__titulo-tarjeta {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rt-texto);
+}
+
+.exportar__pdf-texto > p,
+.exportar__texto {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: var(--rt-texto-suave);
+}
+
+/* Miniatura del documento */
+.exportar__miniatura {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 84px;
+  height: 108px;
+  padding-bottom: 8px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--rt-borde);
+  border-radius: 6px;
+  box-shadow: var(--rt-sombra);
+}
+
+.exportar__miniatura-banda {
+  padding: 6px 8px;
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--rt-indigo);
+}
+
+.exportar__miniatura > span {
+  height: 5px;
+  margin: 0 8px;
+  background: var(--rt-borde);
+  border-radius: 3px;
+}
+
+.exportar__miniatura-corta {
+  width: 50%;
+}
+
+.exportar__miniatura-circulo {
+  width: 26px;
+  height: 26px;
+  margin: 6px auto 0;
+  background: conic-gradient(var(--rt-indigo) 0 65%, var(--rt-borde) 65% 100%);
+  border-radius: 50%;
+}
+
+/* ── Campos ── */
+.exportar__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+.exportar__campo input,
+.exportar__campo select,
+.exportar__campo textarea {
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--rt-texto);
+  background: var(--rt-superficie);
+  border: 1.5px solid var(--rt-borde);
+  border-radius: 8px;
+  outline: none;
+  resize: vertical;
+}
+
+.exportar__campo input:focus,
+.exportar__campo select:focus,
+.exportar__campo textarea:focus {
+  border-color: var(--rt-turquesa);
+}
+
+.exportar__campo small {
+  font-weight: 400;
+}
+
+.exportar__casilla {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--rt-texto);
+}
+
+.exportar__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Botones ── */
+.exportar__boton {
+  align-self: center;
+  min-width: 200px;
+  height: 40px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--rt-indigo);
+  border: none;
+  border-radius: 8px;
+}
+
+.exportar__boton:hover:not(:disabled) {
+  background: #3a3591;
+}
+
+.exportar__boton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.exportar__boton--secundario {
+  align-self: stretch;
+  color: var(--rt-indigo);
+  background: transparent;
+  border: 1.5px solid var(--rt-borde);
+}
+
+.exportar__boton--secundario:hover:not(:disabled) {
+  background: var(--rt-fondo);
+}
+
+/* ── Avisos ── */
+.exportar__privacidad {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #7a5a00;
+  background: #fff8e1;
+  border: 1px solid #f2d27a;
+  border-radius: 8px;
+}
+
+.exportar__aviso-correo {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--rt-texto-suave);
+}
+
+.exportar__mensaje {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.exportar__mensaje--ok {
+  color: #0b6e65;
+  background: rgba(18, 181, 166, 0.1);
+}
+
+.exportar__mensaje--error {
+  color: #b3261e;
+  background: rgba(214, 69, 69, 0.08);
+}
+
+/* ── Historial ── */
+.exportar__historial {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.exportar__historial table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.exportar__historial th {
+  position: sticky;
+  top: 0;
+  padding: 8px 10px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--rt-texto-suave);
+  background: var(--rt-superficie);
+  border-bottom: 1px solid var(--rt-borde);
+}
+
+.exportar__historial td {
+  padding: 10px;
+  border-bottom: 1px solid var(--rt-borde);
+}
+
+.exportar__formato {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rt-texto-suave);
+}
+
+.exportar__estado {
+  font-weight: 600;
+}
+
+.exportar__estado--descargado,
+.exportar__estado--enviado {
+  color: #0b6e65;
+}
+
+.exportar__estado--generando {
+  color: var(--rt-turquesa);
+}
+
+.exportar__estado--error {
+  color: #b3261e;
+  cursor: help;
+}
