@@ -24,7 +24,7 @@ interface RespuestaMe {
  * muestran el estado actual, no datos de un periodo. Ahí no se pinta la barra.
  * (Los filtros elegidos se conservan para cuando se vuelva a otra pantalla.)
  */
-const RUTAS_SIN_FILTROS = ['/mantenimiento'];
+const RUTAS_SIN_FILTROS = ['/mantenimiento', '/rrhh/exportar'];
 
 function usaFiltros(ruta: string): boolean {
   return !RUTAS_SIN_FILTROS.some((prefijo) => ruta === prefijo || ruta.startsWith(`${prefijo}/`));
